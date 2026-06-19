@@ -63,6 +63,12 @@ var RECORD_HEADERS = ['recordId', 'coachId', 'teamId', 'athleteId', 'name', 'dat
     'heightCm', 'weightKg', 'targetWeightKg', 'bmi',
     'breakfast', 'lunch', 'dinner', 'snacksDrinks', 'waterIntake', 'lateNightSnack',
     'moodIndex', 'moodReason', 'gratitude', 'reflection',
+    // 三餐營養成分
+    'breakfastNutri', 'lunchNutri', 'dinnerNutri',
+    // 訓練課表（上午/下午/晚上）與訓練心得
+    'trainingAM', 'trainingPM', 'trainingEve', 'trainingNotes',
+    // 身體監控：睡眠/疲勞、傷勢
+    'sleepHours', 'fatigue', 'injuryAreas', 'injuryNote',
     // 產出
     'nutritionAdvice', 'studentLineText', 'parentLineText', 'coachLineText',
     'rawJson'
@@ -644,6 +650,9 @@ function submitRecord(d) {
     snacksDrinks: d.snacksDrinks || '', waterIntake: d.waterIntake || '', lateNightSnack: d.lateNightSnack || '',
     moodIndex: Number(d.moodIndex) || '', moodReason: d.moodReason || '', gratitude: d.gratitude || '',
     reflection: d.reflection || '',
+    breakfastNutri: d.breakfastNutri || '', lunchNutri: d.lunchNutri || '', dinnerNutri: d.dinnerNutri || '',
+    trainingAM: d.trainingAM || '', trainingPM: d.trainingPM || '', trainingEve: d.trainingEve || '', trainingNotes: d.trainingNotes || '',
+    sleepHours: d.sleepHours || '', fatigue: Number(d.fatigue) || '', injuryAreas: d.injuryAreas || '', injuryNote: d.injuryNote || '',
     nutritionAdvice: d.nutritionAdvice || '', studentLineText: d.studentLineText || '',
     parentLineText: d.parentLineText || '', coachLineText: d.coachLineText || '',
     rawJson: JSON.stringify(scores)

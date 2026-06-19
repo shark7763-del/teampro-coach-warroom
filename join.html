@@ -20,6 +20,16 @@
   .mood-row button { flex:1; font-size: 26px; background: var(--panel-2); border:1px solid var(--line);
     border-radius:10px; padding:8px 0; cursor:pointer; }
   .mood-row button.sel { border-color: var(--brand); background: rgba(34,197,94,.12); }
+  .nutri-chips { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 4px; }
+  .nutri-chips button { font-size:13px; padding:5px 11px; border-radius:999px; border:1px solid var(--line);
+    background:var(--panel-2); color:var(--muted); cursor:pointer; }
+  .nutri-chips button.sel { border-color:var(--brand); background:rgba(34,197,94,.14); color:#86efac; font-weight:700; }
+  .train-slot { display:flex; gap:8px; align-items:center; margin:6px 0; }
+  .train-slot .slot-name { width:38px; color:var(--muted); font-size:14px; flex:0 0 auto; }
+  .train-slot input { flex:1; }
+  .train-slot .notrain { flex:0 0 auto; font-size:13px; padding:8px 12px; border-radius:10px;
+    border:1px solid var(--line); background:var(--panel-2); color:var(--muted); cursor:pointer; }
+  .train-slot .notrain.sel { border-color:var(--yellow); background:rgba(245,158,11,.14); color:#fcd34d; font-weight:700; }
   .consent { display:flex; gap:8px; align-items:flex-start; font-size:13px; color:var(--muted); margin-top:10px; }
   .consent input { width:auto; margin-top:3px; }
 </style>
@@ -59,6 +69,10 @@
         <option value="training">訓練日（填全部）</option>
         <option value="rest">非訓練日（只填身體/心情/生理）</option>
       </select>
+      <label>今日訓練課表（分時段，沒練可點「無訓練」）</label>
+      <div class="train-slot"><span class="slot-name">上午</span><input id="train_am" placeholder="例：晨操、跑步 30 分"><button type="button" class="notrain" data-for="train_am">無訓練</button></div>
+      <div class="train-slot"><span class="slot-name">下午</span><input id="train_pm" placeholder="例：踢靶 6 組、核心訓練"><button type="button" class="notrain" data-for="train_pm">無訓練</button></div>
+      <div class="train-slot"><span class="slot-name">晚上</span><input id="train_eve" placeholder="例：實戰 3 回合、收操伸展"><button type="button" class="notrain" data-for="train_eve">無訓練</button></div>
     </div>
     <div id="kpiBlocks"></div>
   </div>
@@ -72,14 +86,37 @@
         <div><label>體重 kg</label><input id="weightKg" type="number" inputmode="decimal"></div>
         <div><label>目標體重 kg</label><input id="targetWeightKg" type="number" inputmode="decimal"></div>
       </div>
+      <div id="bmiBox" class="muted" style="margin:8px 0 4px;font-size:14px;"></div>
       <label>早餐</label><input id="breakfast" placeholder="例：吐司＋蛋＋豆漿">
+      <div class="nutri-chips" id="nutri_breakfast"></div>
       <label>午餐</label><input id="lunch">
+      <div class="nutri-chips" id="nutri_lunch"></div>
       <label>晚餐</label><input id="dinner">
+      <div class="nutri-chips" id="nutri_dinner"></div>
       <div class="grid grid-3">
         <div><label>零食/飲料</label><input id="snacksDrinks"></div>
         <div><label>喝水量</label><input id="waterIntake" placeholder="例：2000cc"></div>
         <div><label>宵夜</label><input id="lateNightSnack"></div>
       </div>
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0;">今日身體監控</h2>
+      <div class="grid grid-2">
+        <div><label>睡眠時間（小時）</label><input id="sleepHours" type="number" inputmode="decimal" step="0.5" placeholder="例：7.5"></div>
+        <div>
+          <label>疲勞指數（1 很輕鬆 ～ 10 非常疲勞）</label>
+          <div class="slider-row" style="margin:2px 0;">
+            <div class="top"><span class="muted" id="fatigueHint">適中</span><span class="val" id="fatigueVal">5</span></div>
+            <input type="range" min="1" max="10" step="1" value="5" id="fatigue">
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0;">傷勢狀況</h2>
+      <p class="muted" style="margin:4px 0;">有不舒服或受傷的部位嗎？點選讓教練知道。</p>
+      <div class="nutri-chips" id="injuryChips"></div>
+      <label>傷勢補充說明（選填）</label><input id="injuryNote" placeholder="例：右腳踝外側，落地時會痛">
     </div>
     <div class="card">
       <h2 style="margin-top:0;">今日心情</h2>
@@ -89,7 +126,12 @@
       </div>
       <label>心情原因（選填）</label><input id="moodReason">
       <label>今天我想感謝的人事物（選填）</label><input id="gratitude">
-      <label>今日反思 / 想對教練說的話（選填）</label><textarea id="reflection"></textarea>
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0;">訓練心得</h2>
+      <label>今天的訓練心得（學到什麼、哪裡進步、哪裡卡關）</label>
+      <textarea id="trainingNotes" placeholder="例：今天旋踢轉胯更順，但實戰時防守反應還是慢半拍，下次想多練閃避。"></textarea>
+      <label>想對教練說的話（選填）</label><textarea id="reflection"></textarea>
     </div>
   </div>
 
@@ -147,6 +189,7 @@
       ? r.athletes.map(function (a) { return '<option value="' + a.athleteId + '">' + esc(a.name) + '</option>'; }).join('')
       : '<option value="">（教練尚未建立選手）</option>';
     buildKpi();
+    initExtras();
     show('who');
   }
 
@@ -201,6 +244,101 @@
     });
   }
 
+  /* ---------- 額外欄位：營養 chips / 傷勢 / 訓練時段 / BMI / 疲勞 ---------- */
+  var NUTRI = ['蛋白質', '澱粉/主食', '蔬菜', '水果', '乳製品', '好油脂'];
+  var INJURY = ['頭/頸', '肩膀', '手肘', '手腕/手', '上背', '下背/腰', '髖部', '大腿', '膝蓋', '小腿', '腳踝', '腳掌'];
+  var nutriSel = { breakfast: [], lunch: [], dinner: [] };
+  var injurySel = [];
+
+  function buildChipRow(containerId, options, selArr, opts) {
+    opts = opts || {};
+    var box = $('#' + containerId);
+    box.innerHTML = '';
+    if (opts.none) {  // 例如「無受傷」互斥選項
+      var nb = document.createElement('button'); nb.type = 'button'; nb.textContent = opts.none;
+      nb.onclick = function () {
+        var on = !nb.classList.contains('sel');
+        TP.$all('button', box).forEach(function (x) { x.classList.remove('sel'); });
+        selArr.length = 0;
+        if (on) { nb.classList.add('sel'); selArr.push('__none__'); }
+      };
+      box.appendChild(nb);
+    }
+    options.forEach(function (label) {
+      var b = document.createElement('button'); b.type = 'button'; b.textContent = label;
+      b.onclick = function () {
+        if (opts.none) { // 點任何部位 → 取消「無受傷」
+          var i = selArr.indexOf('__none__'); if (i !== -1) selArr.splice(i, 1);
+          TP.$all('button', box)[0].classList.remove('sel');
+        }
+        var idx = selArr.indexOf(label);
+        if (idx === -1) { selArr.push(label); b.classList.add('sel'); }
+        else { selArr.splice(idx, 1); b.classList.remove('sel'); }
+      };
+      box.appendChild(b);
+    });
+  }
+
+  function updateBmi() {
+    var h = Number($('#heightCm').value), w = Number($('#weightKg').value);
+    var box = $('#bmiBox');
+    if (!h || !w) { box.textContent = ''; return; }
+    var bmi = w / Math.pow(h / 100, 2);
+    var cat = bmi < 18.5 ? '過輕' : (bmi < 24 ? '標準' : (bmi < 27 ? '過重' : '肥胖'));
+    var color = (cat === '標準') ? 'var(--green)' : (cat === '過輕' || cat === '過重') ? 'var(--yellow)' : 'var(--red)';
+    box.innerHTML = 'BMI：<b style="color:' + color + '">' + bmi.toFixed(1) + '</b>（' + cat + '）';
+  }
+
+  function initExtras() {
+    buildChipRow('nutri_breakfast', NUTRI, nutriSel.breakfast, {});
+    buildChipRow('nutri_lunch', NUTRI, nutriSel.lunch, {});
+    buildChipRow('nutri_dinner', NUTRI, nutriSel.dinner, {});
+    buildChipRow('injuryChips', INJURY, injurySel, { none: '無受傷' });
+
+    // 訓練時段「無訓練」切換
+    TP.$all('.notrain').forEach(function (b) {
+      b.onclick = function () {
+        var inp = $('#' + b.dataset.for);
+        var on = !b.classList.contains('sel');
+        b.classList.toggle('sel', on);
+        inp.disabled = on; if (on) inp.value = '';
+        inp.placeholder = on ? '無訓練' : inp.getAttribute('data-ph') || inp.placeholder;
+      };
+      var inp = $('#' + b.dataset.for); inp.setAttribute('data-ph', inp.placeholder);
+    });
+
+    // BMI 即時計算
+    ['heightCm', 'weightKg'].forEach(function (id) { $('#' + id).addEventListener('input', updateBmi); });
+
+    // 疲勞滑桿 1–10
+    var fa = $('#fatigue');
+    function paintFa() {
+      var pct = (fa.value - 1) / 9 * 100;
+      fa.style.background = 'linear-gradient(90deg, var(--brand) ' + pct + '%, var(--panel-2) ' + pct + '%)';
+      $('#fatigueVal').textContent = fa.value;
+      var v = Number(fa.value);
+      $('#fatigueHint').textContent = v <= 3 ? '輕鬆' : (v <= 6 ? '適中' : (v <= 8 ? '偏累' : '非常疲勞'));
+    }
+    fa.addEventListener('input', paintFa); paintFa();
+  }
+
+  function slotVal(id) {
+    var btn = $('[data-for="' + id + '"]');
+    if (btn && btn.classList.contains('sel')) return '無訓練';
+    return $('#' + id).value.trim();
+  }
+
+  function collectExtras() {
+    return {
+      breakfastNutri: nutriSel.breakfast.join(','), lunchNutri: nutriSel.lunch.join(','), dinnerNutri: nutriSel.dinner.join(','),
+      trainingAM: slotVal('train_am'), trainingPM: slotVal('train_pm'), trainingEve: slotVal('train_eve'),
+      trainingNotes: $('#trainingNotes').value.trim(),
+      injuryAreas: injurySel.indexOf('__none__') !== -1 ? '無受傷' : injurySel.join(','),
+      injuryNote: $('#injuryNote').value.trim(),
+      sleepHours: $('#sleepHours').value, fatigue: $('#fatigue').value
+    };
+  }
+
   /* ---------- 選身分 ---------- */
   $('#whoNext').onclick = async function () {
     var id = $('#whoSelect').value;
@@ -225,6 +363,7 @@
       });
     });
     ['heightCm', 'weightKg', 'targetWeightKg'].forEach(function (k) { if (ctx.last[k]) $('#' + k).value = ctx.last[k]; });
+    updateBmi();
     toast('已帶入上次分數，微調有變化的即可');
   }
 
@@ -271,6 +410,28 @@
     if (Number(scores.pio_soreness) <= 2) tips.push('肌肉痠痛明顯：加強滾筒放鬆與輕度活動，避免連續高強度。');
     if (!payload.breakfast) tips.push('今天沒記錄早餐：訓練選手務必吃早餐，建議優質碳水＋蛋白質。');
     if (payload.lateNightSnack) tips.push('有吃宵夜：盡量避免高油高糖宵夜，影響睡眠與體重控制。');
+
+    // 受傷部位
+    if (payload.injuryAreas && payload.injuryAreas !== '無受傷')
+      tips.push('🩹 回報傷處：' + payload.injuryAreas + '。請降低該部位負荷、做好防護，並讓教練評估是否調整訓練。');
+
+    // 睡眠時間
+    var sleep = Number(payload.sleepHours);
+    if (sleep && sleep < 7) tips.push('睡眠僅 ' + sleep + ' 小時：青少年選手建議 8 小時以上，睡眠不足會直接拖累恢復與表現。');
+
+    // 疲勞監控 1–10
+    var fat = Number(payload.fatigue);
+    if (fat >= 8) tips.push('⚠️ 疲勞指數 ' + fat + '/10 偏高：今日以恢復為主，注意補水與睡眠，明日訓練量建議下修。');
+    else if (fat >= 7) tips.push('疲勞指數 ' + fat + '/10：留意累積疲勞，訓練後確實收操與補給。');
+
+    // 三餐營養涵蓋
+    var allNutri = [].concat(
+      (payload.breakfastNutri || '').split(','), (payload.lunchNutri || '').split(','), (payload.dinnerNutri || '').split(',')
+    ).filter(Boolean);
+    if (allNutri.length) {
+      if (allNutri.indexOf('蛋白質') === -1) tips.push('今日三餐未標記蛋白質：肌肉修復需要，建議每餐補充（蛋/肉/豆/乳）。');
+      if (allNutri.indexOf('蔬菜') === -1 && allNutri.indexOf('水果') === -1) tips.push('蔬果攝取不足：補充蔬菜水果有助恢復與免疫。');
+    }
     if (payload.targetWeightKg && payload.weightKg) {
       var gap = Number(payload.weightKg) - Number(payload.targetWeightKg);
       if (gap > 1) tips.push('距離目標體重還差 ' + gap.toFixed(1) + ' kg：控制精緻糖與油炸，搭配有氧。');
@@ -289,6 +450,7 @@
       snacksDrinks: $('#snacksDrinks').value, waterIntake: $('#waterIntake').value, lateNightSnack: $('#lateNightSnack').value,
       moodIndex: mood, moodReason: $('#moodReason').value, gratitude: $('#gratitude').value, reflection: $('#reflection').value
     };
+    Object.assign(payload, collectExtras());
     var tips = buildAdvice(scores, payload);
     payload.nutritionAdvice = tips.join('\n');
 
