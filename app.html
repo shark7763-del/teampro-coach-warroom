@@ -18,6 +18,37 @@
   .link-box { display:flex; gap:8px; }
   .link-box input { font-size: 13px; }
   .upgrade { border:1px solid var(--yellow); background: rgba(245,158,11,.08); border-radius:12px; padding:14px; }
+
+  /* ===== 成果報告（淺色，印出好看、省墨）===== */
+  .report-doc { background:#fff; color:#1a2230; border-radius:14px; padding:28px; max-width:820px; margin:0 auto;
+    box-shadow:0 10px 30px rgba(0,0,0,.3); font-size:14px; }
+  .report-doc h2,.report-doc h3 { color:#0f1115; margin:0; }
+  .rp-head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #0f1115; padding-bottom:12px; }
+  .rp-brand { color:#16a34a; font-weight:800; }
+  .rp-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:18px 0; }
+  .rp-stat { background:#f3f5f8; border-radius:10px; padding:12px; text-align:center; }
+  .rp-stat .n { font-size:24px; font-weight:800; }
+  .rp-stat .l { color:#5b6675; font-size:12px; }
+  .rp-dim { display:flex; align-items:center; gap:10px; margin:7px 0; }
+  .rp-dim .name { width:48px; font-weight:700; }
+  .rp-bar { flex:1; height:14px; background:#e7ebf0; border-radius:999px; overflow:hidden; }
+  .rp-bar > i { display:block; height:100%; background:linear-gradient(90deg,#22c55e,#16a34a); }
+  .rp-dim .val { width:96px; text-align:right; font-variant-numeric:tabular-nums; }
+  .rp-delta.up { color:#16a34a; } .rp-delta.down { color:#dc2626; } .rp-delta.flat { color:#5b6675; }
+  .rp-section { margin-top:18px; }
+  .rp-light { display:inline-block; padding:2px 10px; border-radius:999px; font-weight:700; font-size:12px; }
+  .rp-light.green{background:#dcfce7;color:#15803d;} .rp-light.yellow{background:#fef3c7;color:#b45309;} .rp-light.red{background:#fee2e2;color:#b91c1c;}
+  .rp-comment { background:#f3f5f8; border-left:4px solid #16a34a; border-radius:8px; padding:12px 14px; white-space:pre-wrap; }
+  .rp-foot { margin-top:20px; border-top:1px solid #d6dce4; padding-top:10px; color:#5b6675; font-size:12px; }
+
+  @media print {
+    body { background:#fff; }
+    body * { visibility:hidden; }
+    #reportArea, #reportArea * { visibility:visible; }
+    #reportArea { position:absolute; left:0; top:0; width:100%; }
+    .report-doc { box-shadow:none; max-width:none; }
+    .no-print { display:none !important; }
+  }
 </style>
 </head>
 <body>
@@ -73,6 +104,7 @@
     <button class="tab-btn active" data-tab="warroom">📊 今日戰情室</button>
     <button class="tab-btn" data-tab="athletes">🧑‍🤝‍🧑 選手管理</button>
     <button class="tab-btn" data-tab="teams">🔗 團隊與連結</button>
+    <button class="tab-btn" data-tab="report">📄 成果報告</button>
     <button class="tab-btn" data-tab="settings">⚙️ 設定</button>
   </div>
 
@@ -139,6 +171,34 @@
       <h3 style="margin-top:0;">我的團隊與填寫連結</h3>
       <div id="teamList"></div>
     </div>
+  </section>
+
+  <!-- 成果報告 -->
+  <section id="tab-report" class="hidden">
+    <div class="card no-print">
+      <h3 style="margin-top:0;">產生成果報告</h3>
+      <div class="grid grid-4">
+        <div><label>選手</label><select id="rpAthlete"></select></div>
+        <div><label>期間</label>
+          <select id="rpRange">
+            <option value="7">近 7 天</option>
+            <option value="30" selected>近 30 天</option>
+            <option value="90">近 90 天</option>
+            <option value="custom">自訂</option>
+          </select>
+        </div>
+        <div id="rpCustomFrom" style="display:none;"><label>起</label><input id="rpFrom" type="date"></div>
+        <div id="rpCustomTo" style="display:none;"><label>迄</label><input id="rpTo" type="date"></div>
+        <div style="display:flex;align-items:flex-end;"><button class="btn btn-primary btn-block" id="btnGenReport">產生報告</button></div>
+      </div>
+      <label>教練評語（會印在報告上）</label>
+      <textarea id="rpComment" placeholder="這段期間的整體表現、亮點與下一步建議…"></textarea>
+      <div style="margin-top:10px;display:flex;gap:8px;">
+        <button class="btn" id="btnPrint">🖨️ 列印 / 存成 PDF</button>
+        <span class="muted" style="font-size:13px;align-self:center;">列印視窗選「另存為 PDF」即可匯出檔案給家長/學校。</span>
+      </div>
+    </div>
+    <div id="reportArea"></div>
   </section>
 
   <!-- 設定 -->
@@ -245,7 +305,7 @@
     b.onclick = function () {
       TP.$all('.tab-btn').forEach(function (x) { x.classList.remove('active'); });
       b.classList.add('active');
-      ['warroom', 'athletes', 'teams', 'settings'].forEach(function (t) {
+      ['warroom', 'athletes', 'teams', 'report', 'settings'].forEach(function (t) {
         $('#tab-' + t).classList.toggle('hidden', t !== b.dataset.tab);
       });
     };
@@ -308,6 +368,14 @@
     state.athletes = (r.ok && r.athletes) || [];
     renderAthletes();
     renderQuotaWarn();
+    fillReportAthletes();
+  }
+
+  function fillReportAthletes() {
+    var actives = state.athletes.filter(function (a) { return String(a.active) !== 'false' && a.active !== false; });
+    $('#rpAthlete').innerHTML = actives.length
+      ? actives.map(function (a) { return '<option value="' + a.athleteId + '">' + esc(a.name) + '</option>'; }).join('')
+      : '<option value="">（尚無選手）</option>';
   }
 
   function renderQuotaWarn() {
@@ -402,6 +470,135 @@
     text += '感謝家長協助孩子養成每日回報習慣 🙏\n— ' + state.coach.name + ' 教練';
     TP.copy(text);
   };
+
+  /* ---------- 成果報告 ---------- */
+  $('#rpRange').onchange = function () {
+    var custom = $('#rpRange').value === 'custom';
+    $('#rpCustomFrom').style.display = custom ? '' : 'none';
+    $('#rpCustomTo').style.display = custom ? '' : 'none';
+  };
+  $('#btnPrint').onclick = function () {
+    if (!$('#reportArea').innerHTML.trim()) { toast('請先產生報告', true); return; }
+    window.print();
+  };
+
+  function dateRange() {
+    var to = new Date(), from = new Date();
+    var v = $('#rpRange').value;
+    if (v === 'custom') {
+      from = $('#rpFrom').value ? new Date($('#rpFrom').value) : from;
+      to = $('#rpTo').value ? new Date($('#rpTo').value) : to;
+    } else { from.setDate(to.getDate() - (Number(v) - 1)); }
+    var f = from.toISOString().slice(0, 10), t = to.toISOString().slice(0, 10);
+    var days = Math.round((new Date(t) - new Date(f)) / 86400000) + 1;
+    return { from: f, to: t, days: days };
+  }
+
+  var DIMS = [['technicalAvg', '技術'], ['tacticalAvg', '戰術'], ['physicalAvg', '體能'],
+              ['mentalAvg', '心理'], ['attitudeAvg', '態度'], ['physiologicalAvg', '生理']];
+
+  $('#btnGenReport').onclick = async function () {
+    var aId = $('#rpAthlete').value;
+    if (!aId) { toast('請選擇選手', true); return; }
+    var athlete = state.athletes.filter(function (a) { return a.athleteId === aId; })[0] || {};
+    var range = dateRange();
+    $('#reportArea').innerHTML = '<div class="report-doc"><p class="muted">產生中…</p></div>';
+    var r = await TP.callAuth('athleteRecords', { athleteId: aId, limit: 120 });
+    if (!r.ok) { toast(r.error, true); return; }
+    var recs = (r.records || []).filter(function (x) { return x.date >= range.from && x.date <= range.to; })
+      .sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); });
+    renderReport(athlete, range, recs);
+  };
+
+  function mean(arr) { return arr.length ? arr.reduce(function (s, v) { return s + v; }, 0) / arr.length : 0; }
+  function num(v) { return Number(v) || 0; }
+
+  function sparkline(vals) {
+    if (vals.length < 2) return '';
+    var w = 320, h = 56, pad = 4, max = 5, min = 1;
+    var pts = vals.map(function (v, i) {
+      var x = pad + i * (w - 2 * pad) / (vals.length - 1);
+      var y = h - pad - (v - min) / (max - min) * (h - 2 * pad);
+      return x.toFixed(1) + ',' + y.toFixed(1);
+    }).join(' ');
+    return '<svg width="100%" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" style="margin-top:6px;">' +
+      '<polyline points="' + pts + '" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linejoin="round"/></svg>';
+  }
+
+  function deltaTag(d) {
+    if (d > 0.15) return '<span class="rp-delta up">▲ +' + d.toFixed(1) + '</span>';
+    if (d < -0.15) return '<span class="rp-delta down">▼ ' + d.toFixed(1) + '</span>';
+    return '<span class="rp-delta flat">— 持平</span>';
+  }
+
+  function renderReport(athlete, range, recs) {
+    if (!recs.length) {
+      $('#reportArea').innerHTML = '<div class="report-doc"><h2>查無資料</h2>' +
+        '<p>' + esc(athlete.name) + ' 在 ' + range.from + ' ~ ' + range.to + ' 期間沒有填寫紀錄。</p></div>';
+      return;
+    }
+    var totals = recs.map(function (r) { return num(r.totalScore); });
+    var avg = mean(totals), first = totals[0], last = totals[totals.length - 1];
+    var filled = recs.length, rate = Math.round(filled / range.days * 100);
+    var lights = { green: 0, yellow: 0, red: 0 };
+    recs.forEach(function (r) { var l = r.status || TP.lightOf(r.totalScore); lights[l] = (lights[l] || 0) + 1; });
+    var moods = recs.map(function (r) { return num(r.moodIndex); }).filter(function (v) { return v > 0; });
+
+    var firstRec = recs[0], lastRec = recs[recs.length - 1];
+    var dimRows = DIMS.map(function (d) {
+      var vals = recs.map(function (r) { return num(r[d[0]]); }).filter(function (v) { return v > 0; });
+      var a = mean(vals), delta = num(lastRec[d[0]]) - num(firstRec[d[0]]);
+      return { name: d[1], avg: a, delta: delta };
+    });
+    var best = dimRows.slice().sort(function (x, y) { return y.avg - x.avg; })[0];
+    var worst = dimRows.slice().sort(function (x, y) { return x.avg - y.avg; })[0];
+    var comment = $('#rpComment').value.trim();
+
+    var html = '<div class="report-doc">' +
+      '<div class="rp-head"><div>' +
+        '<div class="rp-brand">🥋 TeamPro 教練戰情室</div>' +
+        '<h2 style="margin:4px 0;">選手成果報告</h2></div>' +
+        '<div style="text-align:right;"><div><b>' + esc(athlete.name) + '</b></div>' +
+        '<div class="muted" style="color:#5b6675;">' + esc(athlete.gradeClass || '') + '</div>' +
+        '<div class="muted" style="color:#5b6675;">' + range.from + ' ~ ' + range.to + '</div></div>' +
+      '</div>' +
+
+      '<div class="rp-grid">' +
+        '<div class="rp-stat"><div class="n">' + avg.toFixed(1) + '</div><div class="l">平均總分</div></div>' +
+        '<div class="rp-stat"><div class="n">' + deltaTag(last - first) + '</div><div class="l">期間進步</div></div>' +
+        '<div class="rp-stat"><div class="n">' + rate + '%</div><div class="l">填寫率 (' + filled + '/' + range.days + '天)</div></div>' +
+        '<div class="rp-stat"><div class="n">' + (moods.length ? mean(moods).toFixed(1) : '—') + '</div><div class="l">平均心情</div></div>' +
+      '</div>' +
+
+      '<div class="rp-section"><h3>總分趨勢</h3>' + sparkline(totals) +
+        '<div class="muted" style="color:#5b6675;font-size:12px;">起 ' + first.toFixed(1) + ' → 末 ' + last.toFixed(1) + '</div></div>' +
+
+      '<div class="rp-section"><h3>六大面向</h3>' +
+        dimRows.map(function (d) {
+          return '<div class="rp-dim"><span class="name">' + d.name + '</span>' +
+            '<span class="rp-bar"><i style="width:' + (d.avg / 5 * 100) + '%"></i></span>' +
+            '<span class="val">' + d.avg.toFixed(1) + ' ' + deltaTag(d.delta) + '</span></div>';
+        }).join('') + '</div>' +
+
+      '<div class="rp-section rp-grid" style="grid-template-columns:1fr 1fr;">' +
+        '<div class="rp-stat" style="text-align:left;"><div class="l">💪 最佳面向</div><div class="n" style="font-size:18px;">' + best.name + '（' + best.avg.toFixed(1) + '）</div></div>' +
+        '<div class="rp-stat" style="text-align:left;"><div class="l">🎯 待加強面向</div><div class="n" style="font-size:18px;">' + worst.name + '（' + worst.avg.toFixed(1) + '）</div></div>' +
+      '</div>' +
+
+      '<div class="rp-section"><h3>狀態燈號分布</h3>' +
+        '<span class="rp-light green">綠燈 ' + lights.green + ' 天</span> ' +
+        '<span class="rp-light yellow">黃燈 ' + lights.yellow + ' 天</span> ' +
+        '<span class="rp-light red">紅燈 ' + lights.red + ' 天</span></div>' +
+
+      (comment ? '<div class="rp-section"><h3>教練評語</h3><div class="rp-comment">' + esc(comment) + '</div></div>' : '') +
+
+      '<div class="rp-foot">本報告由 TeamPro 教練戰情室產生 · 教練：' + esc(state.coach.name) +
+        ' · 產生日期：' + new Date().toISOString().slice(0, 10) +
+        '<br>評分制：六大面向各 1–5 分（5 為最佳），總分為六面向等權平均。</div>' +
+      '</div>';
+
+    $('#reportArea').innerHTML = html;
+  }
 
   /* ---------- 設定 ---------- */
   $('#setUrlSave').onclick = function () { TP.setUrl($('#setUrl').value); toast('已儲存，重新整理生效'); };
