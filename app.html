@@ -351,6 +351,7 @@
           '<input readonly value="' + esc(url) + '">' +
           '<button class="btn btn-sm" data-copy="' + esc(url) + '">複製</button>' +
           '<button class="btn btn-sm btn-danger" data-reset="' + t.teamId + '">重設連結</button>' +
+          '<button class="btn btn-sm btn-danger" data-del="' + t.teamId + '" data-name="' + esc(t.teamName) + '">刪除</button>' +
         '</div></div>';
     }).join('');
     TP.$all('[data-copy]', box).forEach(function (b) { b.onclick = function () { TP.copy(b.dataset.copy); }; });
@@ -360,6 +361,16 @@
         if (!confirm('重設後舊連結立即失效，需重新分享給選手。確定？')) return;
         var r = await TP.callAuth('resetShareToken', { teamId: b.dataset.reset });
         if (r.ok) { toast('連結已重設'); loadTeams(); } else { toast(r.error, true); }
+      };
+    });
+    TP.$all('[data-del]', box).forEach(function (b) {
+      b.onclick = async function () {
+        if (DEMO) { demoBlock(); return; }
+        var cnt = state.athletes.filter(function (a) { return String(a.teamId) === String(b.dataset.del); }).length;
+        if (!confirm('確定刪除團隊「' + b.dataset.name + '」？\n會一併刪除該隊 ' + cnt + ' 位選手與其所有填寫紀錄，無法復原。')) return;
+        var r = await TP.callAuth('deleteTeam', { teamId: b.dataset.del });
+        if (r.ok) { toast('已刪除（選手 ' + r.deletedAthletes + '、紀錄 ' + r.deletedRecords + '）'); await refreshMe(); loadTeams(); loadAthletes(); }
+        else { toast(r.error, true); }
       };
     });
   }

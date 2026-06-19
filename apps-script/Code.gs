@@ -126,6 +126,7 @@ function handle(action, d) {
     case 'listTeams':       return jsonOut(withCoach(d, listTeams));
     case 'createTeam':      return jsonOut(withCoach(d, createTeam));
     case 'resetShareToken': return jsonOut(withCoach(d, resetShareToken));
+    case 'deleteTeam':      return jsonOut(withCoach(d, deleteTeam));
 
     /* ---- 選手 ---- */
     case 'listAthletes':    return jsonOut(withCoach(d, listAthletes));
@@ -397,6 +398,39 @@ function resetShareToken(c, d) {
   sheet(SHEETS.teams).getRange(row, H.teams.indexOf('shareToken') + 1).setValue(token);
   audit(c.email, 'resetShareToken', d.teamId, '');
   return { ok: true, shareToken: token };
+}
+
+/* 刪除團隊（連同該隊選手與紀錄一併移除） */
+function deleteTeam(c, d) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var row = findRow(SHEETS.teams, 'teamId', d.teamId || '');
+    if (row === -1) return { ok: false, error: '找不到團隊' };
+    var t = readAll(SHEETS.teams)[row - 2];
+    if (String(t.coachId) !== String(c.coachId)) return { ok: false, error: 'forbidden' };
+    var recN = deleteRowsByValue(SHEETS.records, 'teamId', d.teamId);
+    var athN = deleteRowsByValue(SHEETS.athletes, 'teamId', d.teamId);
+    var trow = findRow(SHEETS.teams, 'teamId', d.teamId);
+    if (trow !== -1) sheet(SHEETS.teams).deleteRow(trow);
+    audit(c.email, 'deleteTeam', d.teamId, t.teamName + ' (選手' + athN + '/紀錄' + recN + ')');
+    return { ok: true, deletedAthletes: athN, deletedRecords: recN };
+  } finally { lock.releaseLock(); }
+}
+
+/* 刪除某欄位等於指定值的所有列（由下往上刪避免位移） */
+function deleteRowsByValue(name, colKey, value) {
+  var s = sheet(name);
+  var headers = (name === SHEETS.records) ? RECORD_HEADERS : H[name];
+  var col = headers.indexOf(colKey);
+  var last = s.getLastRow();
+  if (col === -1 || last < 2) return 0;
+  var vals = s.getRange(2, col + 1, last - 1, 1).getValues();
+  var del = [];
+  for (var i = 0; i < vals.length; i++) if (String(vals[i][0]) === String(value)) del.push(i + 2);
+  del.sort(function (a, b) { return b - a; });
+  del.forEach(function (r) { s.deleteRow(r); });
+  return del.length;
 }
 
 /* ============================================================
