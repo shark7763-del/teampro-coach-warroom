@@ -17,6 +17,8 @@
   .quota-bar > i.full { background: var(--red); }
   .link-box { display:flex; gap:8px; }
   .link-box input { font-size: 13px; }
+  .line-qr { display:flex; align-items:center; gap:16px; margin-top:14px; flex-wrap:wrap; }
+  .line-qr img { width: 160px; height: 160px; object-fit: cover; border-radius: 12px; background:#fff; }
   .upgrade { border:1px solid var(--yellow); background: rgba(245,158,11,.08); border-radius:12px; padding:14px; }
   .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; z-index:1000; padding:16px; }
   .modal-box { width:min(520px,94vw); max-height:88vh; overflow:auto; }
@@ -264,6 +266,10 @@
         <input id="setLineUrl" readonly>
         <button class="btn" id="setLineCopy">複製</button>
         <a class="btn btn-ghost" id="setLineOpen" target="_blank" rel="noopener">開啟</a>
+      </div>
+      <div class="line-qr">
+        <img src="assets/line-qr.jpg" alt="TeamPro 官方 LINE QR Code">
+        <div class="muted" style="font-size:13px;">這張 QR 可直接放在簡報、海報或家長通知裡。</div>
       </div>
       <p class="muted" style="font-size:13px;">升級付費方案請填寫 <a href="https://docs.google.com/forms/d/e/1FAIpQLSc2WhGQP1BQhWMgTJFtnR_gznolKA-KDqYVqXzBEfuxZI7OHA/viewform" target="_blank" rel="noopener">TeamPro 升級申請表</a>，確認付款後由管理者開通。</p>
     </div>
