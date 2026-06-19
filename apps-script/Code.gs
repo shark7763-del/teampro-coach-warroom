@@ -761,6 +761,7 @@ function withAdmin(d, fn) {
 }
 
 function adminListCoaches(d) {
+  d = d || {};
   var q = String(d.q || '').trim().toLowerCase();
   var coaches = readAll(SHEETS.coaches).map(function (c) {
     return {
