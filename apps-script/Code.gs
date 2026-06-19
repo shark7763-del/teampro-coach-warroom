@@ -129,6 +129,7 @@ function handle(action, d) {
     /* ---- 戰情室 / 報告 ---- */
     case 'warroom':         return jsonOut(withCoach(d, warroom));
     case 'athleteRecords':  return jsonOut(withCoach(d, athleteRecords));
+    case 'teamReport':      return jsonOut(withCoach(d, teamReport));
 
     /* ---- 選手填寫（公開，靠 shareToken 限定團隊） ---- */
     case 'joinInfo':        return jsonOut(joinInfo(d));
@@ -488,6 +489,69 @@ function athleteRecords(c, d) {
     return String(r.coachId) === String(c.coachId) && String(r.athleteId) === aId;
   }).sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
   return { ok: true, records: recs.slice(0, Number(d.limit || 30)) };
+}
+
+/* 團隊整體報告：彙整某期間全隊（或單一團隊）資料 */
+function teamReport(c, d) {
+  var teamId = d.teamId || '';
+  var from = String(d.from || ''), to = String(d.to || '');
+  var days = Number(d.days) || 1;
+
+  var athletes = readAll(SHEETS.athletes).filter(function (a) {
+    return String(a.coachId) === String(c.coachId) &&
+           (String(a.active) !== 'false' && a.active !== false) &&
+           (!teamId || String(a.teamId) === String(teamId));
+  });
+  var aIds = {}; athletes.forEach(function (a) { aIds[String(a.athleteId)] = a; });
+
+  var recs = readAll(SHEETS.records).filter(function (r) {
+    return String(r.coachId) === String(c.coachId) &&
+           aIds[String(r.athleteId)] &&
+           (!from || r.date >= from) && (!to || r.date <= to);
+  });
+
+  var DIMK = ['technicalAvg', 'tacticalAvg', 'physicalAvg', 'mentalAvg', 'attitudeAvg', 'physiologicalAvg'];
+  var dimSum = {}, dimN = {}; DIMK.forEach(function (k) { dimSum[k] = 0; dimN[k] = 0; });
+  var lights = { green: 0, yellow: 0, red: 0 };
+  var totalSum = 0, totalN = 0;
+  var byDate = {};      // date -> {sum,n}
+  var perA = {};        // athleteId -> {recs:[]}
+
+  recs.forEach(function (r) {
+    var t = Number(r.totalScore) || 0;
+    if (t > 0) { totalSum += t; totalN++; }
+    var l = r.status || lightOf(r.totalScore); lights[l] = (lights[l] || 0) + 1;
+    DIMK.forEach(function (k) { var v = Number(r[k]) || 0; if (v > 0) { dimSum[k] += v; dimN[k]++; } });
+    var ds = byDate[r.date] || (byDate[r.date] = { sum: 0, n: 0 });
+    if (t > 0) { ds.sum += t; ds.n++; }
+    (perA[r.athleteId] || (perA[r.athleteId] = [])).push(r);
+  });
+
+  // 每位選手摘要
+  var athleteRows = athletes.map(function (a) {
+    var rs = (perA[a.athleteId] || []).slice().sort(function (x, y) { return String(x.date).localeCompare(String(y.date)); });
+    var totals = rs.map(function (r) { return Number(r.totalScore) || 0; }).filter(function (v) { return v > 0; });
+    var avg = totals.length ? +(totals.reduce(function (s, v) { return s + v; }, 0) / totals.length).toFixed(2) : 0;
+    var delta = (rs.length >= 2) ? +((Number(rs[rs.length - 1].totalScore) || 0) - (Number(rs[0].totalScore) || 0)).toFixed(2) : 0;
+    var lastStatus = rs.length ? (rs[rs.length - 1].status || lightOf(rs[rs.length - 1].totalScore)) : '';
+    return { name: a.name, gradeClass: a.gradeClass || '', filledDays: rs.length, avgTotal: avg, delta: delta, lastStatus: lastStatus };
+  });
+
+  var dimAvg = {}; DIMK.forEach(function (k) { dimAvg[k] = dimN[k] ? +(dimSum[k] / dimN[k]).toFixed(2) : 0; });
+  var trend = Object.keys(byDate).sort().map(function (dt) {
+    return { date: dt, avg: byDate[dt].n ? +(byDate[dt].sum / byDate[dt].n).toFixed(2) : 0, count: byDate[dt].n };
+  });
+  var expected = athletes.length * days;
+
+  return {
+    ok: true, from: from, to: to, days: days,
+    athleteCount: athletes.length,
+    teamAvg: totalN ? +(totalSum / totalN).toFixed(2) : 0,
+    dimAvg: dimAvg, lights: lights,
+    totalReports: recs.length, expectedReports: expected,
+    completionRate: expected ? Math.round(recs.length / expected * 100) : 0,
+    trend: trend, athletes: athleteRows
+  };
 }
 
 /* ============================================================

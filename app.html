@@ -178,7 +178,11 @@
     <div class="card no-print">
       <h3 style="margin-top:0;">產生成果報告</h3>
       <div class="grid grid-4">
-        <div><label>選手</label><select id="rpAthlete"></select></div>
+        <div><label>報告類型</label>
+          <select id="rpType"><option value="athlete">個人選手</option><option value="team">團隊整體</option></select>
+        </div>
+        <div id="rpAthleteWrap"><label>選手</label><select id="rpAthlete"></select></div>
+        <div id="rpTeamWrap" style="display:none;"><label>團隊</label><select id="rpTeam"></select></div>
         <div><label>期間</label>
           <select id="rpRange">
             <option value="7">近 7 天</option>
@@ -322,6 +326,9 @@
     $('#naTeam').innerHTML = state.teams.length
       ? state.teams.map(function (t) { return '<option value="' + t.teamId + '">' + esc(t.teamName) + '</option>'; }).join('')
       : '<option value="">（請先建立團隊）</option>';
+    $('#rpTeam').innerHTML = '<option value="">全部團隊</option>' + state.teams.map(function (t) {
+      return '<option value="' + t.teamId + '">' + esc(t.teamName) + '</option>';
+    }).join('');
     renderTeams();
   }
 
@@ -472,6 +479,11 @@
   };
 
   /* ---------- 成果報告 ---------- */
+  $('#rpType').onchange = function () {
+    var team = $('#rpType').value === 'team';
+    $('#rpAthleteWrap').style.display = team ? 'none' : '';
+    $('#rpTeamWrap').style.display = team ? '' : 'none';
+  };
   $('#rpRange').onchange = function () {
     var custom = $('#rpRange').value === 'custom';
     $('#rpCustomFrom').style.display = custom ? '' : 'none';
@@ -498,11 +510,19 @@
               ['mentalAvg', '心理'], ['attitudeAvg', '態度'], ['physiologicalAvg', '生理']];
 
   $('#btnGenReport').onclick = async function () {
+    var range = dateRange();
+    $('#reportArea').innerHTML = '<div class="report-doc"><p class="muted">產生中…</p></div>';
+    if ($('#rpType').value === 'team') {
+      var teamId = $('#rpTeam').value;
+      var teamName = teamId ? ($('#rpTeam').options[$('#rpTeam').selectedIndex].text) : '全部團隊';
+      var tr = await TP.callAuth('teamReport', { teamId: teamId, from: range.from, to: range.to, days: range.days });
+      if (!tr.ok) { toast(tr.error, true); return; }
+      renderTeamReport(teamName, range, tr);
+      return;
+    }
     var aId = $('#rpAthlete').value;
     if (!aId) { toast('請選擇選手', true); return; }
     var athlete = state.athletes.filter(function (a) { return a.athleteId === aId; })[0] || {};
-    var range = dateRange();
-    $('#reportArea').innerHTML = '<div class="report-doc"><p class="muted">產生中…</p></div>';
     var r = await TP.callAuth('athleteRecords', { athleteId: aId, limit: 120 });
     if (!r.ok) { toast(r.error, true); return; }
     var recs = (r.records || []).filter(function (x) { return x.date >= range.from && x.date <= range.to; })
@@ -595,6 +615,75 @@
       '<div class="rp-foot">本報告由 TeamPro 教練戰情室產生 · 教練：' + esc(state.coach.name) +
         ' · 產生日期：' + new Date().toISOString().slice(0, 10) +
         '<br>評分制：六大面向各 1–5 分（5 為最佳），總分為六面向等權平均。</div>' +
+      '</div>';
+
+    $('#reportArea').innerHTML = html;
+  }
+
+  function renderTeamReport(teamName, range, tr) {
+    if (!tr.athleteCount) {
+      $('#reportArea').innerHTML = '<div class="report-doc"><h2>查無選手</h2><p>此團隊沒有啟用中的選手。</p></div>';
+      return;
+    }
+    var dimMap = { technicalAvg: '技術', tacticalAvg: '戰術', physicalAvg: '體能', mentalAvg: '心理', attitudeAvg: '態度', physiologicalAvg: '生理' };
+    var trendVals = (tr.trend || []).map(function (x) { return num(x.avg); });
+    var rows = (tr.athletes || []).slice().sort(function (a, b) { return num(b.avgTotal) - num(a.avgTotal); });
+    var comment = $('#rpComment').value.trim();
+    var attention = rows.filter(function (a) { return a.lastStatus === 'red' || (a.avgTotal && a.avgTotal < 3); });
+
+    var html = '<div class="report-doc">' +
+      '<div class="rp-head"><div>' +
+        '<div class="rp-brand">🥋 TeamPro 教練戰情室</div>' +
+        '<h2 style="margin:4px 0;">團隊成果報告</h2></div>' +
+        '<div style="text-align:right;"><div><b>' + esc(teamName) + '</b></div>' +
+        '<div style="color:#5b6675;">' + tr.athleteCount + ' 位選手</div>' +
+        '<div style="color:#5b6675;">' + range.from + ' ~ ' + range.to + '</div></div>' +
+      '</div>' +
+
+      '<div class="rp-grid">' +
+        '<div class="rp-stat"><div class="n">' + num(tr.teamAvg).toFixed(1) + '</div><div class="l">全隊平均總分</div></div>' +
+        '<div class="rp-stat"><div class="n">' + tr.completionRate + '%</div><div class="l">填寫率 (' + tr.totalReports + '/' + tr.expectedReports + ')</div></div>' +
+        '<div class="rp-stat"><div class="n">' + tr.athleteCount + '</div><div class="l">選手人數</div></div>' +
+        '<div class="rp-stat"><div class="n">' + tr.totalReports + '</div><div class="l">總回報筆數</div></div>' +
+      '</div>' +
+
+      '<div class="rp-section"><h3>全隊每日平均趨勢</h3>' + sparkline(trendVals) + '</div>' +
+
+      '<div class="rp-section"><h3>六大面向（全隊平均）</h3>' +
+        Object.keys(dimMap).map(function (k) {
+          var v = num(tr.dimAvg[k]);
+          return '<div class="rp-dim"><span class="name">' + dimMap[k] + '</span>' +
+            '<span class="rp-bar"><i style="width:' + (v / 5 * 100) + '%"></i></span>' +
+            '<span class="val">' + v.toFixed(1) + '</span></div>';
+        }).join('') + '</div>' +
+
+      '<div class="rp-section"><h3>狀態燈號分布（期間總筆數）</h3>' +
+        '<span class="rp-light green">綠燈 ' + (tr.lights.green || 0) + '</span> ' +
+        '<span class="rp-light yellow">黃燈 ' + (tr.lights.yellow || 0) + '</span> ' +
+        '<span class="rp-light red">紅燈 ' + (tr.lights.red || 0) + '</span></div>' +
+
+      (attention.length ? '<div class="rp-section"><h3>🎯 需要關心（最近紅燈或平均偏低）</h3>' +
+        attention.map(function (a) { return '<span class="rp-light red" style="margin:2px;">' + esc(a.name) + ' ' + num(a.avgTotal).toFixed(1) + '</span>'; }).join(' ') + '</div>' : '') +
+
+      '<div class="rp-section"><h3>選手排名</h3>' +
+        '<table style="width:100%;border-collapse:collapse;font-size:13px;">' +
+        '<tr style="border-bottom:1px solid #d6dce4;color:#5b6675;"><th style="text-align:left;padding:6px;">選手</th><th>填寫天數</th><th>平均總分</th><th>進步</th><th>最近狀態</th></tr>' +
+        rows.map(function (a) {
+          var l = a.lastStatus || 'green';
+          var dt = num(a.delta);
+          var dtxt = dt > 0.15 ? '<span style="color:#16a34a;">▲+' + dt.toFixed(1) + '</span>' : (dt < -0.15 ? '<span style="color:#dc2626;">▼' + dt.toFixed(1) + '</span>' : '—');
+          return '<tr style="border-bottom:1px solid #eef1f5;"><td style="padding:6px;">' + esc(a.name) + '</td>' +
+            '<td style="text-align:center;">' + a.filledDays + '</td>' +
+            '<td style="text-align:center;font-weight:700;">' + num(a.avgTotal).toFixed(1) + '</td>' +
+            '<td style="text-align:center;">' + dtxt + '</td>' +
+            '<td style="text-align:center;"><span class="rp-light ' + l + '">' + TP.lightText(l) + '</span></td></tr>';
+        }).join('') + '</table></div>' +
+
+      (comment ? '<div class="rp-section"><h3>教練評語</h3><div class="rp-comment">' + esc(comment) + '</div></div>' : '') +
+
+      '<div class="rp-foot">本報告由 TeamPro 教練戰情室產生 · 教練：' + esc(state.coach.name) +
+        ' · 產生日期：' + new Date().toISOString().slice(0, 10) +
+        '<br>評分制：六大面向各 1–5 分（5 為最佳），總分為六面向等權平均；填寫率＝實際回報筆數 ÷（人數×天數）。</div>' +
       '</div>';
 
     $('#reportArea').innerHTML = html;
