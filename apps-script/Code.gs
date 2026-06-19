@@ -141,6 +141,7 @@ function handle(action, d) {
     case 'joinInfo':        return jsonOut(joinInfo(d));
     case 'submitRecord':    return jsonOut(submitRecord(d));
     case 'lastRecord':      return jsonOut(lastRecord(d));
+    case 'myRecords':       return jsonOut(myRecords(d));
 
     /* ---- 管理者 ---- */
     case 'adminListCoaches':return jsonOut(withAdmin(d, adminListCoaches));
@@ -608,6 +609,20 @@ function lastRecord(d) {
     return String(r.teamId) === String(t.teamId) && String(r.athleteId) === aId;
   }).sort(function (a, b) { return String(b.timestamp).localeCompare(String(a.timestamp)); });
   return { ok: true, record: recs[0] || null };
+}
+
+/* 選手查自己的近期紀錄（公開：靠 shareToken 限定團隊，只回自己的） */
+function myRecords(d) {
+  var t = teamFromShareToken(d.t || d.shareToken);
+  if (!t) return { ok: false, error: '連結無效' };
+  var aId = String(d.athleteId || '');
+  var arow = findRow(SHEETS.athletes, 'athleteId', aId);
+  if (arow === -1 || String(readAll(SHEETS.athletes)[arow - 2].teamId) !== String(t.teamId))
+    return { ok: false, error: '選手不屬於此團隊' };
+  var recs = readAll(SHEETS.records).filter(function (r) {
+    return String(r.teamId) === String(t.teamId) && String(r.athleteId) === aId;
+  }).sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
+  return { ok: true, records: recs.slice(0, Number(d.limit || 14)) };
 }
 
 function submitRecord(d) {

@@ -54,6 +54,18 @@
       <label for="consent" style="margin:0;">我同意填寫並由教練查看我的訓練與身體狀態資料（未滿 18 歲已取得家長同意）。</label>
     </div>
     <button class="btn btn-primary btn-block" id="whoNext" style="margin-top:14px;">開始填寫 →</button>
+    <button class="btn btn-block" id="whoPerf" style="margin-top:8px;">📈 看我的近期表現</button>
+  </div>
+
+  <!-- 我的近期表現 -->
+  <div id="step-perf" class="step">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h2 style="margin:0;">📈 我的近期表現</h2>
+        <button class="btn btn-sm" id="perfBack">← 返回</button>
+      </div>
+      <div id="perfBody" style="margin-top:12px;"></div>
+    </div>
   </div>
 
   <!-- Step 1：KPI 30 項 -->
@@ -200,10 +212,10 @@
   }
 
   function show(step) {
-    ['who', 'kpi', 'body', 'result'].forEach(function (s) {
+    ['who', 'kpi', 'body', 'result', 'perf'].forEach(function (s) {
       $('#step-' + s).classList.toggle('active', s === step);
     });
-    $('#navBar').classList.toggle('hidden', step === 'who' || step === 'result');
+    $('#navBar').classList.toggle('hidden', step !== 'kpi' && step !== 'body');
     window.scrollTo(0, 0);
   }
 
@@ -352,6 +364,66 @@
     if (ctx.last) { toast('已找到上次紀錄，可按「帶入上次」'); prefill(); }
     show('kpi');
   };
+
+  /* ---------- 我的近期表現 ---------- */
+  $('#perfBack').onclick = function () { show('who'); };
+  $('#whoPerf').onclick = async function () {
+    var id = $('#whoSelect').value;
+    if (!id) { toast('請先選擇選手', true); return; }
+    var name = $('#whoSelect').options[$('#whoSelect').selectedIndex].text;
+    $('#perfBody').innerHTML = '<p class="muted">載入中…</p>';
+    show('perf');
+    var r = await TP.call('myRecords', { t: shareToken, athleteId: id, limit: 14 });
+    var recs = (r.ok && r.records) ? r.records : null;
+    if (!recs) { // 後端尚未支援 myRecords → 退而求其次顯示上次一筆
+      var lr = await TP.call('lastRecord', { t: shareToken, athleteId: id });
+      recs = (lr.ok && lr.record) ? [lr.record] : [];
+    }
+    renderPerf(name, recs);
+  };
+
+  function miniSpark(vals) {
+    if (vals.length < 2) return '';
+    var w = 300, h = 50, p = 4;
+    var pts = vals.map(function (v, i) {
+      var x = p + i * (w - 2 * p) / (vals.length - 1);
+      var y = h - p - (v - 1) / 4 * (h - 2 * p);
+      return x.toFixed(1) + ',' + y.toFixed(1);
+    }).join(' ');
+    return '<svg width="100%" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" style="margin:8px 0;">' +
+      '<polyline points="' + pts + '" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linejoin="round"/></svg>';
+  }
+
+  function renderPerf(name, recs) {
+    if (!recs.length) {
+      $('#perfBody').innerHTML = '<p class="muted">' + esc(name) + ' 還沒有任何回報紀錄，今天填第一筆吧！</p>';
+      return;
+    }
+    var asc = recs.slice().sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); });
+    var last = asc[asc.length - 1];
+    var total = Number(last.totalScore) || 0, light = last.status || TP.lightOf(total);
+    var totals = asc.map(function (r) { return Number(r.totalScore) || 0; });
+
+    var dims = TP.KPI_DIMENSIONS.map(function (d) {
+      var key = d.key + 'Avg';
+      return '<div class="row" style="padding:6px 0;"><span>' + esc(d.name) + '</span><b>' + (Number(last[key]) || 0).toFixed(1) + '</b></div>';
+    }).join('');
+
+    var listDesc = recs.slice().sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
+    var rows = listDesc.map(function (r) {
+      var t = Number(r.totalScore) || 0, l = r.status || TP.lightOf(t);
+      return '<div class="row"><span><span class="dot ' + l + '"></span> ' + esc(String(r.date)) + '</span>' +
+        '<span class="pill ' + l + '">' + t.toFixed(1) + '</span></div>';
+    }).join('');
+
+    $('#perfBody').innerHTML =
+      '<div class="center"><div style="font-size:40px;font-weight:800;color:' +
+        (light === 'green' ? 'var(--green)' : light === 'yellow' ? 'var(--yellow)' : 'var(--red)') + ';">' + total.toFixed(1) + '</div>' +
+        '<span class="pill ' + light + '">最近一次・' + TP.lightText(light) + '（' + esc(String(last.date)) + '）</span></div>' +
+      (totals.length >= 2 ? '<h3 style="margin:14px 0 0;">總分趨勢</h3>' + miniSpark(totals) : '') +
+      '<h3 style="margin:14px 0 6px;">最近一次六大面向</h3>' + dims +
+      '<h3 style="margin:14px 0 6px;">歷史紀錄</h3>' + rows;
+  }
 
   $('#btnPrefill').onclick = prefill;
   function prefill() {

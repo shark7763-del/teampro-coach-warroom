@@ -575,6 +575,34 @@
       '<polyline points="' + pts + '" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linejoin="round"/></svg>';
   }
 
+  function isPro() { return state.coach && state.coach.effectivePlan === 'pro'; }
+
+  /* 純 SVG 六角雷達圖（dims: [{name, value(0–5)}]） */
+  function radarSvg(dims) {
+    var n = dims.length, cx = 110, cy = 110, R = 78, max = 5;
+    function pt(i, r) { var a = -Math.PI / 2 + i * 2 * Math.PI / n; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; }
+    var rings = '';
+    for (var g = 1; g <= 5; g++) {
+      var poly = []; for (var i = 0; i < n; i++) { var p = pt(i, R * g / 5); poly.push(p[0].toFixed(1) + ',' + p[1].toFixed(1)); }
+      rings += '<polygon points="' + poly.join(' ') + '" fill="none" stroke="#e0e5ec" stroke-width="1"/>';
+    }
+    var axes = '', labels = '';
+    for (var i = 0; i < n; i++) {
+      var p = pt(i, R); axes += '<line x1="' + cx + '" y1="' + cy + '" x2="' + p[0].toFixed(1) + '" y2="' + p[1].toFixed(1) + '" stroke="#e0e5ec"/>';
+      var lp = pt(i, R + 17);
+      labels += '<text x="' + lp[0].toFixed(1) + '" y="' + lp[1].toFixed(1) + '" font-size="12" fill="#5b6675" text-anchor="middle" dominant-baseline="middle">' + esc(dims[i].name) + '</text>';
+    }
+    var vp = []; for (var j = 0; j < n; j++) { var v = Math.max(0, Math.min(max, num(dims[j].value))); var q = pt(j, R * v / max); vp.push(q[0].toFixed(1) + ',' + q[1].toFixed(1)); }
+    var val = '<polygon points="' + vp.join(' ') + '" fill="rgba(22,163,74,.25)" stroke="#16a34a" stroke-width="2"/>';
+    return '<div style="text-align:center;"><svg viewBox="0 0 220 220" width="260" height="260" style="max-width:100%;">' + rings + axes + val + labels + '</svg></div>';
+  }
+
+  function radarBlock(dims) {
+    if (isPro()) return '<div class="rp-section"><h3>能力雷達圖</h3>' + radarSvg(dims) + '</div>';
+    return '<div class="rp-section no-print"><h3>能力雷達圖</h3>' +
+      '<div style="background:#f3f5f8;border-radius:10px;padding:22px;text-align:center;color:#5b6675;">🔒 雷達圖與進階數據圖為<b>專業版</b>功能，升級即可解鎖</div></div>';
+  }
+
   function deltaTag(d) {
     if (d > 0.15) return '<span class="rp-delta up">▲ +' + d.toFixed(1) + '</span>';
     if (d < -0.15) return '<span class="rp-delta down">▼ ' + d.toFixed(1) + '</span>';
@@ -629,6 +657,8 @@
             '<span class="rp-bar"><i style="width:' + (d.avg / 5 * 100) + '%"></i></span>' +
             '<span class="val">' + d.avg.toFixed(1) + ' ' + deltaTag(d.delta) + '</span></div>';
         }).join('') + '</div>' +
+
+      radarBlock(dimRows.map(function (d) { return { name: d.name, value: d.avg }; })) +
 
       '<div class="rp-section rp-grid" style="grid-template-columns:1fr 1fr;">' +
         '<div class="rp-stat" style="text-align:left;"><div class="l">💪 最佳面向</div><div class="n" style="font-size:18px;">' + best.name + '（' + best.avg.toFixed(1) + '）</div></div>' +
@@ -687,6 +717,8 @@
             '<span class="val">' + v.toFixed(1) + '</span></div>';
         }).join('') + '</div>' +
 
+      radarBlock(Object.keys(dimMap).map(function (k) { return { name: dimMap[k], value: num(tr.dimAvg[k]) }; })) +
+
       '<div class="rp-section"><h3>狀態燈號分布（期間總筆數）</h3>' +
         '<span class="rp-light green">綠燈 ' + (tr.lights.green || 0) + '</span> ' +
         '<span class="rp-light yellow">黃燈 ' + (tr.lights.yellow || 0) + '</span> ' +
@@ -728,8 +760,8 @@
   function demoBlock() { toast('這是示範模式，免費註冊後即可實際操作 🙂'); }
 
   var DEMO_DATA = {
-    coach: { name: '示範教練', email: 'demo', plan: 'team', effectivePlan: 'team',
-             planName: '團隊版', maxAthletes: 40, activeAthletes: 8, planExpiry: '', expired: false },
+    coach: { name: '示範教練', email: 'demo', plan: 'pro', effectivePlan: 'pro',
+             planName: '專業版', maxAthletes: 100, activeAthletes: 8, planExpiry: '', expired: false },
     teams: [
       { teamId: 'demoTeam', coachId: 'demo', teamName: '示範・鯊魚戰隊', sport: '跆拳道', shareToken: 'demo', status: 'active' }
     ],
