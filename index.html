@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TeamPro 教練戰情室｜每天 3 分鐘掌握整隊狀態</title>
+<meta name="description" content="專為跆拳道體育班教練打造的選手狀態管理系統。每日 KPI、身體狀態、紅黃綠燈、未繳追蹤、一鍵 LINE 與家長通知。">
+<link rel="stylesheet" href="style.css">
+<style>
+  .hero { padding: 70px 0 50px; text-align: center; }
+  .hero h1 { font-size: 44px; margin: 14px 0 10px; }
+  .hero .sub { font-size: 19px; color: var(--muted); max-width: 640px; margin: 0 auto 26px; }
+  .hero .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .section { padding: 56px 0; border-top: 1px solid var(--line); }
+  .section h2 { font-size: 30px; text-align: center; margin: 6px 0 8px; }
+  .section .lead { text-align: center; color: var(--muted); max-width: 640px; margin: 0 auto 34px; }
+  .pain { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; }
+  .pain h3 { margin: 0 0 6px; font-size: 17px; }
+  .feat { padding: 20px; }
+  .feat .ico { font-size: 30px; }
+  .feat h3 { margin: 10px 0 6px; font-size: 17px; }
+  .price-card { display: flex; flex-direction: column; }
+  .price-card.featured { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand) inset; }
+  .price-card .amt { font-size: 38px; font-weight: 800; margin: 8px 0 2px; }
+  .price-card ul { list-style: none; padding: 0; margin: 14px 0; color: var(--muted); }
+  .price-card li { padding: 6px 0; border-bottom: 1px dashed var(--line); }
+  .price-card .tag { color: var(--brand); font-weight: 700; font-size: 13px; }
+  .faq .q { font-weight: 700; margin-top: 16px; }
+  .faq .a { color: var(--muted); }
+  footer { padding: 40px 0; border-top: 1px solid var(--line); color: var(--muted); text-align: center; font-size: 14px; }
+  .badge-strip { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; color: var(--muted); font-size: 14px; margin-top: 16px; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="topbar">
+    <div class="logo">🥋 TeamPro <span class="mark">教練戰情室</span></div>
+    <div style="display:flex; gap:8px;">
+      <a class="btn btn-ghost btn-sm" href="app.html">教練登入</a>
+      <a class="btn btn-primary btn-sm" href="app.html?signup=1">免費開始</a>
+    </div>
+  </div>
+</div>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="container">
+    <div class="eyebrow">選手狀態管理 SaaS</div>
+    <h1>每天 3 分鐘<br>掌握整隊狀態</h1>
+    <p class="sub">專為跆拳道體育班教練打造。選手每天用手機填一次，教練後台立刻看到完成率、紅黃綠燈、誰沒繳，並一鍵發出 LINE 與家長通知。</p>
+    <div class="cta">
+      <a class="btn btn-primary" href="app.html?signup=1">免費開始使用 →</a>
+      <a class="btn" href="app.html?demo=1">看示範資料</a>
+    </div>
+    <div class="badge-strip">
+      <span>✅ 免費版可用 5 位選手</span>
+      <span>✅ 免安裝・手機即用</span>
+      <span>✅ 30 項運科 KPI</span>
+    </div>
+  </div>
+</section>
+
+<!-- 痛點 -->
+<section class="section">
+  <div class="container">
+    <div class="eyebrow center">教練的日常</div>
+    <h2>這些狀況，是不是很熟悉？</h2>
+    <p class="lead">帶一整隊選手，你最頭痛的往往不是訓練，而是「看不到狀態」。</p>
+    <div class="grid grid-3">
+      <div class="pain"><h3>😵 不知道誰今天沒練</h3><p class="muted">出缺勤靠記憶、靠喊，常常漏掉，家長問起來說不清。</p></div>
+      <div class="pain"><h3>🩹 選手受傷/疲勞太晚發現</h3><p class="muted">等到表現掉了才知道身體早就出問題，錯過調整時機。</p></div>
+      <div class="pain"><h3>📊 沒有客觀數據</h3><p class="muted">進步與否憑感覺，跟家長溝通、做成果報告都拿不出證據。</p></div>
+      <div class="pain"><h3>📱 訊息散在各群組</h3><p class="muted">提醒、回報、通知全靠手打 LINE，重複又耗時。</p></div>
+      <div class="pain"><h3>🧠 心理狀態看不到</h3><p class="muted">選手壓力、動機低落沒人察覺，等到爆發已經來不及。</p></div>
+      <div class="pain"><h3>⏰ 行政吃掉訓練時間</h3><p class="muted">統計、彙整、通知，本該帶訓練的時間都耗在雜事上。</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 解決方案 -->
+<section class="section">
+  <div class="container">
+    <div class="eyebrow center">解決方案</div>
+    <h2>把整隊狀態，變成一眼看懂的戰情室</h2>
+    <p class="lead">選手填、系統算、你只看重點。每天 3 分鐘做完原本要一小時的事。</p>
+    <div class="grid grid-3">
+      <div class="card feat"><div class="ico">🟢🟡🔴</div><h3>紅黃綠燈一眼分群</h3><p class="muted">30 項 KPI 自動換算總分與燈號，狀態差的選手自動浮上來。</p></div>
+      <div class="card feat"><div class="ico">📋</div><h3>未繳自動追蹤</h3><p class="muted">今天誰還沒填，清清楚楚，一鍵複製催繳訊息。</p></div>
+      <div class="card feat"><div class="ico">💬</div><h3>一鍵 LINE / 家長通知</h3><p class="muted">系統幫你產生好文字，複製貼上就送出，不用再手打。</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 功能展示 -->
+<section class="section">
+  <div class="container">
+    <div class="eyebrow center">功能展示</div>
+    <h2>選手填寫，教練決策</h2>
+    <div class="grid grid-2" style="margin-top:24px; align-items:start;">
+      <div class="card">
+        <h3>📲 選手端：每天一次手機回報</h3>
+        <ul class="muted" style="padding-left:18px;">
+          <li>6 大運科面向 × 5 項，共 30 項滑桿評分</li>
+          <li>身體數據、飲食、心情、感謝紀錄</li>
+          <li>可一鍵帶入上次分數，30 秒填完</li>
+          <li>填完即得 AI 飲食建議與 LINE 文字</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>🖥️ 教練端：今日戰情室</h3>
+        <ul class="muted" style="padding-left:18px;">
+          <li>今日完成率、已繳/未繳名單</li>
+          <li>紅黃綠燈選手分群</li>
+          <li>一鍵 LINE 催繳、一鍵家長通知</li>
+          <li>選手歷史趨勢與成果報告（陸續推出）</li>
+        </ul>
+      </div>
+    </div>
+    <div class="center" style="margin-top:24px;">
+      <a class="btn" href="app.html?demo=1">用示範資料親自點點看 →</a>
+    </div>
+  </div>
+</section>
+
+<!-- KPI -->
+<section class="section">
+  <div class="container">
+    <div class="eyebrow center">運動科學量表</div>
+    <h2>6 大面向 × 5 項＝30 項 KPI</h2>
+    <p class="lead">採運科專有名詞，每項 1–5 分，5 分代表狀態最好，趨勢可長期比較。</p>
+    <div class="grid grid-3">
+      <div class="card"><h3>技術</h3><p class="muted">動作準確度・穩定度・速度反應・力量傳遞・完成度</p></div>
+      <div class="card"><h3>戰術</h3><p class="muted">距離控制・出手時機・攻防轉換・對手判讀・戰術執行</p></div>
+      <div class="card"><h3>體能</h3><p class="muted">爆發力・肌力・肌耐力・心肺耐力・敏捷協調</p></div>
+      <div class="card"><h3>心理</h3><p class="muted">專注力・壓力穩定・自信心・挫折恢復・訓練動機</p></div>
+      <div class="card"><h3>態度</h3><p class="muted">準時紀律・訓練投入・主動修正・接受指導・團隊合作</p></div>
+      <div class="card"><h3>生理</h3><p class="muted">睡眠恢復・精神恢復・肌肉舒適度・傷勢安全度・整體恢復</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 訂閱方案 -->
+<section class="section" id="pricing">
+  <div class="container">
+    <div class="eyebrow center">訂閱方案</div>
+    <h2>從免費開始，隨隊伍成長</h2>
+    <p class="lead">先用免費版帶 5 位選手，覺得好用再升級。第一階段為手動開通，升級請與我們聯絡。</p>
+    <div class="grid grid-4">
+      <div class="card price-card">
+        <div class="tag">入門</div><h3>免費版</h3>
+        <div class="amt">$0</div><div class="muted">永久免費</div>
+        <ul><li>最多 5 位選手</li><li>每日 KPI 回報</li><li>今日戰情室</li><li>未繳追蹤</li></ul>
+        <a class="btn btn-primary btn-block" href="app.html?signup=1">免費開始</a>
+      </div>
+      <div class="card price-card featured">
+        <div class="tag">最熱門</div><h3>教練版</h3>
+        <div class="amt">$299<span style="font-size:15px;color:var(--muted)">/月</span></div>
+        <ul><li>最多 15 位選手</li><li>免費版全部功能</li><li>LINE / 家長通知</li><li>選手歷史趨勢</li></ul>
+        <a class="btn btn-primary btn-block" href="app.html?signup=1">開始使用</a>
+      </div>
+      <div class="card price-card">
+        <div class="tag">一隊適用</div><h3>團隊版</h3>
+        <div class="amt">$699<span style="font-size:15px;color:var(--muted)">/月</span></div>
+        <ul><li>最多 40 位選手</li><li>多團隊管理</li><li>成果報告匯出</li><li>優先客服</li></ul>
+        <a class="btn btn-block" href="app.html?signup=1">開始使用</a>
+      </div>
+      <div class="card price-card">
+        <div class="tag">學校 / 大隊</div><h3>專業版</h3>
+        <div class="amt">$1299<span style="font-size:15px;color:var(--muted)">/月</span></div>
+        <ul><li>最多 100 位選手</li><li>全部功能</li><li>白手套導入</li><li>專屬支援</li></ul>
+        <a class="btn btn-block" href="app.html?signup=1">開始使用</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="section faq">
+  <div class="container" style="max-width:720px;">
+    <div class="eyebrow center">常見問題</div>
+    <h2>你可能想問</h2>
+    <div class="q">需要安裝 App 嗎？</div>
+    <div class="a">不用。教練與選手都用瀏覽器即可，選手只要點教練分享的連結就能填寫。</div>
+    <div class="q">選手要怎麼填寫？</div>
+    <div class="a">教練建立團隊後會得到一條專屬連結，分享給選手；選手開啟後選自己的名字即可填當日回報。</div>
+    <div class="q">免費版有什麼限制？</div>
+    <div class="a">最多 5 位選手，其餘核心功能都能用。超過人數時系統會提示升級。</div>
+    <div class="q">資料安全嗎？</div>
+    <div class="a">每位教練只能看到自己的選手與回報資料，彼此隔離。未成年選手填寫前需勾選同意。</div>
+    <div class="q">怎麼升級付費方案？</div>
+    <div class="a">第一階段採手動開通，請與我們聯絡，我們會在管理後台為你開通對應方案與期限。</div>
+  </div>
+</section>
+
+<!-- 結尾 CTA -->
+<section class="section center">
+  <div class="container">
+    <h2>準備好讓帶隊變輕鬆了嗎？</h2>
+    <p class="lead">免費開始，5 位選手，今天就能用起來。</p>
+    <a class="btn btn-primary" href="app.html?signup=1">免費開始使用 →</a>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    TeamPro 教練戰情室 · 讓教練每天 3 分鐘掌握整隊狀態<br>
+    <a href="app.html">教練登入</a> ·
+    <a href="admin.html">管理者後台</a>
+  </div>
+</footer>
+
+</body>
+</html>

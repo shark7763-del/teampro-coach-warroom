@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>每日訓練回報｜TeamPro</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .wrap { max-width: 560px; margin: 0 auto; padding-bottom: 80px; }
+  .dim-block { margin-top: 18px; }
+  .dim-block h3 { display:flex; justify-content:space-between; align-items:baseline; margin:0 0 4px; }
+  .dim-avg { font-size:14px; color: var(--brand); font-weight:700; }
+  .step { display:none; }
+  .step.active { display:block; }
+  .sticky-bar { position: fixed; left:0; right:0; bottom:0; background: var(--panel);
+    border-top: 1px solid var(--line); padding: 12px; display:flex; gap:8px; }
+  .sticky-bar .container { display:flex; gap:8px; width:min(560px,92vw); margin:0 auto; }
+  .result-score { font-size: 46px; font-weight: 800; }
+  .mood-row { display:flex; gap:6px; justify-content:space-between; }
+  .mood-row button { flex:1; font-size: 26px; background: var(--panel-2); border:1px solid var(--line);
+    border-radius:10px; padding:8px 0; cursor:pointer; }
+  .mood-row button.sel { border-color: var(--brand); background: rgba(34,197,94,.12); }
+  .consent { display:flex; gap:8px; align-items:flex-start; font-size:13px; color:var(--muted); margin-top:10px; }
+  .consent input { width:auto; margin-top:3px; }
+</style>
+</head>
+<body>
+
+<div class="wrap container">
+  <div class="topbar"><div class="logo">🥋 TeamPro</div><span class="muted" id="teamName"></span></div>
+
+  <!-- 載入/錯誤 -->
+  <div id="loading" class="card center"><p class="muted">載入中…</p></div>
+  <div id="errorBox" class="card center hidden"><p id="errorMsg" style="color:var(--red)"></p></div>
+
+  <!-- Step 0：選身分 -->
+  <div id="step-who" class="step card">
+    <h2 style="margin-top:0;">我是哪一位？</h2>
+    <p class="muted">選擇你的名字開始今天的回報。</p>
+    <label>選手</label>
+    <select id="whoSelect"></select>
+    <div class="consent">
+      <input type="checkbox" id="consent">
+      <label for="consent" style="margin:0;">我同意填寫並由教練查看我的訓練與身體狀態資料（未滿 18 歲已取得家長同意）。</label>
+    </div>
+    <button class="btn btn-primary btn-block" id="whoNext" style="margin-top:14px;">開始填寫 →</button>
+  </div>
+
+  <!-- Step 1：KPI 30 項 -->
+  <div id="step-kpi" class="step">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h2 style="margin:0;">今日狀態評分</h2>
+        <button class="btn btn-sm" id="btnPrefill">↺ 帶入上次</button>
+      </div>
+      <p class="muted" style="margin:6px 0 0;">每項 1–5 分，5 分代表最好。可先「帶入上次」再微調。</p>
+      <label style="margin-top:10px;">今天是？</label>
+      <select id="sessionType">
+        <option value="training">訓練日（填全部）</option>
+        <option value="rest">非訓練日（只填身體/心情/生理）</option>
+      </select>
+    </div>
+    <div id="kpiBlocks"></div>
+  </div>
+
+  <!-- Step 2：身體 / 飲食 / 心情 -->
+  <div id="step-body" class="step">
+    <div class="card">
+      <h2 style="margin-top:0;">身體與飲食</h2>
+      <div class="grid grid-3">
+        <div><label>身高 cm</label><input id="heightCm" type="number" inputmode="decimal"></div>
+        <div><label>體重 kg</label><input id="weightKg" type="number" inputmode="decimal"></div>
+        <div><label>目標體重 kg</label><input id="targetWeightKg" type="number" inputmode="decimal"></div>
+      </div>
+      <label>早餐</label><input id="breakfast" placeholder="例：吐司＋蛋＋豆漿">
+      <label>午餐</label><input id="lunch">
+      <label>晚餐</label><input id="dinner">
+      <div class="grid grid-3">
+        <div><label>零食/飲料</label><input id="snacksDrinks"></div>
+        <div><label>喝水量</label><input id="waterIntake" placeholder="例：2000cc"></div>
+        <div><label>宵夜</label><input id="lateNightSnack"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0;">今日心情</h2>
+      <div class="mood-row" id="moodRow">
+        <button data-m="1">😣</button><button data-m="2">😕</button><button data-m="3">😐</button>
+        <button data-m="4">🙂</button><button data-m="5">😄</button>
+      </div>
+      <label>心情原因（選填）</label><input id="moodReason">
+      <label>今天我想感謝的人事物（選填）</label><input id="gratitude">
+      <label>今日反思 / 想對教練說的話（選填）</label><textarea id="reflection"></textarea>
+    </div>
+  </div>
+
+  <!-- Step 3：結果 -->
+  <div id="step-result" class="step">
+    <div class="card center">
+      <h2 style="margin-top:0;">今日回報完成 🎉</h2>
+      <div class="result-score" id="resScore">—</div>
+      <div id="resLight"></div>
+      <div id="resDims" class="muted" style="margin-top:10px;font-size:14px;"></div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0;">🥗 AI 飲食與恢復建議</h3>
+      <div id="resAdvice" class="muted"></div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0;">分享文字</h3>
+      <button class="btn btn-block" id="btnCopyStudent" style="margin-bottom:8px;">📋 複製給自己的摘要</button>
+      <button class="btn btn-block" id="btnCopyParent">👨‍👩‍👧 複製家長版</button>
+    </div>
+    <button class="btn btn-primary btn-block" id="btnAgain" style="margin-top:12px;">完成</button>
+  </div>
+</div>
+
+<!-- 底部導覽（KPI/身體步驟用） -->
+<div class="sticky-bar hidden" id="navBar">
+  <div class="container">
+    <button class="btn" id="navPrev" style="flex:1;">← 上一步</button>
+    <button class="btn btn-primary" id="navNext" style="flex:2;">下一步 →</button>
+  </div>
+</div>
+
+<script src="api.js"></script>
+<script>
+(function () {
+  var $ = TP.$, esc = TP.esc, toast = TP.toast;
+  var params = new URLSearchParams(location.search);
+  var shareToken = params.get('t') || '';
+  var ctx = { team: null, athletes: [], athleteId: '', name: '', last: null, result: null };
+
+  /* ---------- 啟動 ---------- */
+  async function boot() {
+    if (!TP.getUrl()) {
+      // 選手端通常用教練分享的同網域，網址需內建。提示填網址。
+      var u = params.get('api'); if (u) TP.setUrl(decodeURIComponent(u));
+    }
+    if (!shareToken) return showError('連結缺少團隊代碼，請向教練索取完整連結。');
+    if (!TP.getUrl()) return showError('系統尚未設定後端網址。請教練在分享連結後加上 &api=後端網址，或聯絡教練。');
+    var r = await TP.call('joinInfo', { t: shareToken });
+    $('#loading').classList.add('hidden');
+    if (!r.ok) return showError(r.error);
+    ctx.team = r.team; ctx.athletes = r.athletes;
+    $('#teamName').textContent = r.team.teamName;
+    $('#whoSelect').innerHTML = r.athletes.length
+      ? r.athletes.map(function (a) { return '<option value="' + a.athleteId + '">' + esc(a.name) + '</option>'; }).join('')
+      : '<option value="">（教練尚未建立選手）</option>';
+    buildKpi();
+    show('who');
+  }
+
+  function showError(msg) {
+    $('#loading').classList.add('hidden');
+    $('#errorBox').classList.remove('hidden');
+    $('#errorMsg').textContent = msg;
+  }
+
+  function show(step) {
+    ['who', 'kpi', 'body', 'result'].forEach(function (s) {
+      $('#step-' + s).classList.toggle('active', s === step);
+    });
+    $('#navBar').classList.toggle('hidden', step === 'who' || step === 'result');
+    window.scrollTo(0, 0);
+  }
+
+  /* ---------- 建立 30 項滑桿 ---------- */
+  function buildKpi() {
+    var html = TP.KPI_DIMENSIONS.map(function (dim) {
+      var rows = dim.items.map(function (it) {
+        return '<div class="slider-row" data-dim="' + dim.key + '">' +
+          '<div class="top"><span>' + esc(it[1]) + '</span><span class="val" id="val_' + it[0] + '">3</span></div>' +
+          '<input type="range" min="1" max="5" step="1" value="3" id="kpi_' + it[0] + '" data-item="' + it[0] + '">' +
+          '</div>';
+      }).join('');
+      return '<div class="card dim-block"><h3>' + esc(dim.name) +
+        '<span class="dim-avg" id="avg_' + dim.key + '">平均 3.0</span></h3>' + rows + '</div>';
+    }).join('');
+    $('#kpiBlocks').innerHTML = html;
+    TP.$all('input[type=range]', $('#kpiBlocks')).forEach(function (inp) {
+      inp.addEventListener('input', function () { onSlide(inp); });
+      paintSlider(inp);
+    });
+    updateAverages();
+  }
+
+  function paintSlider(inp) {
+    var pct = (inp.value - 1) / 4 * 100;
+    inp.style.background = 'linear-gradient(90deg, var(--brand) ' + pct + '%, var(--panel-2) ' + pct + '%)';
+  }
+  function onSlide(inp) {
+    $('#val_' + inp.dataset.item).textContent = inp.value;
+    paintSlider(inp);
+    updateAverages();
+  }
+  function updateAverages() {
+    TP.KPI_DIMENSIONS.forEach(function (dim) {
+      var sum = 0, n = 0;
+      dim.items.forEach(function (it) { var v = Number($('#kpi_' + it[0]).value); sum += v; n++; });
+      $('#avg_' + dim.key).textContent = '平均 ' + (sum / n).toFixed(1);
+    });
+  }
+
+  /* ---------- 選身分 ---------- */
+  $('#whoNext').onclick = async function () {
+    var id = $('#whoSelect').value;
+    if (!id) { toast('請選擇選手', true); return; }
+    if (!$('#consent').checked) { toast('請先勾選同意', true); return; }
+    ctx.athleteId = id;
+    ctx.name = $('#whoSelect').options[$('#whoSelect').selectedIndex].text;
+    // 預抓上次紀錄供「帶入上次」
+    var r = await TP.call('lastRecord', { t: shareToken, athleteId: id });
+    ctx.last = (r.ok && r.record) || null;
+    if (ctx.last) { toast('已找到上次紀錄，可按「帶入上次」'); prefill(); }
+    show('kpi');
+  };
+
+  $('#btnPrefill').onclick = prefill;
+  function prefill() {
+    if (!ctx.last) { toast('沒有上次紀錄可帶入'); return; }
+    TP.KPI_DIMENSIONS.forEach(function (dim) {
+      dim.items.forEach(function (it) {
+        var v = Number(ctx.last[it[0]]);
+        if (v >= 1 && v <= 5) { var inp = $('#kpi_' + it[0]); inp.value = v; onSlide(inp); }
+      });
+    });
+    ['heightCm', 'weightKg', 'targetWeightKg'].forEach(function (k) { if (ctx.last[k]) $('#' + k).value = ctx.last[k]; });
+    toast('已帶入上次分數，微調有變化的即可');
+  }
+
+  /* ---------- 導覽 ---------- */
+  var stepOrder = ['kpi', 'body'];
+  var cur = 'kpi';
+  $('#navNext').onclick = function () {
+    if (cur === 'kpi') { cur = 'body'; show('body'); }
+    else if (cur === 'body') { submit(); }
+  };
+  $('#navPrev').onclick = function () {
+    if (cur === 'body') { cur = 'kpi'; show('kpi'); }
+    else if (cur === 'kpi') { show('who'); }
+  };
+
+  // 心情
+  var mood = 0;
+  TP.$all('#moodRow button').forEach(function (b) {
+    b.onclick = function () {
+      mood = Number(b.dataset.m);
+      TP.$all('#moodRow button').forEach(function (x) { x.classList.remove('sel'); });
+      b.classList.add('sel');
+    };
+  });
+
+  /* ---------- 送出 ---------- */
+  function collectScores() {
+    var s = {};
+    TP.KPI_DIMENSIONS.forEach(function (dim) {
+      dim.items.forEach(function (it) { s[it[0]] = Number($('#kpi_' + it[0]).value); });
+    });
+    return s;
+  }
+
+  function buildAdvice(scores, payload) {
+    var tips = [];
+    var phys = ['pio_sleep', 'pio_spirit', 'pio_soreness', 'pio_injury', 'pio_recovery'];
+    var recovery = phys.reduce(function (a, k) { return a + Number(scores[k] || 0); }, 0) / phys.length;
+    if (recovery <= 2.5) tips.push('恢復偏低：今晚提早就寢、補充蛋白質與水分，明日訓練量先降一階。');
+    else if (recovery <= 3.5) tips.push('恢復普通：訓練後 30 分鐘內補碳水＋蛋白，做足收操伸展。');
+    else tips.push('恢復良好：維持目前作息，訓練後正常補給即可。');
+
+    if (Number(scores.pio_injury) <= 2) tips.push('⚠️ 傷勢安全度偏低，請主動告知教練、必要時就醫評估，勿硬撐。');
+    if (Number(scores.pio_soreness) <= 2) tips.push('肌肉痠痛明顯：加強滾筒放鬆與輕度活動，避免連續高強度。');
+    if (!payload.breakfast) tips.push('今天沒記錄早餐：訓練選手務必吃早餐，建議優質碳水＋蛋白質。');
+    if (payload.lateNightSnack) tips.push('有吃宵夜：盡量避免高油高糖宵夜，影響睡眠與體重控制。');
+    if (payload.targetWeightKg && payload.weightKg) {
+      var gap = Number(payload.weightKg) - Number(payload.targetWeightKg);
+      if (gap > 1) tips.push('距離目標體重還差 ' + gap.toFixed(1) + ' kg：控制精緻糖與油炸，搭配有氧。');
+      else if (gap < -1) tips.push('體重低於目標 ' + (-gap).toFixed(1) + ' kg：注意熱量與蛋白質攝取，避免掉肌肉。');
+    }
+    return tips;
+  }
+
+  async function submit() {
+    var scores = collectScores();
+    var payload = {
+      t: shareToken, athleteId: ctx.athleteId, date: new Date().toISOString().slice(0, 10),
+      sessionType: $('#sessionType').value, scores: scores,
+      heightCm: $('#heightCm').value, weightKg: $('#weightKg').value, targetWeightKg: $('#targetWeightKg').value,
+      breakfast: $('#breakfast').value, lunch: $('#lunch').value, dinner: $('#dinner').value,
+      snacksDrinks: $('#snacksDrinks').value, waterIntake: $('#waterIntake').value, lateNightSnack: $('#lateNightSnack').value,
+      moodIndex: mood, moodReason: $('#moodReason').value, gratitude: $('#gratitude').value, reflection: $('#reflection').value
+    };
+    var tips = buildAdvice(scores, payload);
+    payload.nutritionAdvice = tips.join('\n');
+
+    $('#navNext').textContent = '送出中…'; $('#navNext').disabled = true;
+    var r = await TP.call('submitRecord', payload);
+    $('#navNext').textContent = '下一步 →'; $('#navNext').disabled = false;
+    if (!r.ok) { toast(r.error || '送出失敗', true); return; }
+
+    ctx.result = r;
+    showResult(r, payload, tips);
+    show('result');
+  }
+
+  function showResult(r, payload, tips) {
+    var total = Number(r.totalScore) || 0;
+    var light = r.status || TP.lightOf(total);
+    $('#resScore').textContent = total.toFixed(1);
+    $('#resScore').style.color = light === 'green' ? 'var(--green)' : (light === 'yellow' ? 'var(--yellow)' : 'var(--red)');
+    $('#resLight').innerHTML = '<span class="pill ' + light + '">' + TP.lightText(light) + '</span>';
+    $('#resDims').innerHTML = TP.KPI_DIMENSIONS.map(function (d) {
+      return esc(d.name) + ' ' + (Number(r.dimAvg[d.key]) || 0).toFixed(1);
+    }).join('　');
+    $('#resAdvice').innerHTML = tips.map(function (t) { return '• ' + esc(t); }).join('<br>');
+
+    var studentText = '【' + ctx.name + ' 今日回報】\n總分 ' + total.toFixed(1) + '（' + TP.lightText(light) + '）\n' +
+      TP.KPI_DIMENSIONS.map(function (d) { return d.name + ' ' + (Number(r.dimAvg[d.key]) || 0).toFixed(1); }).join('・') +
+      '\n建議：' + tips[0];
+    var parentText = '家長您好，' + ctx.name + ' 今日訓練狀態回報：\n總分 ' + total.toFixed(1) + '（' + TP.lightText(light) + '）\n' +
+      (light === 'red' ? '今日狀態偏低，再請多關心孩子的休息與飲食 🙏\n' : '狀態穩定，感謝協助孩子養成回報習慣 🙏\n') +
+      '建議：' + tips[0];
+
+    $('#btnCopyStudent').onclick = function () { TP.copy(studentText); };
+    $('#btnCopyParent').onclick = function () { TP.copy(parentText); };
+  }
+
+  $('#btnAgain').onclick = function () { location.reload(); };
+
+  boot();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TeamPro 管理者後台</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .login-wrap { max-width: 380px; margin: 80px auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 600; }
+  .table-wrap { overflow-x: auto; }
+  .actions { display:flex; gap:6px; }
+  td input, td select { padding: 6px 8px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<!-- 登入 -->
+<div id="loginView" class="container hidden">
+  <div class="topbar"><div class="logo">🛡️ TeamPro <span class="mark">管理者後台</span></div>
+    <a class="btn btn-ghost btn-sm" href="index.html">回首頁</a></div>
+  <div class="login-wrap card">
+    <h2 style="margin-top:0;">管理者登入</h2>
+    <label>後端網址（GAS /exec）</label><input id="cfgUrl" placeholder="https://script.google.com/.../exec">
+    <label>管理者密碼</label><input id="adminPw" type="password">
+    <button class="btn btn-primary btn-block" id="btnLogin" style="margin-top:14px;">登入</button>
+    <p class="muted" style="font-size:13px;margin-top:10px;">密碼於後端 setAdminPassword() 設定。</p>
+  </div>
+</div>
+
+<!-- 主後台 -->
+<div id="adminView" class="container hidden">
+  <div class="topbar"><div class="logo">🛡️ TeamPro <span class="mark">管理者後台</span></div>
+    <button class="btn btn-ghost btn-sm" id="btnLock">鎖定</button></div>
+
+  <div class="grid grid-4" style="margin-bottom:18px;">
+    <div class="stat"><div class="num" id="stTotal">0</div><div class="lbl">教練總數</div></div>
+    <div class="stat"><div class="num" id="stActive">0</div><div class="lbl">啟用中</div></div>
+    <div class="stat"><div class="num" id="stMrr">$0</div><div class="lbl">估計月營收</div></div>
+    <div class="stat"><div class="num" id="stExpiring" style="color:var(--yellow)">0</div><div class="lbl">7天內到期</div></div>
+  </div>
+
+  <div class="card" id="expiringCard" style="display:none;">
+    <h3 style="margin-top:0;">⏰ 即將到期（提醒續約）</h3>
+    <div id="expiringList"></div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <input id="searchQ" placeholder="搜尋教練 email 或姓名">
+      <button class="btn" id="btnSearch">搜尋</button>
+      <button class="btn" id="btnReload">全部</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>教練</th><th>方案</th><th>選手</th><th>到期日</th><th>狀態</th><th>最後登入</th><th>操作</th>
+        </tr></thead>
+        <tbody id="coachRows"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script src="api.js"></script>
+<script>
+(function () {
+  var $ = TP.$, esc = TP.esc, toast = TP.toast;
+  var pw = '';
+  var PLAN_OPTS = [['free', '免費版'], ['coach', '教練版'], ['team', '團隊版'], ['pro', '專業版']];
+
+  function show(v) { $('#loginView').classList.toggle('hidden', v !== 'login'); $('#adminView').classList.toggle('hidden', v !== 'admin'); }
+
+  function boot() { $('#cfgUrl').value = TP.getUrl(); show('login'); }
+
+  $('#btnLogin').onclick = async function () {
+    TP.setUrl($('#cfgUrl').value);
+    pw = $('#adminPw').value;
+    if (!pw) { toast('請輸入密碼', true); return; }
+    var r = await TP.call('adminStats', { adminPassword: pw });
+    if (!r.ok) { toast(r.error || '登入失敗', true); return; }
+    show('admin'); renderStats(r); loadCoaches();
+  };
+
+  $('#btnLock').onclick = function () { pw = ''; show('login'); };
+
+  function renderStats(r) {
+    $('#stTotal').textContent = r.totalCoaches;
+    $('#stActive').textContent = r.activeCoaches;
+    $('#stMrr').textContent = '$' + (r.mrr || 0).toLocaleString();
+    $('#stExpiring').textContent = (r.expiringSoon || []).length;
+    if ((r.expiringSoon || []).length) {
+      $('#expiringCard').style.display = '';
+      $('#expiringList').innerHTML = r.expiringSoon.map(function (e) {
+        return '<div class="row"><span>' + esc(e.name) + ' <span class="muted">' + esc(e.email) + '</span></span>' +
+          '<span class="pill yellow">' + esc(String(e.planExpiry).slice(0, 10)) + '</span></div>';
+      }).join('');
+    } else { $('#expiringCard').style.display = 'none'; }
+  }
+
+  async function refreshStats() { var r = await TP.call('adminStats', { adminPassword: pw }); if (r.ok) renderStats(r); }
+
+  $('#btnSearch').onclick = function () { loadCoaches($('#searchQ').value.trim()); };
+  $('#btnReload').onclick = function () { $('#searchQ').value = ''; loadCoaches(); };
+
+  async function loadCoaches(q) {
+    var r = await TP.call('adminListCoaches', { adminPassword: pw, q: q || '' });
+    if (!r.ok) { toast(r.error, true); return; }
+    var tbody = $('#coachRows');
+    if (!r.coaches.length) { tbody.innerHTML = '<tr><td colspan="7" class="muted">查無教練</td></tr>'; return; }
+    tbody.innerHTML = r.coaches.map(function (c) {
+      var planSel = '<select data-plan="' + c.coachId + '">' + PLAN_OPTS.map(function (p) {
+        return '<option value="' + p[0] + '"' + (p[0] === c.plan ? ' selected' : '') + '>' + p[1] + '</option>';
+      }).join('') + '</select>';
+      var exp = c.planExpiry ? String(c.planExpiry).slice(0, 10) : '';
+      return '<tr>' +
+        '<td><b>' + esc(c.name) + '</b><br><span class="muted">' + esc(c.email) + '</span></td>' +
+        '<td>' + planSel + (c.expired ? ' <span class="pill red">已到期</span>' : '') + '</td>' +
+        '<td>' + c.activeAthletes + ' / ' + c.max + '</td>' +
+        '<td><input type="date" data-exp="' + c.coachId + '" value="' + exp + '" style="width:140px;"></td>' +
+        '<td>' + (c.status === 'disabled'
+            ? '<span class="pill red">已停用</span>' : '<span class="pill green">啟用</span>') + '</td>' +
+        '<td class="muted">' + (c.lastLogin ? String(c.lastLogin).slice(0, 10) : '—') + '</td>' +
+        '<td class="actions">' +
+          '<button class="btn btn-sm" data-save="' + c.coachId + '">儲存</button>' +
+          '<button class="btn btn-sm ' + (c.status === 'disabled' ? '' : 'btn-danger') + '" data-status="' + c.coachId +
+            '" data-cur="' + c.status + '">' + (c.status === 'disabled' ? '啟用' : '停用') + '</button>' +
+        '</td></tr>';
+    }).join('');
+
+    TP.$all('[data-save]', tbody).forEach(function (b) {
+      b.onclick = async function () {
+        var id = b.dataset.save;
+        var plan = $('[data-plan="' + id + '"]').value;
+        var exp = $('[data-exp="' + id + '"]').value;
+        var rr = await TP.call('adminUpdatePlan', { adminPassword: pw, coachId: id, plan: plan, planExpiry: exp });
+        if (rr.ok) { toast('已更新方案'); refreshStats(); } else { toast(rr.error, true); }
+      };
+    });
+    TP.$all('[data-status]', tbody).forEach(function (b) {
+      b.onclick = async function () {
+        var id = b.dataset.status, cur = b.dataset.cur;
+        var next = cur === 'disabled' ? 'active' : 'disabled';
+        if (next === 'disabled' && !confirm('停用後該教練無法登入、所有團隊連結失效。確定？')) return;
+        var rr = await TP.call('adminSetStatus', { adminPassword: pw, coachId: id, status: next });
+        if (rr.ok) { toast('已更新狀態'); loadCoaches($('#searchQ').value.trim()); refreshStats(); } else { toast(rr.error, true); }
+      };
+    });
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>

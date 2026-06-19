@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TeamPro 教練後台</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .auth-wrap { max-width: 420px; margin: 60px auto; }
+  .auth-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .auth-tabs button { flex: 1; }
+  .plan-banner { display:flex; align-items:center; justify-content:space-between; gap:12px;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; flex-wrap:wrap; }
+  .quota-bar { height: 8px; background: var(--panel-2); border-radius: 999px; overflow: hidden; margin-top: 6px; }
+  .quota-bar > i { display:block; height:100%; background: var(--brand); }
+  .quota-bar > i.warn { background: var(--yellow); }
+  .quota-bar > i.full { background: var(--red); }
+  .link-box { display:flex; gap:8px; }
+  .link-box input { font-size: 13px; }
+  .upgrade { border:1px solid var(--yellow); background: rgba(245,158,11,.08); border-radius:12px; padding:14px; }
+</style>
+</head>
+<body>
+
+<!-- ===== 登入 / 註冊 ===== -->
+<div id="authView" class="container hidden">
+  <div class="topbar"><div class="logo">🥋 TeamPro <span class="mark">教練戰情室</span></div>
+    <a class="btn btn-ghost btn-sm" href="index.html">回首頁</a></div>
+  <div class="auth-wrap card">
+    <div class="auth-tabs">
+      <button class="btn" id="tabLogin">登入</button>
+      <button class="btn" id="tabSignup">註冊</button>
+    </div>
+    <div id="signupFields" class="hidden">
+      <label>教練姓名</label><input id="suName" placeholder="王教練">
+    </div>
+    <label>Email</label><input id="auEmail" type="email" placeholder="coach@example.com">
+    <label>密碼</label><input id="auPassword" type="password" placeholder="至少 6 碼">
+    <div style="margin-top:16px;">
+      <button class="btn btn-primary btn-block" id="authSubmit">登入</button>
+    </div>
+    <p class="muted" id="authHint" style="font-size:13px;margin-top:12px;"></p>
+    <hr style="border-color:var(--line);margin:18px 0;">
+    <details>
+      <summary class="muted" style="cursor:pointer;font-size:13px;">⚙️ 系統設定（後端網址）</summary>
+      <label>GAS Web App /exec 網址</label>
+      <input id="cfgUrl" placeholder="https://script.google.com/macros/s/XXXX/exec">
+      <button class="btn btn-sm" id="cfgSave" style="margin-top:8px;">儲存網址</button>
+    </details>
+  </div>
+</div>
+
+<!-- ===== 主後台 ===== -->
+<div id="appView" class="container hidden">
+  <div class="topbar">
+    <div class="logo">🥋 TeamPro <span class="mark">教練戰情室</span></div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <span class="muted" id="coachName" style="font-size:14px;"></span>
+      <button class="btn btn-ghost btn-sm" id="btnLogout">登出</button>
+    </div>
+  </div>
+
+  <div class="plan-banner">
+    <div>
+      <b id="planLabel">免費版</b>
+      <span class="muted" id="planQuota"> · 選手 0 / 5</span>
+      <div class="quota-bar"><i id="quotaFill" style="width:0%"></i></div>
+    </div>
+    <div id="planExpiryNote" class="muted" style="font-size:13px;"></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="warroom">📊 今日戰情室</button>
+    <button class="tab-btn" data-tab="athletes">🧑‍🤝‍🧑 選手管理</button>
+    <button class="tab-btn" data-tab="teams">🔗 團隊與連結</button>
+    <button class="tab-btn" data-tab="settings">⚙️ 設定</button>
+  </div>
+
+  <!-- 戰情室 -->
+  <section id="tab-warroom">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
+      <select id="warTeam" style="max-width:220px;"></select>
+      <input id="warDate" type="date" style="max-width:170px;">
+      <button class="btn btn-sm" id="warRefresh">重新整理</button>
+    </div>
+    <div class="grid grid-4" style="margin-bottom:16px;">
+      <div class="stat"><div class="num" id="stCompletion">0%</div><div class="lbl">今日完成率</div></div>
+      <div class="stat"><div class="num" id="stGreen" style="color:var(--green)">0</div><div class="lbl">🟢 綠燈</div></div>
+      <div class="stat"><div class="num" id="stYellow" style="color:var(--yellow)">0</div><div class="lbl">🟡 黃燈</div></div>
+      <div class="stat"><div class="num" id="stRed" style="color:var(--red)">0</div><div class="lbl">🔴 紅燈</div></div>
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <h3 style="margin:0;">❗ 今日未繳 <span id="missCount" class="muted"></span></h3>
+          <button class="btn btn-sm" id="btnRemind">📋 複製催繳 LINE</button>
+        </div>
+        <div id="missList" style="margin-top:10px;"></div>
+      </div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <h3 style="margin:0;">✅ 已繳交</h3>
+          <button class="btn btn-sm" id="btnParentNotify">👨‍👩‍👧 家長通知文字</button>
+        </div>
+        <div id="doneList" style="margin-top:10px;"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 選手管理 -->
+  <section id="tab-athletes" class="hidden">
+    <div class="card">
+      <h3 style="margin-top:0;">新增選手</h3>
+      <div id="quotaWarn"></div>
+      <div class="grid grid-4">
+        <div><label>姓名</label><input id="naName" placeholder="選手姓名"></div>
+        <div><label>所屬團隊</label><select id="naTeam"></select></div>
+        <div><label>年級班級（選填）</label><input id="naGrade" placeholder="八年級"></div>
+        <div style="display:flex;align-items:flex-end;"><button class="btn btn-primary btn-block" id="btnAddAthlete">＋ 新增</button></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0;">選手名單</h3>
+      <div id="athleteList"></div>
+    </div>
+  </section>
+
+  <!-- 團隊與連結 -->
+  <section id="tab-teams" class="hidden">
+    <div class="card">
+      <h3 style="margin-top:0;">建立團隊</h3>
+      <div class="grid grid-3">
+        <div><label>團隊名稱</label><input id="ntName" placeholder="例：跆拳道體育班 A"></div>
+        <div><label>運動項目</label><input id="ntSport" value="跆拳道"></div>
+        <div style="display:flex;align-items:flex-end;"><button class="btn btn-primary btn-block" id="btnCreateTeam">＋ 建立團隊</button></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0;">我的團隊與填寫連結</h3>
+      <div id="teamList"></div>
+    </div>
+  </section>
+
+  <!-- 設定 -->
+  <section id="tab-settings" class="hidden">
+    <div class="card">
+      <h3 style="margin-top:0;">系統設定</h3>
+      <label>後端網址（GAS /exec）</label>
+      <div class="link-box"><input id="setUrl"><button class="btn" id="setUrlSave">儲存</button></div>
+      <p class="muted" style="font-size:13px;">升級付費方案請與我們聯絡，由管理者於後台手動開通。</p>
+    </div>
+  </section>
+</div>
+
+<script src="api.js"></script>
+<script>
+(function () {
+  var $ = TP.$, esc = TP.esc, toast = TP.toast;
+  var authView = $('#authView'), appView = $('#appView');
+  var mode = 'login';
+  var state = { coach: null, teams: [], athletes: [] };
+  var params = new URLSearchParams(location.search);
+
+  /* ---------- 啟動 ---------- */
+  function boot() {
+    if (!TP.getUrl()) {
+      // 沒設網址，但允許進登入頁去填
+    }
+    if (params.get('signup') === '1') mode = 'signup';
+    if (params.get('demo') === '1') { mode = 'signup'; }
+    if (TP.getToken()) {
+      TP.callAuth('me').then(function (r) {
+        if (r.ok) { state.coach = r.coach; showApp(); }
+        else { showAuth(); }
+      });
+    } else { showAuth(); }
+  }
+
+  function showAuth() {
+    authView.classList.remove('hidden'); appView.classList.add('hidden');
+    $('#cfgUrl').value = TP.getUrl();
+    setMode(mode);
+  }
+  function setMode(m) {
+    mode = m;
+    $('#tabLogin').className = 'btn' + (m === 'login' ? ' btn-primary' : '');
+    $('#tabSignup').className = 'btn' + (m === 'signup' ? ' btn-primary' : '');
+    $('#signupFields').classList.toggle('hidden', m !== 'signup');
+    $('#authSubmit').textContent = (m === 'signup') ? '免費註冊' : '登入';
+    $('#authHint').textContent = (m === 'signup')
+      ? '註冊即免費開通，自動附一個示範團隊讓你立刻上手。'
+      : '';
+  }
+
+  $('#tabLogin').onclick = function () { setMode('login'); };
+  $('#tabSignup').onclick = function () { setMode('signup'); };
+  $('#cfgSave').onclick = function () { TP.setUrl($('#cfgUrl').value); toast('已儲存後端網址'); };
+
+  $('#authSubmit').onclick = async function () {
+    if (!TP.getUrl()) { toast('請先在下方系統設定貼上後端網址', true); return; }
+    var email = $('#auEmail').value.trim(), pw = $('#auPassword').value;
+    if (!email || !pw) { toast('請輸入 email 與密碼', true); return; }
+    var r;
+    if (mode === 'signup') {
+      var name = $('#suName').value.trim();
+      if (!name) { toast('請輸入教練姓名', true); return; }
+      r = await TP.call('register', { email: email, password: pw, name: name });
+    } else {
+      r = await TP.call('login', { email: email, password: pw });
+    }
+    if (!r.ok) { toast(r.error || '失敗', true); return; }
+    TP.setToken(r.token); state.coach = r.coach;
+    toast(mode === 'signup' ? '註冊成功，歡迎！' : '登入成功');
+    showApp();
+  };
+
+  /* ---------- 主後台 ---------- */
+  function showApp() {
+    authView.classList.add('hidden'); appView.classList.remove('hidden');
+    $('#coachName').textContent = state.coach.name + '（' + state.coach.email + '）';
+    $('#setUrl').value = TP.getUrl();
+    renderPlan();
+    $('#warDate').value = new Date().toISOString().slice(0, 10);
+    loadTeams().then(function () { loadAthletes(); loadWarroom(); });
+  }
+
+  function renderPlan() {
+    var c = state.coach;
+    $('#planLabel').textContent = c.planName + (c.expired ? '（已到期，暫以免費版限制）' : '');
+    $('#planQuota').textContent = ' · 選手 ' + c.activeAthletes + ' / ' + c.maxAthletes;
+    var pct = Math.min(100, Math.round(c.activeAthletes / c.maxAthletes * 100));
+    var fill = $('#quotaFill'); fill.style.width = pct + '%';
+    fill.className = pct >= 100 ? 'full' : (pct >= 80 ? 'warn' : '');
+    $('#planExpiryNote').textContent = c.planExpiry ? ('到期日：' + String(c.planExpiry).slice(0, 10)) : '';
+  }
+
+  async function refreshMe() {
+    var r = await TP.callAuth('me'); if (r.ok) { state.coach = r.coach; renderPlan(); }
+  }
+
+  $('#btnLogout').onclick = async function () { await TP.callAuth('logout'); TP.clearToken(); location.reload(); };
+
+  // tabs
+  TP.$all('.tab-btn').forEach(function (b) {
+    b.onclick = function () {
+      TP.$all('.tab-btn').forEach(function (x) { x.classList.remove('active'); });
+      b.classList.add('active');
+      ['warroom', 'athletes', 'teams', 'settings'].forEach(function (t) {
+        $('#tab-' + t).classList.toggle('hidden', t !== b.dataset.tab);
+      });
+    };
+  });
+
+  /* ---------- 團隊 ---------- */
+  async function loadTeams() {
+    var r = await TP.callAuth('listTeams');
+    state.teams = (r.ok && r.teams) || [];
+    var opts = '<option value="">全部團隊</option>' + state.teams.map(function (t) {
+      return '<option value="' + t.teamId + '">' + esc(t.teamName) + '</option>';
+    }).join('');
+    $('#warTeam').innerHTML = opts;
+    $('#naTeam').innerHTML = state.teams.length
+      ? state.teams.map(function (t) { return '<option value="' + t.teamId + '">' + esc(t.teamName) + '</option>'; }).join('')
+      : '<option value="">（請先建立團隊）</option>';
+    renderTeams();
+  }
+
+  function shareUrl(token) {
+    var base = location.href.replace(/app\.html.*$/, 'join.html') + '?t=' + token;
+    // 帶上後端網址，選手開連結即可用，免設定（後端網址本來就是公開的）
+    var api = TP.getUrl();
+    return api ? (base + '&api=' + encodeURIComponent(api)) : base;
+  }
+
+  function renderTeams() {
+    var box = $('#teamList');
+    if (!state.teams.length) { box.innerHTML = '<p class="muted">尚無團隊，先建立一個吧。</p>'; return; }
+    box.innerHTML = state.teams.map(function (t) {
+      var url = shareUrl(t.shareToken);
+      return '<div class="row" style="flex-wrap:wrap;">' +
+        '<div><b>' + esc(t.teamName) + '</b> <span class="muted">· ' + esc(t.sport) + '</span></div>' +
+        '<div class="link-box" style="flex:1;min-width:280px;">' +
+          '<input readonly value="' + esc(url) + '">' +
+          '<button class="btn btn-sm" data-copy="' + esc(url) + '">複製</button>' +
+          '<button class="btn btn-sm btn-danger" data-reset="' + t.teamId + '">重設連結</button>' +
+        '</div></div>';
+    }).join('');
+    TP.$all('[data-copy]', box).forEach(function (b) { b.onclick = function () { TP.copy(b.dataset.copy); }; });
+    TP.$all('[data-reset]', box).forEach(function (b) {
+      b.onclick = async function () {
+        if (!confirm('重設後舊連結立即失效，需重新分享給選手。確定？')) return;
+        var r = await TP.callAuth('resetShareToken', { teamId: b.dataset.reset });
+        if (r.ok) { toast('連結已重設'); loadTeams(); } else { toast(r.error, true); }
+      };
+    });
+  }
+
+  $('#btnCreateTeam').onclick = async function () {
+    var name = $('#ntName').value.trim();
+    if (!name) { toast('請輸入團隊名稱', true); return; }
+    var r = await TP.callAuth('createTeam', { teamName: name, sport: $('#ntSport').value.trim() });
+    if (r.ok) { $('#ntName').value = ''; toast('團隊已建立'); loadTeams(); } else { toast(r.error, true); }
+  };
+
+  /* ---------- 選手 ---------- */
+  async function loadAthletes() {
+    var r = await TP.callAuth('listAthletes');
+    state.athletes = (r.ok && r.athletes) || [];
+    renderAthletes();
+    renderQuotaWarn();
+  }
+
+  function renderQuotaWarn() {
+    var c = state.coach;
+    var box = $('#quotaWarn');
+    if (c.activeAthletes >= c.maxAthletes) {
+      box.innerHTML = '<div class="upgrade">⚠️ 已達 <b>' + esc(c.planName) + '</b> 上限（' + c.maxAthletes +
+        ' 人）。升級方案即可新增更多選手，請與我們聯絡由管理者開通。</div>';
+    } else { box.innerHTML = ''; }
+  }
+
+  function renderAthletes() {
+    var box = $('#athleteList');
+    if (!state.athletes.length) { box.innerHTML = '<p class="muted">尚無選手。</p>'; return; }
+    var teamName = {}; state.teams.forEach(function (t) { teamName[t.teamId] = t.teamName; });
+    box.innerHTML = state.athletes.map(function (a) {
+      var active = String(a.active) !== 'false' && a.active !== false;
+      return '<div class="row">' +
+        '<div><b>' + esc(a.name) + '</b> <span class="muted">· ' + esc(teamName[a.teamId] || '未分隊') +
+          (a.gradeClass ? ' · ' + esc(a.gradeClass) : '') + '</span>' +
+          (active ? '' : ' <span class="pill red">已停用</span>') + '</div>' +
+        '<button class="btn btn-sm" data-toggle="' + a.athleteId + '" data-active="' + active + '">' +
+          (active ? '停用' : '恢復') + '</button>' +
+        '</div>';
+    }).join('');
+    TP.$all('[data-toggle]', box).forEach(function (b) {
+      b.onclick = async function () {
+        var want = b.dataset.active === 'false'; // 目前停用→要恢復
+        var r = await TP.callAuth('setAthleteActive', { athleteId: b.dataset.toggle, active: want });
+        if (r.ok) { toast('已更新'); await refreshMe(); loadAthletes(); }
+        else { toast(r.message || r.error, true); }
+      };
+    });
+  }
+
+  $('#btnAddAthlete').onclick = async function () {
+    var name = $('#naName').value.trim();
+    if (!name) { toast('請輸入選手姓名', true); return; }
+    var r = await TP.callAuth('addAthlete', {
+      name: name, teamId: $('#naTeam').value, gradeClass: $('#naGrade').value.trim()
+    });
+    if (r.ok) {
+      $('#naName').value = ''; $('#naGrade').value = '';
+      toast('已新增選手'); await refreshMe(); loadAthletes();
+    } else if (r.error === 'plan_limit_reached') {
+      toast(r.message || '已達方案上限', true); await refreshMe(); renderQuotaWarn();
+    } else { toast(r.error, true); }
+  };
+
+  /* ---------- 戰情室 ---------- */
+  $('#warRefresh').onclick = loadWarroom;
+  $('#warTeam').onchange = loadWarroom;
+  $('#warDate').onchange = loadWarroom;
+
+  var lastWar = null;
+  async function loadWarroom() {
+    var r = await TP.callAuth('warroom', { teamId: $('#warTeam').value, date: $('#warDate').value });
+    if (!r.ok) { toast(r.error, true); return; }
+    lastWar = r;
+    $('#stCompletion').textContent = r.completionRate + '%';
+    $('#stGreen').textContent = r.lights.green || 0;
+    $('#stYellow').textContent = r.lights.yellow || 0;
+    $('#stRed').textContent = r.lights.red || 0;
+    $('#missCount').textContent = '（' + r.missingCount + '）';
+
+    $('#missList').innerHTML = r.missing.length
+      ? r.missing.map(function (m) { return '<div class="row"><span>' + esc(m.name) + '</span><span class="muted">未繳</span></div>'; }).join('')
+      : '<p class="muted">太棒了，全員都繳交了 🎉</p>';
+
+    $('#doneList').innerHTML = r.submitted.length
+      ? r.submitted.sort(function (a, b) { return (a.totalScore || 0) - (b.totalScore || 0); }).map(function (s) {
+          var l = s.status || TP.lightOf(s.totalScore);
+          return '<div class="row"><span><span class="dot ' + l + '"></span> ' + esc(s.name) + '</span>' +
+            '<span class="pill ' + l + '">' + (Number(s.totalScore) || 0).toFixed(1) + '</span></div>';
+        }).join('')
+      : '<p class="muted">今天還沒有人繳交。</p>';
+  }
+
+  $('#btnRemind').onclick = function () {
+    if (!lastWar || !lastWar.missing.length) { toast('目前沒有未繳的選手'); return; }
+    var names = lastWar.missing.map(function (m) { return m.name; }).join('、');
+    var text = '【今日訓練回報提醒】\n' + names + ' 還沒填寫今天的狀態回報，\n請記得在睡前完成喔！💪\n— ' + state.coach.name + ' 教練';
+    TP.copy(text);
+  };
+
+  $('#btnParentNotify').onclick = function () {
+    if (!lastWar) { toast('請先載入戰情室'); return; }
+    var d = $('#warDate').value;
+    var reds = lastWar.submitted.filter(function (s) { return (s.status || TP.lightOf(s.totalScore)) === 'red'; });
+    var text = '【' + d + ' 訓練狀態通知】\n今日已回報 ' + lastWar.submittedCount + '/' + lastWar.total + ' 人。\n';
+    if (reds.length) text += '需要多關心：' + reds.map(function (s) { return s.name; }).join('、') + '\n';
+    text += '感謝家長協助孩子養成每日回報習慣 🙏\n— ' + state.coach.name + ' 教練';
+    TP.copy(text);
+  };
+
+  /* ---------- 設定 ---------- */
+  $('#setUrlSave').onclick = function () { TP.setUrl($('#setUrl').value); toast('已儲存，重新整理生效'); };
+
+  boot();
+})();
+</script>
+</body>
+</html>
