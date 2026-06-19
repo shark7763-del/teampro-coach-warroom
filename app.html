@@ -25,6 +25,17 @@
   .ai-modules button:hover { border-color:var(--brand); }
   .clickable { cursor:pointer; }
   .clickable:hover { background:var(--panel-2); border-radius:8px; }
+  .today-steps { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:0 0 16px; }
+  .today-step { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; }
+  .today-step b { display:block; margin-bottom:5px; }
+  .today-step .step-no { color:var(--brand); font-size:12px; font-weight:800; letter-spacing:.08em; }
+  .priority-card h4 { margin:0 0 8px; }
+  .priority-names { color:var(--muted); min-height:48px; }
+  .trial-card { border-color:var(--brand); background:rgba(34,197,94,.07); }
+  .trial-stats { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin:14px 0; }
+  .trial-stats div { background:var(--panel-2); border-radius:10px; padding:12px; text-align:center; }
+  .trial-stats b { display:block; font-size:23px; }
+  @media (max-width:760px) { .today-steps,.trial-stats { grid-template-columns:1fr; } }
 
   /* ===== 成果報告（淺色，印出好看、省墨）===== */
   .report-doc { background:#fff; color:#1a2230; border-radius:14px; padding:28px; max-width:820px; margin:0 auto;
@@ -108,45 +119,71 @@
   </div>
 
   <div class="tabs">
-    <button class="tab-btn active" data-tab="warroom">📊 今日戰情室</button>
-    <button class="tab-btn" data-tab="athletes">🧑‍🤝‍🧑 選手管理</button>
-    <button class="tab-btn" data-tab="teams">🔗 團隊與連結</button>
-    <button class="tab-btn" data-tab="report">📄 成果報告</button>
-    <button class="tab-btn" data-tab="settings">⚙️ 設定</button>
+    <button class="tab-btn active" data-tab="warroom">今日戰情室</button>
+    <button class="tab-btn" data-tab="athletes">選手管理</button>
+    <button class="tab-btn" data-tab="teams">團隊與連結</button>
+    <button class="tab-btn" data-tab="report">成果報告</button>
+    <button class="tab-btn" data-tab="settings">設定</button>
   </div>
 
   <!-- 戰情室 -->
   <section id="tab-warroom">
+    <div style="margin-bottom:14px;">
+      <h2 style="margin:0 0 4px;">今天教練只要做 3 件事</h2>
+      <p class="muted" style="margin:0;">3 分鐘掌握誰需要關心、誰還沒填，以及要傳什麼給家長。</p>
+    </div>
+    <div class="today-steps">
+      <div class="today-step"><span class="step-no">第一件事</span><b>先關心紅燈選手</b><span class="muted" id="taskRed">等待載入</span></div>
+      <div class="today-step"><span class="step-no">第二件事</span><b>催繳未填選手</b><span class="muted" id="taskMissing">等待載入</span></div>
+      <div class="today-step"><span class="step-no">第三件事</span><b>複製家長通知</b><button class="btn btn-sm" id="btnParentNotify" style="margin-top:5px;">複製家長通知</button></div>
+    </div>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
       <select id="warTeam" style="max-width:220px;"></select>
       <input id="warDate" type="date" style="max-width:170px;">
       <button class="btn btn-sm" id="warRefresh">重新整理</button>
     </div>
-    <div class="grid grid-4" style="margin-bottom:16px;">
+    <div class="grid grid-3" style="margin-bottom:16px;">
       <div class="stat"><div class="num" id="stCompletion">0%</div><div class="lbl">今日完成率</div></div>
-      <div class="stat"><div class="num" id="stGreen" style="color:var(--green)">0</div><div class="lbl">🟢 綠燈</div></div>
-      <div class="stat"><div class="num" id="stYellow" style="color:var(--yellow)">0</div><div class="lbl">🟡 黃燈</div></div>
-      <div class="stat"><div class="num" id="stRed" style="color:var(--red)">0</div><div class="lbl">🔴 紅燈</div></div>
+      <div class="stat"><div class="num" id="stSubmitted">0</div><div class="lbl">已繳</div></div>
+      <div class="stat"><div class="num" id="stMissing">0</div><div class="lbl">未繳</div></div>
+      <div class="stat"><div class="num" id="stGreen" style="color:var(--green)">0</div><div class="lbl">綠燈</div></div>
+      <div class="stat"><div class="num" id="stYellow" style="color:var(--yellow)">0</div><div class="lbl">黃燈</div></div>
+      <div class="stat"><div class="num" id="stRed" style="color:var(--red)">0</div><div class="lbl">紅燈</div></div>
+    </div>
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin-top:0;">今日優先處理名單</h3>
+      <div class="grid grid-4">
+        <div class="priority-card"><h4>紅燈選手</h4><div class="priority-names" id="priorityRed">載入中</div></div>
+        <div class="priority-card"><h4>未繳選手</h4><div class="priority-names" id="priorityMissing">載入中</div></div>
+        <div class="priority-card"><h4>連續下降選手</h4><div class="priority-names" id="priorityDeclining">載入中</div></div>
+        <div class="priority-card"><h4>今日值得鼓勵</h4><div class="priority-names" id="priorityEncouraging">載入中</div></div>
+      </div>
     </div>
     <div class="grid grid-2">
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;">
-          <h3 style="margin:0;">❗ 今日未繳 <span id="missCount" class="muted"></span></h3>
-          <button class="btn btn-sm" id="btnRemind">📋 複製催繳 LINE</button>
+          <h3 style="margin:0;">今日未繳 <span id="missCount" class="muted"></span></h3>
+          <button class="btn btn-sm" id="btnRemind">複製催繳 LINE</button>
         </div>
         <div id="missList" style="margin-top:10px;"></div>
       </div>
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;">
-          <h3 style="margin:0;">✅ 已繳交</h3>
-          <button class="btn btn-sm" id="btnParentNotify">👨‍👩‍👧 家長通知文字</button>
+          <h3 style="margin:0;">已繳交</h3>
+          <span class="muted" style="font-size:13px;">點選選手可寫教練回饋</span>
         </div>
         <div id="doneList" style="margin-top:10px;"></div>
       </div>
     </div>
     <div class="card" id="encourageCard" style="display:none;margin-top:16px;">
-      <h3 style="margin-top:0;">💌 今日隊友鼓勵</h3>
+      <h3 style="margin-top:0;">今日隊友鼓勵</h3>
       <div id="encourageList"></div>
+    </div>
+    <div class="card trial-card hidden" id="trialSummary" style="margin-top:16px;">
+      <h3 style="margin:0;">三天體驗成果報告</h3>
+      <p class="muted" style="margin:5px 0;">這幾天 TeamPro 已經替你整理：</p>
+      <div class="trial-stats" id="trialStats"></div>
+      <div class="upgrade" id="trialUpgrade"></div>
     </div>
   </section>
 
@@ -222,7 +259,7 @@
       <h3 style="margin-top:0;">系統設定</h3>
       <label>後端網址（GAS /exec）</label>
       <div class="link-box"><input id="setUrl"><button class="btn" id="setUrlSave">儲存</button></div>
-      <p class="muted" style="font-size:13px;">升級付費方案請與我們聯絡，由管理者於後台手動開通。</p>
+      <p class="muted" style="font-size:13px;">升級付費方案請填寫 <a href="https://docs.google.com/forms/d/e/1FAIpQLSc2WhGQP1BQhWMgTJFtnR_gznolKA-KDqYVqXzBEfuxZI7OHA/viewform" target="_blank" rel="noopener">TeamPro 升級申請表</a>，確認付款後由管理者開通。</p>
     </div>
   </section>
 </div>
@@ -253,6 +290,11 @@
   var state = { coach: null, teams: [], athletes: [] };
   var params = new URLSearchParams(location.search);
   var DEMO = params.get('demo') === '1';
+  function localToday() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function parentNoticeKey() { return 'teampro_parent_notice_count_' + String((state.coach && (state.coach.coachId || state.coach.email)) || 'guest'); }
 
   /* ---------- 啟動 ---------- */
   function boot() {
@@ -278,7 +320,7 @@
     $('#signupFields').classList.toggle('hidden', m !== 'signup');
     $('#authSubmit').textContent = (m === 'signup') ? '免費註冊' : '登入';
     $('#authHint').textContent = (m === 'signup')
-      ? '註冊即免費開通，自動附一個示範團隊讓你立刻上手。'
+      ? '註冊即免費開通；示範資料使用獨立前端模式，不會寫入你的正式帳號。'
       : '';
   }
 
@@ -310,8 +352,8 @@
     $('#coachName').textContent = state.coach.name + '（' + state.coach.email + '）';
     $('#setUrl').value = TP.getUrl();
     renderPlan();
-    $('#warDate').value = new Date().toISOString().slice(0, 10);
-    loadTeams().then(function () { loadAthletes(); loadWarroom(); });
+    $('#warDate').value = localToday();
+    loadTeams().then(function () { loadAthletes(); loadWarroom(); loadTrialSummary(); });
   }
 
   function renderPlan() {
@@ -362,7 +404,11 @@
   }
 
   function shareUrl(token) {
-    var base = location.href.replace(/app\.html.*$/, 'join.html') + '?t=' + token;
+    var publicBase = 'https://shark7763-del.github.io/teampro-coach-warroom/';
+    var base = location.protocol === 'file:'
+      ? publicBase + 'join.html'
+      : new URL('join.html', location.href).href;
+    base += '?t=' + encodeURIComponent(token);
     // 帶上後端網址，選手開連結即可用，免設定（後端網址本來就是公開的）
     var api = TP.getUrl();
     return api ? (base + '&api=' + encodeURIComponent(api)) : base;
@@ -370,7 +416,7 @@
 
   function renderTeams() {
     var box = $('#teamList');
-    if (!state.teams.length) { box.innerHTML = '<p class="muted">尚無團隊，先建立一個吧。</p>'; return; }
+    if (!state.teams.length) { box.innerHTML = '<p class="muted">目前尚無團隊，請先建立團隊，再分享填寫連結給選手。</p>'; return; }
     box.innerHTML = state.teams.map(function (t) {
       var url = shareUrl(t.shareToken);
       return '<div class="row" style="flex-wrap:wrap;">' +
@@ -437,14 +483,17 @@
     var c = state.coach;
     var box = $('#quotaWarn');
     if (c.activeAthletes >= c.maxAthletes) {
-      box.innerHTML = '<div class="upgrade">⚠️ 已達 <b>' + esc(c.planName) + '</b> 上限（' + c.maxAthletes +
-        ' 人）。升級方案即可新增更多選手，請與我們聯絡由管理者開通。</div>';
+      box.innerHTML = '<div class="upgrade">' + (c.effectivePlan === 'free'
+        ? '你已達免費版 5 位選手上限。升級教練版，每月 299 元，可管理 15 位選手並開啟家長通知、歷史趨勢與成果報告。'
+        : '你已達' + esc(c.planName) + ' ' + c.maxAthletes + ' 位選手上限，請升級方案後再新增。') +
+        ' <a href="https://docs.google.com/forms/d/e/1FAIpQLSc2WhGQP1BQhWMgTJFtnR_gznolKA-KDqYVqXzBEfuxZI7OHA/viewform" target="_blank" rel="noopener">填寫升級申請表</a></div>';
     } else { box.innerHTML = ''; }
+    $('#btnAddAthlete').disabled = c.activeAthletes >= c.maxAthletes;
   }
 
   function renderAthletes() {
     var box = $('#athleteList');
-    if (!state.athletes.length) { box.innerHTML = '<p class="muted">尚無選手。</p>'; return; }
+    if (!state.athletes.length) { box.innerHTML = '<p class="muted">目前尚無選手，請先新增選手或載入示範資料。</p>'; return; }
     var teamName = {}; state.teams.forEach(function (t) { teamName[t.teamId] = t.teamName; });
     box.innerHTML = state.athletes.map(function (a) {
       var active = String(a.active) !== 'false' && a.active !== false;
@@ -469,6 +518,7 @@
 
   $('#btnAddAthlete').onclick = async function () {
     if (DEMO) { demoBlock(); return; }
+    if (state.coach.activeAthletes >= state.coach.maxAthletes) { renderQuotaWarn(); toast('已達方案選手上限', true); return; }
     var name = $('#naName').value.trim();
     if (!name) { toast('請輸入選手姓名', true); return; }
     var teamId = $('#naTeam').value;
@@ -504,14 +554,24 @@
   function renderWarroom(r) {
     lastWar = r;
     $('#stCompletion').textContent = r.completionRate + '%';
+    $('#stSubmitted').textContent = r.submittedCount || 0;
+    $('#stMissing').textContent = r.missingCount || 0;
     $('#stGreen').textContent = r.lights.green || 0;
     $('#stYellow').textContent = r.lights.yellow || 0;
     $('#stRed').textContent = r.lights.red || 0;
     $('#missCount').textContent = '（' + r.missingCount + '）';
+    $('#taskRed').textContent = (r.lights.red || 0) ? (r.lights.red + ' 位需要先關心') : '今天沒有紅燈選手';
+    $('#taskMissing').textContent = r.missingCount ? (r.missingCount + ' 位尚未完成') : '今天全員已完成';
+
+    var priority = r.priority || {};
+    renderPriority('#priorityRed', priority.red || r.submitted.filter(function (s) { return s.status === 'red'; }), '今天沒有紅燈選手');
+    renderPriority('#priorityMissing', priority.missing || r.missing, '今天全員已完成');
+    renderPriority('#priorityDeclining', priority.declining || [], '目前沒有連續下降');
+    renderPriority('#priorityEncouraging', priority.encouraging || [], '完成回報後會自動推薦');
 
     $('#missList').innerHTML = r.missing.length
       ? r.missing.map(function (m) { return '<div class="row"><span>' + esc(m.name) + '</span><span class="muted">未繳</span></div>'; }).join('')
-      : '<p class="muted">太棒了，全員都繳交了 🎉</p>';
+      : '<p class="muted">今天全員都已完成回報。</p>';
 
     $('#doneList').innerHTML = r.submitted.length
       ? r.submitted.sort(function (a, b) { return (a.totalScore || 0) - (b.totalScore || 0); }).map(function (s) {
@@ -520,7 +580,7 @@
             '<span><span class="dot ' + l + '"></span> ' + esc(s.name) + ' <span class="muted" style="font-size:12px;">✍️</span></span>' +
             '<span class="pill ' + l + '">' + (Number(s.totalScore) || 0).toFixed(1) + '</span></div>';
         }).join('')
-      : '<p class="muted">今天還沒有人繳交。</p>';
+      : '<p class="muted">今天尚無回報，請先提醒選手完成填寫。</p>';
     TP.$all('[data-fb]', $('#doneList')).forEach(function (el) {
       el.onclick = function () { openFeedback(el.dataset.fb, el.dataset.name, el.dataset.rec); };
     });
@@ -533,22 +593,58 @@
     }).join('');
   }
 
+  function renderPriority(selector, list, emptyText) {
+    $(selector).innerHTML = list.length
+      ? list.map(function (x) { return '<span class="pill ' + (selector === '#priorityRed' ? 'red' : '') + '" style="margin:2px;">' + esc(x.name) + '</span>'; }).join('')
+      : esc(emptyText);
+  }
+
   $('#btnRemind').onclick = function () {
     if (!lastWar || !lastWar.missing.length) { toast('目前沒有未繳的選手'); return; }
     var names = lastWar.missing.map(function (m) { return m.name; }).join('、');
-    var text = '【今日訓練回報提醒】\n' + names + ' 還沒填寫今天的狀態回報，\n請記得在睡前完成喔！💪\n— ' + state.coach.name + ' 教練';
+    var text = '以下選手今日尚未完成回報：' + names + '，請今天訓練前完成填寫，謝謝。';
     TP.copy(text);
   };
 
   $('#btnParentNotify').onclick = function () {
     if (!lastWar) { toast('請先載入戰情室'); return; }
-    var d = $('#warDate').value;
-    var reds = lastWar.submitted.filter(function (s) { return (s.status || TP.lightOf(s.totalScore)) === 'red'; });
-    var text = '【' + d + ' 訓練狀態通知】\n今日已回報 ' + lastWar.submittedCount + '/' + lastWar.total + ' 人。\n';
-    if (reds.length) text += '需要多關心：' + reds.map(function (s) { return s.name; }).join('、') + '\n';
-    text += '感謝家長協助孩子養成每日回報習慣 🙏\n— ' + state.coach.name + ' 教練';
-    TP.copy(text);
+    var messages = lastWar.submitted.map(parentMessage).concat(lastWar.missing.map(function (m) {
+      return m.name + '家長您好，' + m.name + '今天的訓練狀態還沒回報，麻煩提醒孩子在訓練前完成，讓我能先掌握今天的身體狀況，謝謝。';
+    }));
+    if (!messages.length) { toast('目前沒有可產生通知的選手'); return; }
+    localStorage.setItem(parentNoticeKey(), String(Number(localStorage.getItem(parentNoticeKey()) || 0) + messages.length));
+    TP.copy(messages.join('\n\n---\n\n'));
+    loadTrialSummary();
   };
+
+  function parentMessage(s) {
+    var light = s.status || TP.lightOf(s.totalScore);
+    if (light === 'green') return s.name + '家長您好，' + s.name + '今天整體狀態很好，訓練投入和恢復都很穩定，請多給孩子一個肯定，我也會繼續陪他把好狀態維持下去。';
+    if (light === 'yellow') return s.name + '家長您好，' + s.name + '今天狀態有些起伏，目前先持續觀察，今晚請協助留意休息、飲食和精神狀況；明天訓練我也會再確認。';
+    return s.name + '家長您好，' + s.name + '今天回報的身體與訓練狀態比較低，今晚請先讓孩子充分休息、補水與恢復，不需要勉強撐住。我會主動關心並視情況調整訓練。';
+  }
+
+  async function loadTrialSummary() {
+    if (DEMO) { renderTrialSummary(DEMO_DATA.trialSummary); return; }
+    var r = await TP.callAuth('trialSummary');
+    if (r.ok) renderTrialSummary(r);
+  }
+
+  function renderTrialSummary(r) {
+    var card = $('#trialSummary');
+    card.classList.toggle('hidden', !r.visible && !DEMO);
+    if (!r.visible && !DEMO) return;
+    var noticeCount = DEMO ? r.parentNotificationCount : Number(localStorage.getItem(parentNoticeKey()) || 0);
+    var stats = [
+      [r.athleteCount, '已追蹤選手'], [r.reportCount, '完成回報'],
+      [r.redAthleteCount, '發現紅燈'], [noticeCount, '產生家長通知'],
+      [r.estimatedMinutes + ' 分', '預估節省時間']
+    ];
+    $('#trialStats').innerHTML = stats.map(function (x) {
+      return '<div><b>' + esc(x[0]) + '</b><span class="muted">' + esc(x[1]) + '</span></div>';
+    }).join('');
+    $('#trialUpgrade').textContent = r.upgradeMessage;
+  }
 
   /* ---------- 成果報告 ---------- */
   $('#rpType').onchange = function () {
@@ -585,7 +681,7 @@
     var range = dateRange();
     $('#reportArea').innerHTML = '<div class="report-doc"><p class="muted">產生中…</p></div>';
     if (DEMO) {
-      if ($('#rpType').value === 'team') { renderTeamReport('示範・鯊魚戰隊', range, DEMO_DATA.teamReport); }
+      if ($('#rpType').value === 'team') { renderTeamReport('示範・兩隊合計', range, DEMO_DATA.teamReport); }
       else {
         var da = state.athletes.filter(function (a) { return a.athleteId === $('#rpAthlete').value; })[0] || state.athletes[0];
         renderReport(da, range, demoRecords(range));
@@ -723,7 +819,7 @@
       (comment ? '<div class="rp-section"><h3>教練評語</h3><div class="rp-comment">' + esc(comment) + '</div></div>' : '') +
 
       '<div class="rp-foot">本報告由 TeamPro 教練戰情室產生 · 教練：' + esc(state.coach.name) +
-        ' · 產生日期：' + new Date().toISOString().slice(0, 10) +
+        ' · 產生日期：' + localToday() +
         '<br>評分制：六大面向各 1–5 分（5 為最佳），總分為六面向等權平均。</div>' +
       '</div>';
 
@@ -794,7 +890,7 @@
       (comment ? '<div class="rp-section"><h3>教練評語</h3><div class="rp-comment">' + esc(comment) + '</div></div>' : '') +
 
       '<div class="rp-foot">本報告由 TeamPro 教練戰情室產生 · 教練：' + esc(state.coach.name) +
-        ' · 產生日期：' + new Date().toISOString().slice(0, 10) +
+        ' · 產生日期：' + localToday() +
         '<br>評分制：六大面向各 1–5 分（5 為最佳），總分為六面向等權平均；填寫率＝實際回報筆數 ÷（人數×天數）。</div>' +
       '</div>';
 
@@ -889,40 +985,59 @@
 
   var DEMO_DATA = {
     coach: { name: '示範教練', email: 'demo', plan: 'pro', effectivePlan: 'pro',
-             planName: '專業版', maxAthletes: 100, activeAthletes: 8, planExpiry: '', expired: false },
+             planName: '專業版', maxAthletes: 100, activeAthletes: 15, planExpiry: '', expired: false },
     teams: [
-      { teamId: 'demoTeam', coachId: 'demo', teamName: '示範・鯊魚戰隊', sport: '跆拳道', shareToken: 'demo', status: 'active' }
+      { teamId: 'demoA', coachId: 'demo', teamName: '鯊魚競技隊', sport: '跆拳道', shareToken: 'demo-a', status: 'active' },
+      { teamId: 'demoB', coachId: 'demo', teamName: '鯊魚培訓隊', sport: '跆拳道', shareToken: 'demo-b', status: 'active' }
     ],
     athletes: [
-      { athleteId: 'd1', teamId: 'demoTeam', name: '陳柏宇', gradeClass: '八年級', active: true },
-      { athleteId: 'd2', teamId: 'demoTeam', name: '林冠廷', gradeClass: '八年級', active: true },
-      { athleteId: 'd3', teamId: 'demoTeam', name: '黃于軒', gradeClass: '九年級', active: true },
-      { athleteId: 'd4', teamId: 'demoTeam', name: '張承恩', gradeClass: '九年級', active: true },
-      { athleteId: 'd5', teamId: 'demoTeam', name: '吳宥辰', gradeClass: '七年級', active: true },
-      { athleteId: 'd6', teamId: 'demoTeam', name: '李芷瑄', gradeClass: '八年級', active: true },
-      { athleteId: 'd7', teamId: 'demoTeam', name: '王思妤', gradeClass: '九年級', active: true },
-      { athleteId: 'd8', teamId: 'demoTeam', name: '蔡承翰', gradeClass: '七年級', active: true }
+      { athleteId: 'd1', teamId: 'demoA', name: '陳柏宇', gradeClass: '八年級', active: true },
+      { athleteId: 'd2', teamId: 'demoA', name: '林冠廷', gradeClass: '八年級', active: true },
+      { athleteId: 'd3', teamId: 'demoA', name: '黃于軒', gradeClass: '九年級', active: true },
+      { athleteId: 'd4', teamId: 'demoA', name: '張承恩', gradeClass: '九年級', active: true },
+      { athleteId: 'd5', teamId: 'demoA', name: '吳宥辰', gradeClass: '七年級', active: true },
+      { athleteId: 'd6', teamId: 'demoA', name: '李芷瑄', gradeClass: '八年級', active: true },
+      { athleteId: 'd7', teamId: 'demoA', name: '王思妤', gradeClass: '九年級', active: true },
+      { athleteId: 'd8', teamId: 'demoA', name: '蔡承翰', gradeClass: '七年級', active: true },
+      { athleteId: 'd9', teamId: 'demoB', name: '周子晴', gradeClass: '七年級', active: true },
+      { athleteId: 'd10', teamId: 'demoB', name: '許哲維', gradeClass: '八年級', active: true },
+      { athleteId: 'd11', teamId: 'demoB', name: '郭庭瑄', gradeClass: '七年級', active: true },
+      { athleteId: 'd12', teamId: 'demoB', name: '鄭宇翔', gradeClass: '九年級', active: true },
+      { athleteId: 'd13', teamId: 'demoB', name: '何品妤', gradeClass: '八年級', active: true },
+      { athleteId: 'd14', teamId: 'demoB', name: '羅冠宇', gradeClass: '七年級', active: true },
+      { athleteId: 'd15', teamId: 'demoB', name: '謝語恩', gradeClass: '九年級', active: true }
     ],
     warroom: {
-      ok: true, date: new Date().toISOString().slice(0, 10),
-      total: 8, submittedCount: 6, missingCount: 2, completionRate: 75,
-      lights: { green: 3, yellow: 2, red: 1 },
+      ok: true, date: localToday(),
+      total: 15, submittedCount: 11, missingCount: 4, completionRate: 73,
+      lights: { green: 6, yellow: 3, red: 2 },
       submitted: [
-        { name: '陳柏宇', totalScore: 4.5, status: 'green' },
-        { name: '林冠廷', totalScore: 4.1, status: 'green' },
-        { name: '王思妤', totalScore: 4.0, status: 'green' },
-        { name: '黃于軒', totalScore: 3.6, status: 'yellow' },
-        { name: '吳宥辰', totalScore: 3.2, status: 'yellow' },
-        { name: '蔡承翰', totalScore: 2.6, status: 'red' }
+        { athleteId: 'd1', name: '陳柏宇', totalScore: 4.7, status: 'green' },
+        { athleteId: 'd2', name: '林冠廷', totalScore: 4.5, status: 'green' },
+        { athleteId: 'd7', name: '王思妤', totalScore: 4.4, status: 'green' },
+        { athleteId: 'd9', name: '周子晴', totalScore: 4.3, status: 'green' },
+        { athleteId: 'd10', name: '許哲維', totalScore: 4.2, status: 'green' },
+        { athleteId: 'd11', name: '郭庭瑄', totalScore: 4.0, status: 'green' },
+        { athleteId: 'd3', name: '黃于軒', totalScore: 3.7, status: 'yellow', declining: true },
+        { athleteId: 'd5', name: '吳宥辰', totalScore: 3.4, status: 'yellow' },
+        { athleteId: 'd12', name: '鄭宇翔', totalScore: 3.1, status: 'yellow', declining: true },
+        { athleteId: 'd8', name: '蔡承翰', totalScore: 2.7, status: 'red' },
+        { athleteId: 'd13', name: '何品妤', totalScore: 2.5, status: 'red' }
       ],
-      missing: [ { name: '張承恩' }, { name: '李芷瑄' } ],
+      missing: [ { athleteId: 'd4', name: '張承恩' }, { athleteId: 'd6', name: '李芷瑄' }, { athleteId: 'd14', name: '羅冠宇' }, { athleteId: 'd15', name: '謝語恩' } ],
+      priority: {
+        red: [ { name: '蔡承翰' }, { name: '何品妤' } ],
+        missing: [ { name: '張承恩' }, { name: '李芷瑄' }, { name: '羅冠宇' }, { name: '謝語恩' } ],
+        declining: [ { name: '黃于軒' }, { name: '鄭宇翔' } ],
+        encouraging: [ { name: '陳柏宇' }, { name: '林冠廷' }, { name: '王思妤' }, { name: '周子晴' } ]
+      },
       encourages: [
         { from: '陳柏宇', to: '蔡承翰', msg: '今天實戰很拚，下次一定更好！' },
-        { from: '王思妤', to: '吳宥辰', msg: '你的踢靶超有力，繼續加油 💪' }
+        { from: '王思妤', to: '吳宥辰', msg: '你的踢靶很有力，繼續加油！' }
       ]
     },
     teamReport: {
-      ok: true, athleteCount: 8, teamAvg: 3.7, completionRate: 82, totalReports: 92, expectedReports: 112,
+      ok: true, athleteCount: 15, teamAvg: 3.7, completionRate: 81, totalReports: 170, expectedReports: 210,
       dimAvg: { technicalAvg: 3.8, tacticalAvg: 3.5, physicalAvg: 4.0, mentalAvg: 3.4, attitudeAvg: 4.2, physiologicalAvg: 3.3 },
       lights: { green: 48, yellow: 32, red: 12 },
       trend: [ { avg: 3.3 }, { avg: 3.4 }, { avg: 3.5 }, { avg: 3.6 }, { avg: 3.5 }, { avg: 3.8 }, { avg: 3.9 } ],
@@ -932,8 +1047,14 @@
         { name: '王思妤', filledDays: 14, avgTotal: 3.9, delta: 0.4, lastStatus: 'green' },
         { name: '黃于軒', filledDays: 11, avgTotal: 3.6, delta: 0.1, lastStatus: 'yellow' },
         { name: '吳宥辰', filledDays: 10, avgTotal: 3.4, delta: -0.2, lastStatus: 'yellow' },
-        { name: '蔡承翰', filledDays: 9, avgTotal: 2.8, delta: -0.4, lastStatus: 'red' }
+        { name: '蔡承翰', filledDays: 9, avgTotal: 2.8, delta: -0.4, lastStatus: 'red' },
+        { name: '何品妤', filledDays: 8, avgTotal: 2.7, delta: -0.5, lastStatus: 'red' }
       ]
+    },
+    trialSummary: {
+      visible: true, athleteCount: 15, reportCount: 34, redAthleteCount: 3,
+      parentNotificationCount: 11, estimatedMinutes: 68,
+      upgradeMessage: '三天內你已經掌握整隊重點。升級教練版，每月 299 元，持續使用家長通知、歷史趨勢與成果報告。'
     }
   };
 
@@ -967,7 +1088,7 @@
     $('#coachName').textContent = '示範教練（示範模式）';
     $('#btnLogout').textContent = '結束示範';
     renderPlan();
-    $('#warDate').value = new Date().toISOString().slice(0, 10);
+    $('#warDate').value = localToday();
 
     var teamOpts = '<option value="">全部團隊</option>' + state.teams.map(function (t) {
       return '<option value="' + t.teamId + '">' + esc(t.teamName) + '</option>'; }).join('');
@@ -978,6 +1099,7 @@
     renderTeams();
     renderAthletes();
     renderWarroom(DEMO_DATA.warroom);
+    renderTrialSummary(DEMO_DATA.trialSummary);
   }
 
   boot();

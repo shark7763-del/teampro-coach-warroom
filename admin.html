@@ -26,7 +26,7 @@
     <label>後端網址（GAS /exec）</label><input id="cfgUrl" placeholder="https://script.google.com/.../exec">
     <label>管理者密碼</label><input id="adminPw" type="password">
     <button class="btn btn-primary btn-block" id="btnLogin" style="margin-top:14px;">登入</button>
-    <p class="muted" style="font-size:13px;margin-top:10px;">密碼於後端 setAdminPassword() 設定。</p>
+    <p class="muted" style="font-size:13px;margin-top:10px;">密碼請在 Apps Script「專案設定 → 指令碼屬性」設定 ADMIN_PASSWORD。</p>
   </div>
 </div>
 
@@ -56,7 +56,7 @@
     <div class="table-wrap">
       <table>
         <thead><tr>
-          <th>教練</th><th>方案</th><th>選手</th><th>到期日</th><th>狀態</th><th>最後登入</th><th>操作</th>
+          <th>教練</th><th>方案</th><th>選手</th><th>到期日</th><th>付款備註</th><th>狀態</th><th>最後登入</th><th>操作</th>
         </tr></thead>
         <tbody id="coachRows"></tbody>
       </table>
@@ -95,8 +95,14 @@
       $('#expiringCard').style.display = '';
       $('#expiringList').innerHTML = r.expiringSoon.map(function (e) {
         return '<div class="row"><span>' + esc(e.name) + ' <span class="muted">' + esc(e.email) + '</span></span>' +
-          '<span class="pill yellow">' + esc(String(e.planExpiry).slice(0, 10)) + '</span></div>';
+          '<span style="display:flex;align-items:center;gap:8px;"><span class="pill yellow">剩 ' + e.daysLeft + ' 天 · ' + esc(String(e.planExpiry).slice(0, 10)) + '</span>' +
+          '<button class="btn btn-sm" data-renew="' + esc(e.name) + '" data-plan-name="' + esc(e.planName || e.plan) + '" data-expiry="' + esc(String(e.planExpiry).slice(0, 10)) + '">複製續約提醒</button></span></div>';
       }).join('');
+      TP.$all('[data-renew]', $('#expiringList')).forEach(function (b) {
+        b.onclick = function () {
+          TP.copy(b.dataset.renew + '教練您好，您的 TeamPro ' + b.dataset.planName + '將於 ' + b.dataset.expiry + ' 到期。若要繼續使用選手管理、家長通知與成果報告，請在到期前完成續約；需要協助可直接回覆我們。');
+        };
+      });
     } else { $('#expiringCard').style.display = 'none'; }
   }
 
@@ -109,7 +115,7 @@
     var r = await TP.call('adminListCoaches', { adminPassword: pw, q: q || '' });
     if (!r.ok) { toast(r.error, true); return; }
     var tbody = $('#coachRows');
-    if (!r.coaches.length) { tbody.innerHTML = '<tr><td colspan="7" class="muted">查無教練</td></tr>'; return; }
+    if (!r.coaches.length) { tbody.innerHTML = '<tr><td colspan="8" class="muted">查無教練</td></tr>'; return; }
     tbody.innerHTML = r.coaches.map(function (c) {
       var planSel = '<select data-plan="' + c.coachId + '">' + PLAN_OPTS.map(function (p) {
         return '<option value="' + p[0] + '"' + (p[0] === c.plan ? ' selected' : '') + '>' + p[1] + '</option>';
@@ -120,6 +126,7 @@
         '<td>' + planSel + (c.expired ? ' <span class="pill red">已到期</span>' : '') + '</td>' +
         '<td>' + c.activeAthletes + ' / ' + c.max + '</td>' +
         '<td><input type="date" data-exp="' + c.coachId + '" value="' + exp + '" style="width:140px;"></td>' +
+        '<td><input data-note="' + c.coachId + '" value="' + esc(c.paymentNote || '') + '" placeholder="例：6/15 已匯款" style="width:170px;"></td>' +
         '<td>' + (c.status === 'disabled'
             ? '<span class="pill red">已停用</span>' : '<span class="pill green">啟用</span>') + '</td>' +
         '<td class="muted">' + (c.lastLogin ? String(c.lastLogin).slice(0, 10) : '—') + '</td>' +
@@ -135,7 +142,8 @@
         var id = b.dataset.save;
         var plan = $('[data-plan="' + id + '"]').value;
         var exp = $('[data-exp="' + id + '"]').value;
-        var rr = await TP.call('adminUpdatePlan', { adminPassword: pw, coachId: id, plan: plan, planExpiry: exp });
+        var paymentNote = $('[data-note="' + id + '"]').value.trim();
+        var rr = await TP.call('adminUpdatePlan', { adminPassword: pw, coachId: id, plan: plan, planExpiry: exp, paymentNote: paymentNote });
         if (rr.ok) { toast('已更新方案'); refreshStats(); } else { toast(rr.error, true); }
       };
     });

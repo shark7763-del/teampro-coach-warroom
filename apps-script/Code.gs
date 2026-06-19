@@ -30,7 +30,7 @@ var SHEETS = {
 
 /* ---------- 表頭 ---------- */
 var H = {
-  coaches:  ['coachId', 'email', 'passwordHash', 'salt', 'name', 'plan', 'planExpiry', 'status', 'createdAt', 'lastLogin'],
+  coaches:  ['coachId', 'email', 'passwordHash', 'salt', 'name', 'plan', 'planExpiry', 'status', 'createdAt', 'lastLogin', 'paymentNote'],
   sessions: ['token', 'coachId', 'expiresAt'],
   teams:    ['teamId', 'coachId', 'teamName', 'sport', 'shareToken', 'status', 'createdAt'],
   athletes: ['athleteId', 'coachId', 'teamId', 'name', 'gradeClass', 'grp', 'active', 'createdAt'],
@@ -141,6 +141,7 @@ function handle(action, d) {
     case 'warroom':         return jsonOut(withCoach(d, warroom));
     case 'athleteRecords':  return jsonOut(withCoach(d, athleteRecords));
     case 'teamReport':      return jsonOut(withCoach(d, teamReport));
+    case 'trialSummary':    return jsonOut(withCoach(d, trialSummary));
     case 'coachFeedback':   return jsonOut(withCoach(d, coachFeedback));
 
     /* ---- 選手填寫（公開，靠 shareToken 限定團隊） ---- */
@@ -197,8 +198,10 @@ function sheet(name) {
   }
   if (headers) {
     if (s.getMaxColumns() < headers.length) s.insertColumnsAfter(s.getMaxColumns(), headers.length - s.getMaxColumns());
-    if (s.getLastRow() === 0 || s.getRange(1, 1).getValue() !== headers[0]) {
-      s.getRange(1, 1, 1, headers.length).setValues([headers]); s.setFrozenRows(1);
+    if (s.getLastRow() === 0 || s.getRange(1, 1).getValue() !== headers[0] ||
+        s.getRange(1, headers.length).getValue() !== headers[headers.length - 1]) {
+      s.getRange(1, 1, 1, headers.length).setValues([headers]);
+      s.setFrozenRows(1);
     }
   }
   return s;
@@ -276,7 +279,6 @@ function register(d) {
       coachId: coachId, email: email, passwordHash: hashPassword(password, salt), salt: salt,
       name: name, plan: 'free', planExpiry: '', status: 'active', createdAt: now(), lastLogin: now()
     });
-    seedDemo(coachId);              // 註冊即給示範團隊，避免空白後台
     audit(email, 'register', coachId, '');
     var token = newSession(coachId);
     return { ok: true, token: token, coach: publicCoach(coachId) };
@@ -348,7 +350,7 @@ function publicCoach(coachId) {
     plan: c.plan, effectivePlan: plan,
     planName: PLANS[plan].name, maxAthletes: PLANS[plan].maxAthletes,
     planExpiry: c.planExpiry, expired: isExpired(c),
-    activeAthletes: countActiveAthletes(coachId)
+    activeAthletes: countActiveAthletes(coachId), createdAt: c.createdAt
   };
 }
 
@@ -469,8 +471,11 @@ function addAthlete(c, d) {
     var plan = effectivePlan(c);
     var max = PLANS[plan].maxAthletes;
     if (countActiveAthletes(c.coachId) >= max) {
+      var limitMessage = plan === 'free'
+        ? '你已達免費版 5 位選手上限。升級教練版，每月 299 元，可管理 15 位選手並開啟家長通知、歷史趨勢與成果報告。'
+        : '已達 ' + PLANS[plan].name + ' 上限（' + max + ' 人），請升級方案';
       return { ok: false, error: 'plan_limit_reached', limit: max, plan: plan,
-               message: '已達 ' + PLANS[plan].name + ' 上限（' + max + ' 人），請升級方案' };
+               message: limitMessage };
     }
     var a = {
       athleteId: uid('a_'), coachId: c.coachId, teamId: teamId, name: name,
@@ -515,20 +520,39 @@ function warroom(c, d) {
            (String(a.active) !== 'false' && a.active !== false) &&
            (!teamId || String(a.teamId) === String(teamId));
   });
-  var todays = readAll(SHEETS.records).filter(function (r) {
+  var allRecords = readAll(SHEETS.records).filter(function (r) {
+    return String(r.coachId) === String(c.coachId) && String(r.date) <= String(date);
+  });
+  var todays = allRecords.filter(function (r) {
     return String(r.coachId) === String(c.coachId) && String(r.date) === String(date);
   });
   var byAthlete = {};
   todays.forEach(function (r) { byAthlete[String(r.athleteId)] = r; });
+  var historyByAthlete = {};
+  allRecords.forEach(function (r) {
+    var key = String(r.athleteId);
+    (historyByAthlete[key] || (historyByAthlete[key] = [])).push(r);
+  });
+  Object.keys(historyByAthlete).forEach(function (key) {
+    historyByAthlete[key].sort(function (x, y) { return String(y.date).localeCompare(String(x.date)); });
+  });
 
   var submitted = [], missing = [], lights = { green: 0, yellow: 0, red: 0 }, encourages = [];
+  var declining = [], worthEncouraging = [];
   athletes.forEach(function (a) {
     var r = byAthlete[String(a.athleteId)];
     if (r) {
       var light = r.status || lightOf(r.totalScore);
+      var history = historyByAthlete[String(a.athleteId)] || [];
+      var isDeclining = history.length >= 3 &&
+        Number(history[0].totalScore) < Number(history[1].totalScore) &&
+        Number(history[1].totalScore) < Number(history[2].totalScore);
       lights[light] = (lights[light] || 0) + 1;
       submitted.push({ athleteId: a.athleteId, name: a.name, totalScore: r.totalScore, status: light,
-                       moodIndex: r.moodIndex, recordId: r.recordId });
+                       moodIndex: r.moodIndex, recordId: r.recordId, declining: isDeclining });
+      if (isDeclining) declining.push({ athleteId: a.athleteId, name: a.name });
+      if (light === 'green' && Number(r.totalScore) >= 4.3)
+        worthEncouraging.push({ athleteId: a.athleteId, name: a.name, totalScore: r.totalScore });
       if (r.encourageMsg && String(r.encourageMsg).trim())
         encourages.push({ from: a.name, to: r.encourageName || '', msg: String(r.encourageMsg) });
     } else {
@@ -539,7 +563,31 @@ function warroom(c, d) {
     ok: true, date: date,
     total: athletes.length, submittedCount: submitted.length, missingCount: missing.length,
     completionRate: athletes.length ? Math.round(submitted.length / athletes.length * 100) : 0,
-    lights: lights, submitted: submitted, missing: missing, encourages: encourages
+    lights: lights, submitted: submitted, missing: missing, encourages: encourages,
+    priority: {
+      red: submitted.filter(function (s) { return s.status === 'red'; }),
+      missing: missing, declining: declining, encouraging: worthEncouraging
+    }
+  };
+}
+
+function trialSummary(c) {
+  var created = new Date(c.createdAt).getTime();
+  var accountDay = created ? Math.floor((Date.now() - created) / 86400000) + 1 : 1;
+  var athletes = readAll(SHEETS.athletes).filter(function (a) {
+    return String(a.coachId) === String(c.coachId) && String(a.active) !== 'false' && a.active !== false;
+  });
+  var records = readAll(SHEETS.records).filter(function (r) { return String(r.coachId) === String(c.coachId); });
+  var redIds = {};
+  records.forEach(function (r) {
+    if ((r.status || lightOf(r.totalScore)) === 'red') redIds[String(r.athleteId)] = true;
+  });
+  return {
+    ok: true, visible: accountDay >= 3, accountDay: accountDay,
+    athleteCount: athletes.length, reportCount: records.length,
+    redAthleteCount: Object.keys(redIds).length,
+    estimatedMinutes: Math.max(10, records.length * 2),
+    upgradeMessage: '升級教練版，每月 299 元，持續使用家長通知、歷史趨勢與成果報告。'
   };
 }
 
@@ -768,7 +816,7 @@ function adminListCoaches(d) {
       coachId: c.coachId, email: c.email, name: c.name, plan: c.plan,
       planName: PLANS[c.plan] ? PLANS[c.plan].name : c.plan,
       planExpiry: c.planExpiry, expired: isExpired(c), status: c.status,
-      createdAt: c.createdAt, lastLogin: c.lastLogin,
+      createdAt: c.createdAt, lastLogin: c.lastLogin, paymentNote: c.paymentNote || '',
       activeAthletes: countActiveAthletes(c.coachId), max: PLANS[effectivePlan(c)].maxAthletes
     };
   });
@@ -785,6 +833,8 @@ function adminUpdatePlan(d) {
   if (d.plan) sheet(SHEETS.coaches).getRange(row, H.coaches.indexOf('plan') + 1).setValue(d.plan);
   if (typeof d.planExpiry !== 'undefined')
     sheet(SHEETS.coaches).getRange(row, H.coaches.indexOf('planExpiry') + 1).setValue(d.planExpiry || '');
+  if (typeof d.paymentNote !== 'undefined')
+    sheet(SHEETS.coaches).getRange(row, H.coaches.indexOf('paymentNote') + 1).setValue(String(d.paymentNote || '').trim());
   audit('admin', 'updatePlan', d.coachId, (d.plan || '') + ' / ' + (d.planExpiry || ''));
   return { ok: true };
 }
@@ -809,43 +859,15 @@ function adminStats(d) {
     if (!isExpired(c) && PLANS[c.plan]) mrr += PLANS[c.plan].price;
     if (c.plan !== 'free' && c.planExpiry) {
       var t = new Date(c.planExpiry).getTime();
-      if (t > Date.now() && t < soon) expiringSoon.push({ email: c.email, name: c.name, plan: c.plan, planExpiry: c.planExpiry });
+      if (t > Date.now() && t < soon) expiringSoon.push({
+        email: c.email, name: c.name, plan: c.plan,
+        planName: PLANS[c.plan] ? PLANS[c.plan].name : c.plan,
+        planExpiry: c.planExpiry, daysLeft: Math.ceil((t - Date.now()) / 86400000),
+        paymentNote: c.paymentNote || ''
+      });
     }
   });
   return { ok: true, totalCoaches: coaches.length, activeCoaches: active, byPlan: byPlan, mrr: mrr, expiringSoon: expiringSoon };
-}
-
-/* ============================================================
-   Demo seed：註冊即送示範團隊 + 3 位假選手 + 今日假紀錄
-   ============================================================ */
-function seedDemo(coachId) {
-  var teamId = uid('tm_');
-  appendObj(SHEETS.teams, {
-    teamId: teamId, coachId: coachId, teamName: '示範隊（可刪）', sport: '跆拳道',
-    shareToken: uid('sh_'), status: 'active', createdAt: now()
-  });
-  var demos = [
-    { name: '示範-小宇', total: 4.3 },
-    { name: '示範-阿哲', total: 3.4 },
-    { name: '示範-小美', total: 2.7 }
-  ];
-  demos.forEach(function (dm) {
-    var aId = uid('a_');
-    appendObj(SHEETS.athletes, {
-      athleteId: aId, coachId: coachId, teamId: teamId, name: dm.name,
-      gradeClass: '八年級', grp: '示範', active: true, createdAt: now()
-    });
-    var rec = {
-      recordId: uid('r_'), coachId: coachId, teamId: teamId, athleteId: aId, name: dm.name,
-      date: todayStr(), timestamp: now(), sessionType: 'training',
-      technicalAvg: dm.total, tacticalAvg: dm.total, physicalAvg: dm.total,
-      mentalAvg: dm.total, attitudeAvg: dm.total, physiologicalAvg: dm.total,
-      totalScore: dm.total, status: lightOf(dm.total),
-      moodIndex: 4, gratitude: '感謝教練', rawJson: '{}'
-    };
-    KPI_ITEMS.forEach(function (k) { rec[k] = Math.round(dm.total); });
-    appendObj(SHEETS.records, rec);
-  });
 }
 
 /* ============================================================
