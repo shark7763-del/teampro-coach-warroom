@@ -69,6 +69,8 @@ var RECORD_HEADERS = ['recordId', 'coachId', 'teamId', 'athleteId', 'name', 'dat
     'trainingAM', 'trainingPM', 'trainingEve', 'trainingNotes',
     // 身體監控：睡眠/疲勞、傷勢
     'sleepHours', 'fatigue', 'injuryAreas', 'injuryNote',
+    // 鼓勵隊友
+    'encourageName', 'encourageMsg',
     // 產出
     'nutritionAdvice', 'studentLineText', 'parentLineText', 'coachLineText',
     'rawJson'
@@ -516,7 +518,7 @@ function warroom(c, d) {
   var byAthlete = {};
   todays.forEach(function (r) { byAthlete[String(r.athleteId)] = r; });
 
-  var submitted = [], missing = [], lights = { green: 0, yellow: 0, red: 0 };
+  var submitted = [], missing = [], lights = { green: 0, yellow: 0, red: 0 }, encourages = [];
   athletes.forEach(function (a) {
     var r = byAthlete[String(a.athleteId)];
     if (r) {
@@ -524,6 +526,8 @@ function warroom(c, d) {
       lights[light] = (lights[light] || 0) + 1;
       submitted.push({ athleteId: a.athleteId, name: a.name, totalScore: r.totalScore, status: light,
                        moodIndex: r.moodIndex, recordId: r.recordId });
+      if (r.encourageMsg && String(r.encourageMsg).trim())
+        encourages.push({ from: a.name, to: r.encourageName || '', msg: String(r.encourageMsg) });
     } else {
       missing.push({ athleteId: a.athleteId, name: a.name });
     }
@@ -532,7 +536,7 @@ function warroom(c, d) {
     ok: true, date: date,
     total: athletes.length, submittedCount: submitted.length, missingCount: missing.length,
     completionRate: athletes.length ? Math.round(submitted.length / athletes.length * 100) : 0,
-    lights: lights, submitted: submitted, missing: missing
+    lights: lights, submitted: submitted, missing: missing, encourages: encourages
   };
 }
 
@@ -702,6 +706,7 @@ function submitRecord(d) {
     breakfastNutri: d.breakfastNutri || '', lunchNutri: d.lunchNutri || '', dinnerNutri: d.dinnerNutri || '',
     trainingAM: d.trainingAM || '', trainingPM: d.trainingPM || '', trainingEve: d.trainingEve || '', trainingNotes: d.trainingNotes || '',
     sleepHours: d.sleepHours || '', fatigue: Number(d.fatigue) || '', injuryAreas: d.injuryAreas || '', injuryNote: d.injuryNote || '',
+    encourageName: d.encourageName || '', encourageMsg: d.encourageMsg || '',
     nutritionAdvice: d.nutritionAdvice || '', studentLineText: d.studentLineText || '',
     parentLineText: d.parentLineText || '', coachLineText: d.coachLineText || '',
     rawJson: JSON.stringify(scores)

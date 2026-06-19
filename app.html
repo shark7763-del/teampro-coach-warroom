@@ -137,6 +137,10 @@
         <div id="doneList" style="margin-top:10px;"></div>
       </div>
     </div>
+    <div class="card" id="encourageCard" style="display:none;margin-top:16px;">
+      <h3 style="margin-top:0;">💌 今日隊友鼓勵</h3>
+      <div id="encourageList"></div>
+    </div>
   </section>
 
   <!-- 選手管理 -->
@@ -492,6 +496,13 @@
             '<span class="pill ' + l + '">' + (Number(s.totalScore) || 0).toFixed(1) + '</span></div>';
         }).join('')
       : '<p class="muted">今天還沒有人繳交。</p>';
+
+    var enc = r.encourages || [];
+    $('#encourageCard').style.display = enc.length ? '' : 'none';
+    $('#encourageList').innerHTML = enc.map(function (e) {
+      return '<div class="row"><span>💪 <b>' + esc(e.from) + '</b>' + (e.to ? ' → ' + esc(e.to) : '') + '</span>' +
+        '<span class="muted" style="max-width:60%;text-align:right;">' + esc(e.msg) + '</span></div>';
+    }).join('');
   }
 
   $('#btnRemind').onclick = function () {
@@ -798,7 +809,11 @@
         { name: '吳宥辰', totalScore: 3.2, status: 'yellow' },
         { name: '蔡承翰', totalScore: 2.6, status: 'red' }
       ],
-      missing: [ { name: '張承恩' }, { name: '李芷瑄' } ]
+      missing: [ { name: '張承恩' }, { name: '李芷瑄' } ],
+      encourages: [
+        { from: '陳柏宇', to: '蔡承翰', msg: '今天實戰很拚，下次一定更好！' },
+        { from: '王思妤', to: '吳宥辰', msg: '你的踢靶超有力，繼續加油 💪' }
+      ]
     },
     teamReport: {
       ok: true, athleteCount: 8, teamAvg: 3.7, completionRate: 82, totalReports: 92, expectedReports: 112,

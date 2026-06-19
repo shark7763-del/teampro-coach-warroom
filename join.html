@@ -138,6 +138,8 @@
       </div>
       <label>心情原因（選填）</label><input id="moodReason">
       <label>今天我想感謝的人事物（選填）</label><input id="gratitude">
+      <label>想鼓勵的隊友（選填）</label><select id="encourageName"><option value="">—</option></select>
+      <label>想對他說的鼓勵（選填）</label><input id="encourageMsg" placeholder="例：今天你的旋踢超帥，繼續加油！">
     </div>
     <div class="card">
       <h2 style="margin-top:0;">訓練心得</h2>
@@ -347,7 +349,8 @@
       trainingNotes: $('#trainingNotes').value.trim(),
       injuryAreas: injurySel.indexOf('__none__') !== -1 ? '無受傷' : injurySel.join(','),
       injuryNote: $('#injuryNote').value.trim(),
-      sleepHours: $('#sleepHours').value, fatigue: $('#fatigue').value
+      sleepHours: $('#sleepHours').value, fatigue: $('#fatigue').value,
+      encourageName: $('#encourageName').value, encourageMsg: $('#encourageMsg').value.trim()
     };
   }
 
@@ -358,6 +361,10 @@
     if (!$('#consent').checked) { toast('請先勾選同意', true); return; }
     ctx.athleteId = id;
     ctx.name = $('#whoSelect').options[$('#whoSelect').selectedIndex].text;
+    // 鼓勵隊友下拉：同隊其他人
+    $('#encourageName').innerHTML = '<option value="">—</option>' + ctx.athletes
+      .filter(function (a) { return a.athleteId !== id; })
+      .map(function (a) { return '<option value="' + esc(a.name) + '">' + esc(a.name) + '</option>'; }).join('');
     // 預抓上次紀錄供「帶入上次」
     var r = await TP.call('lastRecord', { t: shareToken, athleteId: id });
     ctx.last = (r.ok && r.record) || null;
