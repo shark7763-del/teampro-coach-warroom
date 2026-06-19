@@ -6,6 +6,12 @@
   var LS_URL = 'teampro_webapp_url';
   var LS_TOKEN = 'teampro_token';
   var DEFAULT_LINE_URL = 'https://line.me/R/ti/p/@529utwnh';
+  var PLAN_LIMITS = {
+    free:  { name: '免費版',  maxAthletes: 5,   lineNotifyPerDay: 1,         report7Days: true, report30Days: false, pdfExport: false, multiTeam: false, customKpi: false, assistantAccounts: false, upgradePlan: 'coach' },
+    coach: { name: '教練版',  maxAthletes: 15,  lineNotifyPerDay: 'unlimited', report7Days: true, report30Days: true,  pdfExport: true,  multiTeam: false, customKpi: false, assistantAccounts: false, upgradePlan: 'team' },
+    team:  { name: '團隊版',  maxAthletes: 40,  lineNotifyPerDay: 'unlimited', report7Days: true, report30Days: true,  pdfExport: true,  multiTeam: true,  customKpi: true,  assistantAccounts: false, upgradePlan: 'pro' },
+    pro:   { name: '專業版',  maxAthletes: 100, lineNotifyPerDay: 'unlimited', report7Days: true, report30Days: true,  pdfExport: true,  multiTeam: true,  customKpi: true,  assistantAccounts: true,  upgradePlan: 'pro' }
+  };
 
   // 若你已部署好固定後端，可在這裡填預設 /exec 網址，使用者就不必自己貼。
   var DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbxPk4FqX_xuzL3bTaNFCpCt5JKW0uGTRuhiL0FcMCaRsK3LjURenSd0VYSjXprReYw-7A/exec';
@@ -14,6 +20,7 @@
   function setUrl(u) { localStorage.setItem(LS_URL, (u || '').trim()); }
   function getLineUrl() { return (localStorage.getItem('teampro_line_url') || DEFAULT_LINE_URL || '').trim(); }
   function setLineUrl(u) { localStorage.setItem('teampro_line_url', (u || '').trim()); }
+  function getPlanLimits(plan) { return PLAN_LIMITS[plan] || PLAN_LIMITS.free; }
   function getToken() { return localStorage.getItem(LS_TOKEN) || ''; }
   function setToken(t) { if (t) localStorage.setItem(LS_TOKEN, t); }
   function clearToken() { localStorage.removeItem(LS_TOKEN); }
@@ -99,6 +106,7 @@
   global.TP = {
     getUrl: getUrl, setUrl: setUrl, getToken: getToken, setToken: setToken, clearToken: clearToken,
     getLineUrl: getLineUrl, setLineUrl: setLineUrl,
+    planLimits: PLAN_LIMITS, getPlanLimits: getPlanLimits,
     call: call, callAuth: callAuth,
     $: $, $all: $all, el: el, esc: esc, toast: toast, copy: copy,
     KPI_DIMENSIONS: KPI_DIMENSIONS, lightOf: lightOf, lightText: lightText

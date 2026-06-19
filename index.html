@@ -14,6 +14,22 @@
   .section { padding: 56px 0; border-top: 1px solid var(--line); }
   .section h2 { font-size: 30px; text-align: center; margin: 6px 0 8px; }
   .section .lead { text-align: center; color: var(--muted); max-width: 640px; margin: 0 auto 34px; }
+  .step-card, .report-sample, .phone-mock { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .step-card { padding: 20px; min-height: 160px; }
+  .step-no { color: var(--brand); font-weight: 800; font-size: 13px; letter-spacing: .08em; }
+  .steps-5 { display:grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+  .phone-mock { padding: 18px; }
+  .phone-screen { background: #fff; color: #111827; border-radius: 28px; padding: 18px; min-height: 420px; }
+  .phone-step { display:flex; align-items:flex-start; gap:12px; margin-bottom:14px; }
+  .phone-step .n { width:28px; height:28px; border-radius:50%; background: rgba(34,197,94,.14); color: var(--brand-2); display:flex; align-items:center; justify-content:center; font-weight:800; flex-shrink:0; }
+  .report-sample { padding: 20px; color: #1a2230; background: linear-gradient(180deg, #ffffff, #f6f8fb); }
+  .report-sample .head { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; border-bottom: 2px solid #101114; padding-bottom: 10px; }
+  .report-sample .stats { display:grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 14px 0; }
+  .report-sample .statx { background: #fff; border: 1px solid #e5e8ef; border-radius: 12px; padding: 12px; text-align:center; }
+  .report-sample .statx b { display:block; font-size: 22px; }
+  .report-sample .line { display:flex; justify-content:space-between; gap:10px; align-items:center; padding: 8px 0; border-bottom: 1px dashed #e0e5ec; }
+  .report-sample .line:last-child { border-bottom: none; }
+  .report-sample .note { background:#eef9f2; border-left:4px solid #16a34a; border-radius:10px; padding:12px 14px; margin-top: 12px; }
   .pain { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; }
   .pain h3 { margin: 0 0 6px; font-size: 17px; }
   .feat { padding: 20px; }
@@ -31,6 +47,7 @@
   .badge-strip { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; color: var(--muted); font-size: 14px; margin-top: 16px; }
   .line-qr { display: inline-flex; flex-direction: column; gap: 10px; align-items: center; margin: 18px auto 0; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
   .line-qr img { width: 168px; height: 168px; object-fit: cover; border-radius: 10px; background: #fff; }
+  @media (max-width: 760px) { .steps-5, .report-sample .stats { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
@@ -65,6 +82,97 @@
       <span>✅ 免費版可用 5 位選手</span>
       <span>✅ 免安裝・手機即用</span>
       <span>✅ 30 項運科 KPI</span>
+    </div>
+  </div>
+</section>
+
+<!-- 5 分鐘上手 -->
+<section class="section">
+  <div class="container">
+    <div class="eyebrow center">新手導引</div>
+    <h2>5 分鐘上手流程</h2>
+    <p class="lead">第一次使用，不用研究很久。照著這 5 步做，今天就能開始追蹤整隊狀態。</p>
+    <div class="steps-5">
+      <div class="step-card"><div class="step-no">STEP 1</div><h3>建立隊伍</h3><p class="muted">先把教練名下的隊伍建好，像跆拳道隊、田徑隊或班隊都可以。</p></div>
+      <div class="step-card"><div class="step-no">STEP 2</div><h3>新增選手</h3><p class="muted">把選手名單輸入進來，系統會自動開始管理今日回報與燈號。</p></div>
+      <div class="step-card"><div class="step-no">STEP 3</div><h3>分享填寫連結</h3><p class="muted">每個隊伍都有專屬連結，直接傳給家長或選手即可，不用另外開帳號。</p></div>
+      <div class="step-card"><div class="step-no">STEP 4</div><h3>選手每日回報</h3><p class="muted">選手每天用手機填一次，最快 30 秒完成，資料就會進到後台。</p></div>
+      <div class="step-card"><div class="step-no">STEP 5</div><h3>看戰情室與 LINE 通知</h3><p class="muted">教練一眼看到誰沒填、誰是紅燈，還能直接複製催繳與家長通知。</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 選手端流程 -->
+<section class="section">
+  <div class="container">
+    <div class="eyebrow center">選手端示範</div>
+    <h2>手機打開連結就能填，不用下載 App</h2>
+    <p class="lead">選手端流程很短，照著畫面填完就好，最快 30 秒完成。</p>
+    <div class="grid grid-2" style="align-items:center;">
+      <div class="phone-mock">
+        <div class="phone-screen">
+          <div class="muted" style="font-size:12px;">TeamPro 選手回報</div>
+          <h3 style="margin:6px 0 14px;">今天要填什麼？</h3>
+          <div class="phone-step"><div class="n">1</div><div><b>選擇姓名</b><div class="muted">點自己的名字即可開始。</div></div></div>
+          <div class="phone-step"><div class="n">2</div><div><b>選擇今日出席狀態</b><div class="muted">有到、請假、晚到都能勾選。</div></div></div>
+          <div class="phone-step"><div class="n">3</div><div><b>填寫 6 大狀態</b><div class="muted">技術、體能、心理、態度、生理、飲食一次完成。</div></div></div>
+          <div class="phone-step"><div class="n">4</div><div><b>填今日訓練感受</b><div class="muted">補一兩句心得，教練更容易看懂狀況。</div></div></div>
+          <div class="phone-step"><div class="n">5</div><div><b>送出完成</b><div class="muted">送出後就會記錄到教練後台。</div></div></div>
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <h3 style="margin-top:0;">這樣做的好處</h3>
+          <ul class="muted" style="padding-left:18px;">
+            <li>不用下載 App，手機瀏覽器直接填</li>
+            <li>教練可快速確認誰今天沒回報</li>
+            <li>有回報就會自動進戰情室與報告</li>
+            <li>家長也更容易理解今天狀態</li>
+          </ul>
+          <a class="btn btn-primary btn-block" href="app.html?demo=1" style="margin-top:10px;">先看示範資料</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 報告範例 -->
+<section class="section">
+  <div class="container">
+    <div class="eyebrow center">成果報告</div>
+    <h2>7 日訓練狀態報告範例</h2>
+    <p class="lead">報告可以直接截圖給家長看，重點清楚、語氣自然，不像制式表單。</p>
+    <div class="grid grid-2" style="align-items:start;">
+      <div class="report-sample">
+        <div class="head">
+          <div>
+            <div class="muted" style="font-size:12px;">TeamPro 教練戰情室</div>
+            <h3 style="margin:4px 0 0;">7 日訓練狀態報告</h3>
+          </div>
+          <div style="text-align:right;">
+            <b>選手：陳柏宇</b><div class="muted">2026/06/13 - 2026/06/19</div>
+          </div>
+        </div>
+        <div class="stats">
+          <div class="statx"><b>86%</b><span class="muted">回報率</span></div>
+          <div class="statx"><b>3.9</b><span class="muted">平均狀態</span></div>
+          <div class="statx"><b><span class="pill green">5</span> / <span class="pill yellow">1</span> / <span class="pill red">1</span></b><span class="muted">綠黃紅</span></div>
+          <div class="statx"><b>7 天</b><span class="muted">觀察期間</span></div>
+        </div>
+        <div class="line"><span>疲勞提醒</span><span class="pill yellow">第 4 天偏高</span></div>
+        <div class="line"><span>睡眠提醒</span><span class="pill red">2 晚低於 7 小時</span></div>
+        <div class="line"><span>教練觀察</span><span class="muted">狀態穩定，但週中疲勞有拉高，週末恢復要顧好。</span></div>
+        <div class="line"><span>下週建議</span><span class="muted">先把睡眠與收操做穩，再提高訓練量。</span></div>
+        <div class="note"><b>給家長的話：</b>這一週柏宇的訓練投入不錯，整體維持在穩定水準。中間有兩天疲勞偏高，我會先調整訓練量，請家長幫忙注意睡眠與補水。</div>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0;">可以怎麼用</h3>
+        <p class="muted">你可以先用示範資料看完整效果，再決定要不要升級解鎖 30 日報告、PDF 匯出與團隊管理。</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <a class="btn btn-primary" href="app.html?demo=1">預覽報告</a>
+          <a class="btn" href="app.html?signup=1">產生報告</a>
+        </div>
+      </div>
     </div>
   </div>
 </section>

@@ -37,7 +37,39 @@
   .trial-stats { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin:14px 0; }
   .trial-stats div { background:var(--panel-2); border-radius:10px; padding:12px; text-align:center; }
   .trial-stats b { display:block; font-size:23px; }
+  .plan-insight { margin-bottom:16px; }
+  .plan-insight-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:8px; }
+  .plan-insight-item { background:var(--panel-2); border:1px solid var(--line); border-radius:12px; padding:12px; }
+  .plan-insight-item b { display:block; margin-top:4px; font-size:18px; }
+  .plan-feats { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-top:12px; }
+  .plan-feat { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-size:13px; }
+  .plan-feat.locked { opacity:.55; }
+  .onboard-wrap { margin:16px 0; }
+  .onboard-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-end; flex-wrap:wrap; margin-bottom:10px; }
+  .onboard-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; }
+  .onboard-card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px; min-height:160px; display:flex; flex-direction:column; justify-content:space-between; }
+  .onboard-card.done { border-color:rgba(34,197,94,.6); background:rgba(34,197,94,.08); }
+  .onboard-card .step { color:var(--brand); font-size:12px; font-weight:800; letter-spacing:.08em; }
+  .onboard-card .title { font-size:17px; font-weight:800; margin:6px 0; }
+  .onboard-card .status { font-size:13px; }
+  .onboard-card .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  .upgrade-modal .modal-box { background:var(--panel); border:1px solid var(--line); }
+  .upgrade-hero { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:10px; }
+  .upgrade-badges { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0 12px; }
+  .upgrade-list { margin:10px 0 0; padding-left:18px; color:var(--muted); }
+  .upgrade-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
+  .sample-report { background:#fff; color:#1a2230; border-radius:18px; border:1px solid #e4e8ef; padding:18px; box-shadow:0 16px 36px rgba(0,0,0,.12); }
+  .sample-report .head { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; border-bottom:2px solid #0f1115; padding-bottom:10px; margin-bottom:12px; }
+  .sample-report .score-row { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:12px 0; }
+  .sample-report .mini { background:#f3f5f8; border-radius:10px; padding:10px; text-align:center; }
+  .sample-report .mini b { display:block; font-size:22px; }
+  .sample-report .note { background:#f3f5f8; border-left:4px solid #16a34a; border-radius:10px; padding:10px 12px; margin-top:10px; }
+  .sample-report .light { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:800; }
+  .sample-report .light.green { background:#dcfce7; color:#15803d; }
+  .sample-report .light.yellow { background:#fef3c7; color:#b45309; }
+  .sample-report .light.red { background:#fee2e2; color:#b91c1c; }
   @media (max-width:760px) { .today-steps,.trial-stats { grid-template-columns:1fr; } }
+  @media (max-width:760px) { .plan-insight-grid,.plan-feats,.onboard-grid,.sample-report .score-row { grid-template-columns:1fr; } }
 
   /* ===== 成果報告（淺色，印出好看、省墨）===== */
   .report-doc { background:#fff; color:#1a2230; border-radius:14px; padding:28px; max-width:820px; margin:0 auto;
@@ -119,6 +151,26 @@
     </div>
     <div id="planExpiryNote" class="muted" style="font-size:13px;"></div>
   </div>
+
+  <div class="card plan-insight" id="planInsight">
+    <div class="plan-insight-grid">
+      <div class="plan-insight-item"><span class="muted">目前方案</span><b id="planNamePretty">免費版</b></div>
+      <div class="plan-insight-item"><span class="muted">使用量</span><b id="planUsagePretty">0 / 5 位選手</b></div>
+      <div class="plan-insight-item"><span class="muted">建議升級理由</span><b id="planUpgradePretty">先把第一隊建立起來</b></div>
+    </div>
+    <div class="plan-feats" id="planFeatureList"></div>
+  </div>
+
+  <section class="onboard-wrap hidden" id="onboardWrap">
+    <div class="onboard-head">
+      <div>
+        <div class="eyebrow">新手導引</div>
+        <h2 style="margin:4px 0 0;">5 分鐘完成第一次設定</h2>
+      </div>
+      <button class="btn btn-sm btn-ghost" id="btnHideOnboard">先隱藏</button>
+    </div>
+    <div class="onboard-grid" id="onboardGrid"></div>
+  </section>
 
   <div class="tabs">
     <button class="tab-btn active" data-tab="warroom">今日戰情室</button>
@@ -271,6 +323,12 @@
         <img src="assets/line-qr.jpg" alt="TeamPro 官方 LINE QR Code">
         <div class="muted" style="font-size:13px;">這張 QR 可直接放在簡報、海報或家長通知裡。</div>
       </div>
+      <label>自訂 KPI 題目</label>
+      <textarea id="customKpiText" placeholder="團隊版以上可自訂，例如：節奏感、爆發起跑、收操完成度…"></textarea>
+      <div class="link-box" style="margin-top:8px;">
+        <button class="btn" id="btnSaveKpi">儲存 KPI 題目</button>
+        <span class="muted" id="customKpiHint" style="font-size:13px;align-self:center;"></span>
+      </div>
       <p class="muted" style="font-size:13px;">升級付費方案請填寫 <a href="https://docs.google.com/forms/d/e/1FAIpQLSc2WhGQP1BQhWMgTJFtnR_gznolKA-KDqYVqXzBEfuxZI7OHA/viewform" target="_blank" rel="noopener">TeamPro 升級申請表</a>，確認付款後由管理者開通。</p>
     </div>
   </section>
@@ -293,6 +351,26 @@
   </div>
 </div>
 
+<div id="upgradeModal" class="modal-overlay hidden upgrade-modal">
+  <div class="modal-box card">
+    <div class="upgrade-hero">
+      <div>
+        <div class="eyebrow">方案限制</div>
+        <h3 style="margin:4px 0;" id="upTitle">升級解鎖更多功能</h3>
+        <div class="muted" id="upPlanLine"></div>
+      </div>
+      <div class="pill yellow" id="upBadge">需要升級</div>
+    </div>
+    <div class="muted" id="upReason"></div>
+    <div class="upgrade-badges" id="upUnlocks"></div>
+    <ul class="upgrade-list" id="upList"></ul>
+    <div class="upgrade-actions">
+      <a class="btn btn-primary" id="upApply" target="_blank" rel="noopener">申請升級</a>
+      <button class="btn" id="upLater">稍後再說</button>
+    </div>
+  </div>
+</div>
+
 <script src="api.js"></script>
 <script>
 (function () {
@@ -307,6 +385,123 @@
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
   function parentNoticeKey() { return 'teampro_parent_notice_count_' + String((state.coach && (state.coach.coachId || state.coach.email)) || 'guest'); }
+  function coachKey() { return String((state.coach && (state.coach.coachId || state.coach.email)) || 'guest'); }
+  function coachLS(suffix) { return 'teampro_' + suffix + '_' + coachKey(); }
+  function planKey() { return (state.coach && state.coach.effectivePlan) || 'free'; }
+  function planCfg() { return (TP.planLimits && TP.planLimits[planKey()]) || (TP.getPlanLimits ? TP.getPlanLimits(planKey()) : null) || TP.planLimits.free; }
+  function unlockedFeatures(cfg) {
+    return [
+      cfg.report7Days ? '7 日報告' : '',
+      cfg.report30Days ? '30 日報告' : '',
+      cfg.pdfExport ? 'PDF 匯出' : '',
+      cfg.multiTeam ? '多隊伍' : '',
+      cfg.customKpi ? '自訂 KPI' : '',
+      cfg.assistantAccounts ? '助理帳號' : '',
+      cfg.lineNotifyPerDay === 'unlimited' ? 'LINE 通知不限次' : 'LINE 通知 1 次/日'
+    ].filter(Boolean);
+  }
+  function lockedFeatures(cfg) {
+    return [
+      !cfg.report30Days ? '30 日報告' : '',
+      !cfg.pdfExport ? 'PDF 匯出' : '',
+      !cfg.multiTeam ? '多隊伍管理' : '',
+      !cfg.customKpi ? '自訂 KPI 題目' : '',
+      cfg.lineNotifyPerDay === 1 ? '每日 LINE 通知次數' : ''
+    ].filter(Boolean);
+  }
+  function currentUpgradeTarget(reason) {
+    var cfg = planCfg();
+    if (reason === 'multiTeam') return cfg.upgradePlan === 'coach' ? 'coach' : (cfg.upgradePlan || 'team');
+    if (reason === 'customKpi') return cfg.upgradePlan === 'team' ? 'team' : 'pro';
+    if (reason === 'pdfExport' || reason === 'report30Days') return cfg.upgradePlan || 'coach';
+    if (reason === 'lineNotify') return cfg.upgradePlan || 'coach';
+    return cfg.upgradePlan || 'coach';
+  }
+  function openUpgradeModal(opts) {
+    opts = opts || {};
+    var cfg = planCfg();
+    var target = currentUpgradeTarget(opts.reason || '');
+    var targetCfg = TP.planLimits[target] || TP.planLimits.coach;
+    var titleMap = {
+      athletes: '已達選手上限',
+      report30Days: '30 日報告需要升級',
+      pdfExport: 'PDF 匯出需要升級',
+      multiTeam: '多隊伍管理需要升級',
+      customKpi: '自訂 KPI 需要升級',
+      lineNotify: 'LINE 通知次數已達上限'
+    };
+    var reasonMap = {
+      athletes: '目前方案已達選手數上限，暫時不能再新增。',
+      report30Days: '免費版只保留 7 日報告，30 日報告屬於付費方案功能。',
+      pdfExport: '免費版可以看報告，但不能直接匯出 PDF。',
+      multiTeam: '目前方案僅支援單一隊伍，升級後可同時管理多隊伍。',
+      customKpi: '目前方案不支援自訂 KPI 題目。',
+      lineNotify: '免費版每日僅能發送 1 次 LINE 通知。'
+    };
+    $('#upTitle').textContent = titleMap[opts.reason] || '升級解鎖更多功能';
+    $('#upPlanLine').textContent = '目前方案：' + cfg.name + '。建議升級至：' + targetCfg.name + '。';
+    $('#upReason').textContent = opts.message || reasonMap[opts.reason] || '升級後可解鎖更多教練常用功能，讓日常管理更省時間。';
+    $('#upUnlocks').innerHTML = unlockedFeatures(targetCfg).map(function (x) {
+      return '<span class="pill green">' + esc(x) + '</span>';
+    }).join('');
+    var benefitMap = {
+      athletes: '升級後可繼續新增選手，不會卡在人數上限。',
+      report30Days: '你可以直接看 30 日趨勢，方便追蹤訓練節奏。',
+      pdfExport: '可以直接把報告存成 PDF，方便傳給家長或校方。',
+      multiTeam: '可同時管理多個隊伍，不必分帳號處理。',
+      customKpi: '可依項目調整 KPI 名稱，報告與導引更貼近實務。',
+      lineNotify: '可持續發送 LINE 催繳與家長通知，不必等到隔天。'
+    };
+    $('#upList').innerHTML = '<li>' + esc(benefitMap[opts.reason] || '升級後可立即解鎖目前被限制的功能。') + '</li>' +
+      '<li>推薦方案：' + esc(targetCfg.name) + '</li>' +
+      '<li>目前方案：' + esc(cfg.name) + '</li>';
+    $('#upApply').href = 'https://docs.google.com/forms/d/e/1FAIpQLSc2WhGQP1BQhWMgTJFtnR_gznolKA-KDqYVqXzBEfuxZI7OHA/viewform';
+    $('#upgradeModal').classList.remove('hidden');
+  }
+  function closeUpgradeModal() { $('#upgradeModal').classList.add('hidden'); }
+  function markTask(key, done) {
+    localStorage.setItem(coachLS('task_' + key), done ? '1' : '0');
+  }
+  function taskDone(key) { return localStorage.getItem(coachLS('task_' + key)) === '1'; }
+  function notifyCountKey() { return coachLS('line_notify_' + localToday()); }
+  function lineNotifyAllowed() {
+    var cfg = planCfg();
+    var limit = cfg.lineNotifyPerDay;
+    if (limit === 'unlimited') return true;
+    var cnt = Number(localStorage.getItem(notifyCountKey()) || 0);
+    return cnt < Number(limit || 0);
+  }
+  function consumeLineNotify() {
+    var cfg = planCfg();
+    if (cfg.lineNotifyPerDay === 'unlimited') return true;
+    var key = notifyCountKey();
+    var cnt = Number(localStorage.getItem(key) || 0);
+    if (cnt >= Number(cfg.lineNotifyPerDay || 0)) return false;
+    localStorage.setItem(key, String(cnt + 1));
+    return true;
+  }
+  function copyLineText(text, reason) {
+    if (planKey() === 'free' && !lineNotifyAllowed()) {
+      openUpgradeModal({ reason: reason || 'lineNotify', message: '免費版每日僅能發送 1 次 LINE 通知。' });
+      return false;
+    }
+    if (!consumeLineNotify()) {
+      openUpgradeModal({ reason: reason || 'lineNotify', message: '今日 LINE 通知次數已達上限。' });
+      return false;
+    }
+    TP.copy(text);
+    return true;
+  }
+  function defaultKpiLabels() { return ['技術', '戰術', '體能', '心理', '態度', '生理']; }
+  function customKpiLabels() {
+    var cfg = planCfg();
+    var raw = String(localStorage.getItem(coachLS('custom_kpi')) || '').trim();
+    if (!cfg.customKpi || !raw) return defaultKpiLabels();
+    var parts = raw.split(/[\n,，、]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+    var labels = defaultKpiLabels();
+    for (var i = 0; i < Math.min(6, parts.length); i++) labels[i] = parts[i];
+    return labels;
+  }
 
   /* ---------- 啟動 ---------- */
   function boot() {
@@ -365,6 +560,7 @@
     $('#setUrl').value = TP.getUrl();
     $('#setLineUrl').value = TP.getLineUrl();
     $('#setLineOpen').href = TP.getLineUrl();
+    $('#customKpiText').value = localStorage.getItem(coachLS('custom_kpi')) || '';
     renderPlan();
     $('#warDate').value = localToday();
     loadTeams().then(function () { loadAthletes(); loadWarroom(); loadTrialSummary(); });
@@ -372,16 +568,92 @@
 
   function renderPlan() {
     var c = state.coach;
+    var cfg = planCfg();
     $('#planLabel').textContent = c.planName + (c.expired ? '（已到期，暫以免費版限制）' : '');
-    $('#planQuota').textContent = ' · 選手 ' + c.activeAthletes + ' / ' + c.maxAthletes;
-    var pct = Math.min(100, Math.round(c.activeAthletes / c.maxAthletes * 100));
+    $('#planQuota').textContent = ' · 選手 ' + c.activeAthletes + ' / ' + cfg.maxAthletes;
+    var pct = Math.min(100, Math.round(c.activeAthletes / cfg.maxAthletes * 100));
     var fill = $('#quotaFill'); fill.style.width = pct + '%';
     fill.className = pct >= 100 ? 'full' : (pct >= 80 ? 'warn' : '');
     $('#planExpiryNote').textContent = c.planExpiry ? ('到期日：' + String(c.planExpiry).slice(0, 10)) : '';
+    $('#planNamePretty').textContent = cfg.name;
+    $('#planUsagePretty').textContent = c.activeAthletes + ' / ' + cfg.maxAthletes + ' 位選手';
+    $('#planUpgradePretty').textContent = cfg.multiTeam
+      ? '已開啟多隊伍與自訂 KPI，適合多隊並行管理。'
+      : '先把第一個隊伍與第一位選手建立起來，升級後可解鎖更多功能。';
+    $('#planFeatureList').innerHTML = [
+      { ok: true, text: '7 日報告' },
+      { ok: !!cfg.report30Days, text: '30 日報告' },
+      { ok: !!cfg.pdfExport, text: 'PDF 匯出' },
+      { ok: !!cfg.multiTeam, text: '多隊伍管理' },
+      { ok: !!cfg.customKpi, text: '自訂 KPI 題目' },
+      { ok: !!cfg.assistantAccounts, text: '助理帳號' },
+      { ok: cfg.lineNotifyPerDay === 'unlimited', text: 'LINE 通知不限次' }
+    ].map(function (x) {
+      return '<div class="plan-feat' + (x.ok ? '' : ' locked') + '">' +
+        (x.ok ? '✅ ' : '🔒 ') + esc(x.text) + '</div>';
+    }).join('');
+    $('#customKpiHint').textContent = cfg.customKpi ? '你現在可以儲存自訂 KPI 題目。' : '團隊版以上才可自訂 KPI 題目。';
+    $('#btnSaveKpi').disabled = !cfg.customKpi;
+    $('#customKpiText').disabled = !cfg.customKpi;
+    $('#planInsight').style.display = '';
   }
 
   async function refreshMe() {
     var r = await TP.callAuth('me'); if (r.ok) { state.coach = r.coach; renderPlan(); }
+  }
+
+  function onboardingState() {
+    return {
+      team: state.teams.length > 0,
+      athlete: state.athletes.filter(function (a) { return String(a.active) !== 'false' && a.active !== false; }).length > 0,
+      link: taskDone('link'),
+      firstReport: taskDone('first_report') || Number(localStorage.getItem(coachLS('first_report_seen')) || 0) > 0,
+      report7: taskDone('report7')
+    };
+  }
+
+  function renderOnboarding() {
+    if (!state.coach || DEMO || localStorage.getItem(coachLS('onboard_hidden')) === '1') {
+      $('#onboardWrap').classList.add('hidden');
+      return;
+    }
+    var st = onboardingState();
+    var tasks = [
+      { key: 'team', title: '建立第一個隊伍', desc: '先把隊伍建立起來，後面才能新增選手與分享連結。', done: st.team, btn: '去建立隊伍', action: function () { switchTab('teams'); $('#ntName').focus(); } },
+      { key: 'athlete', title: '新增至少 1 位選手', desc: '讓系統先看到一筆實際名單，戰情室才會開始運作。', done: st.athlete, btn: '新增選手', action: function () { switchTab('athletes'); $('#naName').focus(); } },
+      { key: 'link', title: '複製選手填寫連結', desc: '把選手專屬填寫連結貼給家長或選手本人。', done: st.link, btn: '複製連結', action: function () { switchTab('teams'); copyFirstTeamLink(); } },
+      { key: 'firstReport', title: '收到第一筆選手回報', desc: '看到第一筆回報後，今日戰情室就開始有意義。', done: st.firstReport, btn: '查看戰情室', action: function () { switchTab('warroom'); } },
+      { key: 'report7', title: '產生第一份 7 日報告', desc: '先看一次報告範本，之後就能拿去給家長或校方。', done: st.report7, btn: '產生報告', action: function () { switchTab('report'); $('#rpRange').value = '7'; $('#rpType').value = 'athlete'; $('#rpType').onchange(); $('#btnGenReport').click(); } }
+    ];
+    $('#onboardGrid').innerHTML = tasks.map(function (t) {
+      return '<div class="onboard-card' + (t.done ? ' done' : '') + '">' +
+        '<div><div class="step">任務</div><div class="title">' + (t.done ? '✅ ' : '○ ') + esc(t.title) + '</div>' +
+        '<div class="status muted">' + esc(t.desc) + '</div></div>' +
+        '<div class="actions"><button class="btn btn-sm ' + (t.done ? 'btn-ghost' : 'btn-primary') + '" data-onboard="' + t.key + '">' + esc(t.btn) + '</button></div>' +
+      '</div>';
+    }).join('');
+    $('#onboardWrap').classList.toggle('hidden', tasks.every(function (t) { return t.done; }));
+    TP.$all('[data-onboard]', $('#onboardGrid')).forEach(function (b) {
+      var task = tasks.filter(function (t) { return t.key === b.dataset.onboard; })[0];
+      if (task) b.onclick = task.action;
+    });
+  }
+
+  function switchTab(tab) {
+    TP.$all('.tab-btn').forEach(function (x) { x.classList.remove('active'); });
+    var btn = TP.$('.tab-btn[data-tab="' + tab + '"]');
+    if (btn) btn.classList.add('active');
+    ['warroom', 'athletes', 'teams', 'report', 'settings'].forEach(function (t) {
+      $('#tab-' + t).classList.toggle('hidden', t !== tab);
+    });
+  }
+
+  function copyFirstTeamLink() {
+    if (!state.teams.length) { toast('請先建立團隊', true); return; }
+    var url = shareUrl(state.teams[0].shareToken);
+    TP.copy(url);
+    markTask('link', true);
+    renderOnboarding();
   }
 
   $('#btnLogout').onclick = async function () {
@@ -392,11 +664,7 @@
   // tabs
   TP.$all('.tab-btn').forEach(function (b) {
     b.onclick = function () {
-      TP.$all('.tab-btn').forEach(function (x) { x.classList.remove('active'); });
-      b.classList.add('active');
-      ['warroom', 'athletes', 'teams', 'report', 'settings'].forEach(function (t) {
-        $('#tab-' + t).classList.toggle('hidden', t !== b.dataset.tab);
-      });
+      switchTab(b.dataset.tab);
     };
   });
 
@@ -415,6 +683,7 @@
       return '<option value="' + t.teamId + '">' + esc(t.teamName) + '</option>';
     }).join('');
     renderTeams();
+    renderOnboarding();
   }
 
   function shareUrl(token) {
@@ -442,7 +711,13 @@
           '<button class="btn btn-sm btn-danger" data-del="' + t.teamId + '" data-name="' + esc(t.teamName) + '">刪除</button>' +
         '</div></div>';
     }).join('');
-    TP.$all('[data-copy]', box).forEach(function (b) { b.onclick = function () { TP.copy(b.dataset.copy); }; });
+    TP.$all('[data-copy]', box).forEach(function (b) {
+      b.onclick = function () {
+        TP.copy(b.dataset.copy);
+        markTask('link', true);
+        renderOnboarding();
+      };
+    });
     TP.$all('[data-reset]', box).forEach(function (b) {
       b.onclick = async function () {
         if (DEMO) { demoBlock(); return; }
@@ -465,6 +740,10 @@
 
   $('#btnCreateTeam').onclick = async function () {
     if (DEMO) { demoBlock(); return; }
+    if (!planCfg().multiTeam && state.teams.length >= 1) {
+      openUpgradeModal({ reason: 'multiTeam', message: '目前方案只允許 1 個隊伍；升級後可以管理多隊伍。' });
+      return;
+    }
     var name = $('#ntName').value.trim();
     if (!name) { toast('請輸入團隊名稱', true); return; }
     // 前端防呆：同名團隊已存在就擋（後端另有最終把關）
@@ -473,7 +752,9 @@
     }
     var btn = this; btn.disabled = true;
     var r = await TP.callAuth('createTeam', { teamName: name, sport: $('#ntSport').value.trim() });
-    if (r.ok) { $('#ntName').value = ''; toast('團隊已建立'); loadTeams(); } else { toast(r.error, true); }
+    if (r.ok) { $('#ntName').value = ''; toast('團隊已建立'); loadTeams(); }
+    else if (r.error === 'plan_limit_reached' || r.error === 'multi_team_locked') { openUpgradeModal({ reason: 'multiTeam', message: r.message || '目前方案不支援多隊伍管理。' }); }
+    else { toast(r.error, true); }
     btn.disabled = false;
   };
 
@@ -484,6 +765,7 @@
     renderAthletes();
     renderQuotaWarn();
     fillReportAthletes();
+    renderOnboarding();
   }
 
   function fillReportAthletes() {
@@ -495,14 +777,15 @@
 
   function renderQuotaWarn() {
     var c = state.coach;
+    var cfg = planCfg();
     var box = $('#quotaWarn');
-    if (c.activeAthletes >= c.maxAthletes) {
+    if (c.activeAthletes >= cfg.maxAthletes) {
       box.innerHTML = '<div class="upgrade">' + (c.effectivePlan === 'free'
         ? '你已達免費版 5 位選手上限。升級教練版，每月 299 元，可管理 15 位選手並開啟家長通知、歷史趨勢與成果報告。'
-        : '你已達' + esc(c.planName) + ' ' + c.maxAthletes + ' 位選手上限，請升級方案後再新增。') +
+        : '你已達' + esc(c.planName) + ' ' + cfg.maxAthletes + ' 位選手上限，請升級方案後再新增。') +
         ' <a href="https://docs.google.com/forms/d/e/1FAIpQLSc2WhGQP1BQhWMgTJFtnR_gznolKA-KDqYVqXzBEfuxZI7OHA/viewform" target="_blank" rel="noopener">填寫升級申請表</a></div>';
     } else { box.innerHTML = ''; }
-    $('#btnAddAthlete').disabled = c.activeAthletes >= c.maxAthletes;
+    $('#btnAddAthlete').disabled = c.activeAthletes >= cfg.maxAthletes;
   }
 
   function renderAthletes() {
@@ -532,7 +815,7 @@
 
   $('#btnAddAthlete').onclick = async function () {
     if (DEMO) { demoBlock(); return; }
-    if (state.coach.activeAthletes >= state.coach.maxAthletes) { renderQuotaWarn(); toast('已達方案選手上限', true); return; }
+    if (state.coach.activeAthletes >= planCfg().maxAthletes) { renderQuotaWarn(); toast('已達方案選手上限', true); return; }
     var name = $('#naName').value.trim();
     if (!name) { toast('請輸入選手姓名', true); return; }
     var teamId = $('#naTeam').value;
@@ -567,6 +850,10 @@
   }
   function renderWarroom(r) {
     lastWar = r;
+    if (r.submittedCount > 0) {
+      localStorage.setItem(coachLS('first_report_seen'), '1');
+      markTask('first_report', true);
+    }
     $('#stCompletion').textContent = r.completionRate + '%';
     $('#stSubmitted').textContent = r.submittedCount || 0;
     $('#stMissing').textContent = r.missingCount || 0;
@@ -605,6 +892,7 @@
       return '<div class="row"><span>💪 <b>' + esc(e.from) + '</b>' + (e.to ? ' → ' + esc(e.to) : '') + '</span>' +
         '<span class="muted" style="max-width:60%;text-align:right;">' + esc(e.msg) + '</span></div>';
     }).join('');
+    renderOnboarding();
   }
 
   function renderPriority(selector, list, emptyText) {
@@ -617,7 +905,7 @@
     if (!lastWar || !lastWar.missing.length) { toast('目前沒有未繳的選手'); return; }
     var names = lastWar.missing.map(function (m) { return m.name; }).join('、');
     var text = '以下選手今日尚未完成回報：' + names + '，請今天訓練前完成填寫，謝謝。';
-    TP.copy(text);
+    copyLineText(text, 'lineNotify');
   };
 
   $('#btnParentNotify').onclick = function () {
@@ -626,8 +914,8 @@
       return m.name + '家長您好，' + m.name + '今天的訓練狀態還沒回報，麻煩提醒孩子在訓練前完成，讓我能先掌握今天的身體狀況，謝謝。';
     }));
     if (!messages.length) { toast('目前沒有可產生通知的選手'); return; }
+    if (!copyLineText(messages.join('\n\n---\n\n'), 'lineNotify')) return;
     localStorage.setItem(parentNoticeKey(), String(Number(localStorage.getItem(parentNoticeKey()) || 0) + messages.length));
-    TP.copy(messages.join('\n\n---\n\n'));
     loadTrialSummary();
   };
 
@@ -673,6 +961,7 @@
   };
   $('#btnPrint').onclick = function () {
     if (!$('#reportArea').innerHTML.trim()) { toast('請先產生報告', true); return; }
+    if (!planCfg().pdfExport) { openUpgradeModal({ reason: 'pdfExport', message: '免費版不能匯出 PDF。' }); return; }
     window.print();
   };
 
@@ -693,21 +982,33 @@
 
   $('#btnGenReport').onclick = async function () {
     var range = dateRange();
+    if (planKey() === 'free' && range.days > 7) {
+      openUpgradeModal({ reason: 'report30Days', message: '免費版只能產生 7 日報告。' });
+      return;
+    }
     $('#reportArea').innerHTML = '<div class="report-doc"><p class="muted">產生中…</p></div>';
     if (DEMO) {
-      if ($('#rpType').value === 'team') { renderTeamReport('示範・兩隊合計', range, DEMO_DATA.teamReport); }
+      if ($('#rpType').value === 'team') { renderTeamReport('示範・兩隊合計', range, DEMO_DATA.teamReport); if (range.days === 7) markTask('report7', true); }
       else {
         var da = state.athletes.filter(function (a) { return a.athleteId === $('#rpAthlete').value; })[0] || state.athletes[0];
         renderReport(da, range, demoRecords(range));
+        if (range.days === 7) markTask('report7', true);
       }
+      renderOnboarding();
       return;
     }
     if ($('#rpType').value === 'team') {
+      if (!planCfg().multiTeam && state.teams.length > 1) {
+        openUpgradeModal({ reason: 'multiTeam', message: '目前方案僅可看單一隊伍或全部合併，無法做多隊伍管理。' });
+        return;
+      }
       var teamId = $('#rpTeam').value;
       var teamName = teamId ? ($('#rpTeam').options[$('#rpTeam').selectedIndex].text) : '全部團隊';
       var tr = await TP.callAuth('teamReport', { teamId: teamId, from: range.from, to: range.to, days: range.days });
       if (!tr.ok) { toast(tr.error, true); return; }
       renderTeamReport(teamName, range, tr);
+      if (range.days === 7) markTask('report7', true);
+      renderOnboarding();
       return;
     }
     var aId = $('#rpAthlete').value;
@@ -717,6 +1018,8 @@
     if (!r.ok) { toast(r.error, true); return; }
     var recs = (r.records || []).filter(function (x) { return x.date >= range.from && x.date <= range.to; })
       .sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); });
+    if (range.days === 7) markTask('report7', true);
+    renderOnboarding();
     renderReport(athlete, range, recs);
   };
 
@@ -783,10 +1086,11 @@
     var moods = recs.map(function (r) { return num(r.moodIndex); }).filter(function (v) { return v > 0; });
 
     var firstRec = recs[0], lastRec = recs[recs.length - 1];
-    var dimRows = DIMS.map(function (d) {
+    var labels = customKpiLabels();
+    var dimRows = DIMS.map(function (d, idx) {
       var vals = recs.map(function (r) { return num(r[d[0]]); }).filter(function (v) { return v > 0; });
       var a = mean(vals), delta = num(lastRec[d[0]]) - num(firstRec[d[0]]);
-      return { name: d[1], avg: a, delta: delta };
+      return { name: labels[idx] || d[1], avg: a, delta: delta };
     });
     var best = dimRows.slice().sort(function (x, y) { return y.avg - x.avg; })[0];
     var worst = dimRows.slice().sort(function (x, y) { return x.avg - y.avg; })[0];
@@ -845,7 +1149,11 @@
       $('#reportArea').innerHTML = '<div class="report-doc"><h2>查無選手</h2><p>此團隊沒有啟用中的選手。</p></div>';
       return;
     }
-    var dimMap = { technicalAvg: '技術', tacticalAvg: '戰術', physicalAvg: '體能', mentalAvg: '心理', attitudeAvg: '態度', physiologicalAvg: '生理' };
+    var labels = customKpiLabels();
+    var dimKeys = ['technicalAvg', 'tacticalAvg', 'physicalAvg', 'mentalAvg', 'attitudeAvg', 'physiologicalAvg'];
+    var dimDefaults = { technicalAvg: '技術', tacticalAvg: '戰術', physicalAvg: '體能', mentalAvg: '心理', attitudeAvg: '態度', physiologicalAvg: '生理' };
+    var dimMap = {};
+    dimKeys.forEach(function (k, i) { dimMap[k] = labels[i] || dimDefaults[k]; });
     var trendVals = (tr.trend || []).map(function (x) { return num(x.avg); });
     var rows = (tr.athletes || []).slice().sort(function (a, b) { return num(b.avgTotal) - num(a.avgTotal); });
     var comment = $('#rpComment').value.trim();
@@ -995,6 +1303,17 @@
   $('#setLineOpen').onclick = function (e) {
     if (!TP.getLineUrl()) { e.preventDefault(); toast('尚未設定官方 LINE 連結', true); }
   };
+  $('#btnSaveKpi').onclick = function () {
+    if (!planCfg().customKpi) { openUpgradeModal({ reason: 'customKpi', message: '團隊版以上才可自訂 KPI 題目。' }); return; }
+    localStorage.setItem(coachLS('custom_kpi'), $('#customKpiText').value.trim());
+    toast('KPI 題目已儲存');
+  };
+  $('#btnHideOnboard').onclick = function () {
+    localStorage.setItem(coachLS('onboard_hidden'), '1');
+    $('#onboardWrap').classList.add('hidden');
+  };
+  $('#upLater').onclick = closeUpgradeModal;
+  $('#upgradeModal').onclick = function (e) { if (e.target === $('#upgradeModal')) closeUpgradeModal(); };
 
   /* ============================================================
      示範模式（demo=1）：免註冊、唯讀、塞範例資料

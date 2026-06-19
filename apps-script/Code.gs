@@ -80,10 +80,26 @@ var RECORD_HEADERS = ['recordId', 'coachId', 'teamId', 'athleteId', 'name', 'dat
 
 /* ---------- 方案設定（寫死，不進 Sheet） ---------- */
 var PLANS = {
-  free: { name: '免費版', maxAthletes: 5,   price: 0 },
-  coach:{ name: '教練版', maxAthletes: 15,  price: 299 },
-  team: { name: '團隊版', maxAthletes: 40,  price: 699 },
-  pro:  { name: '專業版', maxAthletes: 100, price: 1299 }
+  free: {
+    name: '免費版', maxAthletes: 5, price: 0,
+    lineNotifyPerDay: 1, report7Days: true, report30Days: false, pdfExport: false, multiTeam: false, customKpi: false, assistantAccounts: false,
+    upgradePlan: 'coach'
+  },
+  coach: {
+    name: '教練版', maxAthletes: 15, price: 299,
+    lineNotifyPerDay: 'unlimited', report7Days: true, report30Days: true, pdfExport: true, multiTeam: false, customKpi: false, assistantAccounts: false,
+    upgradePlan: 'team'
+  },
+  team: {
+    name: '團隊版', maxAthletes: 40, price: 699,
+    lineNotifyPerDay: 'unlimited', report7Days: true, report30Days: true, pdfExport: true, multiTeam: true, customKpi: true, assistantAccounts: false,
+    upgradePlan: 'pro'
+  },
+  pro: {
+    name: '專業版', maxAthletes: 100, price: 1299,
+    lineNotifyPerDay: 'unlimited', report7Days: true, report30Days: true, pdfExport: true, multiTeam: true, customKpi: true, assistantAccounts: true,
+    upgradePlan: 'pro'
+  }
 };
 
 /* 燈號門檻（總 KPI，1–5） */
@@ -381,6 +397,15 @@ function createTeam(c, d) {
   var lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
+    var plan = effectivePlan(c);
+    var limit = PLANS[plan] || PLANS.free;
+    if (!limit.multiTeam) {
+      var existingTeamCount = readAll(SHEETS.teams).filter(function (t) {
+        return String(t.coachId) === String(c.coachId) && String(t.status || 'active') !== 'disabled';
+      }).length;
+      if (existingTeamCount >= 1)
+        return { ok: false, error: 'multi_team_locked', message: '目前方案僅支援 1 個隊伍，請升級後再新增。' };
+    }
     // 防呆：同教練底下不可有同名團隊（防重複建立 / 連點兩下）
     var dup = readAll(SHEETS.teams).some(function (t) {
       return String(t.coachId) === String(c.coachId) && String(t.teamName).trim() === teamName;
@@ -621,6 +646,8 @@ function teamReport(c, d) {
   var teamId = d.teamId || '';
   var from = String(d.from || ''), to = String(d.to || '');
   var days = Number(d.days) || 1;
+  if (effectivePlan(c) === 'free' && days > 7)
+    return { ok: false, error: 'plan_limit_reached', message: '免費版僅支援 7 日報告，升級後可看 30 日報告。' };
 
   var athletes = readAll(SHEETS.athletes).filter(function (a) {
     return String(a.coachId) === String(c.coachId) &&
