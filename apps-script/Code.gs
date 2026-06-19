@@ -363,13 +363,22 @@ function listTeams(c) {
 function createTeam(c, d) {
   var teamName = String(d.teamName || '').trim();
   if (!teamName) return { ok: false, error: '請輸入團隊名稱' };
-  var team = {
-    teamId: uid('tm_'), coachId: c.coachId, teamName: teamName,
-    sport: String(d.sport || '跆拳道'), shareToken: uid('sh_'), status: 'active', createdAt: now()
-  };
-  appendObj(SHEETS.teams, team);
-  audit(c.email, 'createTeam', team.teamId, teamName);
-  return { ok: true, team: team };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    // 防呆：同教練底下不可有同名團隊（防重複建立 / 連點兩下）
+    var dup = readAll(SHEETS.teams).some(function (t) {
+      return String(t.coachId) === String(c.coachId) && String(t.teamName).trim() === teamName;
+    });
+    if (dup) return { ok: false, error: '已有同名團隊「' + teamName + '」，請換個名稱' };
+    var team = {
+      teamId: uid('tm_'), coachId: c.coachId, teamName: teamName,
+      sport: String(d.sport || '跆拳道'), shareToken: uid('sh_'), status: 'active', createdAt: now()
+    };
+    appendObj(SHEETS.teams, team);
+    audit(c.email, 'createTeam', team.teamId, teamName);
+    return { ok: true, team: team };
+  } finally { lock.releaseLock(); }
 }
 
 function resetShareToken(c, d) {
@@ -405,6 +414,12 @@ function addAthlete(c, d) {
   var lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
+    // 防呆：同團隊不可有同名的啟用中選手（防重複建立 / 連點兩下）
+    var dup = readAll(SHEETS.athletes).some(function (a) {
+      return String(a.coachId) === String(c.coachId) && String(a.teamId) === String(teamId) &&
+             String(a.name).trim() === name && (String(a.active) !== 'false' && a.active !== false);
+    });
+    if (dup) return { ok: false, error: '此團隊已有同名選手「' + name + '」' };
     var plan = effectivePlan(c);
     var max = PLANS[plan].maxAthletes;
     if (countActiveAthletes(c.coachId) >= max) {

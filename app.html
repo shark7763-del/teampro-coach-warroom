@@ -224,14 +224,12 @@
   var mode = 'login';
   var state = { coach: null, teams: [], athletes: [] };
   var params = new URLSearchParams(location.search);
+  var DEMO = params.get('demo') === '1';
 
   /* ---------- 啟動 ---------- */
   function boot() {
-    if (!TP.getUrl()) {
-      // 沒設網址，但允許進登入頁去填
-    }
+    if (DEMO) { enterDemo(); return; }
     if (params.get('signup') === '1') mode = 'signup';
-    if (params.get('demo') === '1') { mode = 'signup'; }
     if (TP.getToken()) {
       TP.callAuth('me').then(function (r) {
         if (r.ok) { state.coach = r.coach; showApp(); }
@@ -302,7 +300,10 @@
     var r = await TP.callAuth('me'); if (r.ok) { state.coach = r.coach; renderPlan(); }
   }
 
-  $('#btnLogout').onclick = async function () { await TP.callAuth('logout'); TP.clearToken(); location.reload(); };
+  $('#btnLogout').onclick = async function () {
+    if (DEMO) { location.href = 'index.html'; return; }
+    await TP.callAuth('logout'); TP.clearToken(); location.reload();
+  };
 
   // tabs
   TP.$all('.tab-btn').forEach(function (b) {
@@ -355,6 +356,7 @@
     TP.$all('[data-copy]', box).forEach(function (b) { b.onclick = function () { TP.copy(b.dataset.copy); }; });
     TP.$all('[data-reset]', box).forEach(function (b) {
       b.onclick = async function () {
+        if (DEMO) { demoBlock(); return; }
         if (!confirm('重設後舊連結立即失效，需重新分享給選手。確定？')) return;
         var r = await TP.callAuth('resetShareToken', { teamId: b.dataset.reset });
         if (r.ok) { toast('連結已重設'); loadTeams(); } else { toast(r.error, true); }
@@ -363,10 +365,17 @@
   }
 
   $('#btnCreateTeam').onclick = async function () {
+    if (DEMO) { demoBlock(); return; }
     var name = $('#ntName').value.trim();
     if (!name) { toast('請輸入團隊名稱', true); return; }
+    // 前端防呆：同名團隊已存在就擋（後端另有最終把關）
+    if (state.teams.some(function (t) { return String(t.teamName).trim() === name; })) {
+      toast('已有同名團隊「' + name + '」', true); return;
+    }
+    var btn = this; btn.disabled = true;
     var r = await TP.callAuth('createTeam', { teamName: name, sport: $('#ntSport').value.trim() });
     if (r.ok) { $('#ntName').value = ''; toast('團隊已建立'); loadTeams(); } else { toast(r.error, true); }
+    btn.disabled = false;
   };
 
   /* ---------- 選手 ---------- */
@@ -410,6 +419,7 @@
     }).join('');
     TP.$all('[data-toggle]', box).forEach(function (b) {
       b.onclick = async function () {
+        if (DEMO) { demoBlock(); return; }
         var want = b.dataset.active === 'false'; // 目前停用→要恢復
         var r = await TP.callAuth('setAthleteActive', { athleteId: b.dataset.toggle, active: want });
         if (r.ok) { toast('已更新'); await refreshMe(); loadAthletes(); }
@@ -419,8 +429,15 @@
   }
 
   $('#btnAddAthlete').onclick = async function () {
+    if (DEMO) { demoBlock(); return; }
     var name = $('#naName').value.trim();
     if (!name) { toast('請輸入選手姓名', true); return; }
+    var teamId = $('#naTeam').value;
+    if (state.athletes.some(function (a) {
+      return String(a.teamId) === String(teamId) && String(a.name).trim() === name &&
+             (String(a.active) !== 'false' && a.active !== false);
+    })) { toast('此團隊已有同名選手「' + name + '」', true); return; }
+    var btn = this; btn.disabled = true;
     var r = await TP.callAuth('addAthlete', {
       name: name, teamId: $('#naTeam').value, gradeClass: $('#naGrade').value.trim()
     });
@@ -430,6 +447,7 @@
     } else if (r.error === 'plan_limit_reached') {
       toast(r.message || '已達方案上限', true); await refreshMe(); renderQuotaWarn();
     } else { toast(r.error, true); }
+    btn.disabled = false;
   };
 
   /* ---------- 戰情室 ---------- */
@@ -439,8 +457,12 @@
 
   var lastWar = null;
   async function loadWarroom() {
+    if (DEMO) { renderWarroom(DEMO_DATA.warroom); return; }
     var r = await TP.callAuth('warroom', { teamId: $('#warTeam').value, date: $('#warDate').value });
     if (!r.ok) { toast(r.error, true); return; }
+    renderWarroom(r);
+  }
+  function renderWarroom(r) {
     lastWar = r;
     $('#stCompletion').textContent = r.completionRate + '%';
     $('#stGreen').textContent = r.lights.green || 0;
@@ -512,6 +534,14 @@
   $('#btnGenReport').onclick = async function () {
     var range = dateRange();
     $('#reportArea').innerHTML = '<div class="report-doc"><p class="muted">產生中…</p></div>';
+    if (DEMO) {
+      if ($('#rpType').value === 'team') { renderTeamReport('示範・鯊魚戰隊', range, DEMO_DATA.teamReport); }
+      else {
+        var da = state.athletes.filter(function (a) { return a.athleteId === $('#rpAthlete').value; })[0] || state.athletes[0];
+        renderReport(da, range, demoRecords(range));
+      }
+      return;
+    }
     if ($('#rpType').value === 'team') {
       var teamId = $('#rpTeam').value;
       var teamName = teamId ? ($('#rpTeam').options[$('#rpTeam').selectedIndex].text) : '全部團隊';
@@ -691,6 +721,100 @@
 
   /* ---------- 設定 ---------- */
   $('#setUrlSave').onclick = function () { TP.setUrl($('#setUrl').value); toast('已儲存，重新整理生效'); };
+
+  /* ============================================================
+     示範模式（demo=1）：免註冊、唯讀、塞範例資料
+     ============================================================ */
+  function demoBlock() { toast('這是示範模式，免費註冊後即可實際操作 🙂'); }
+
+  var DEMO_DATA = {
+    coach: { name: '示範教練', email: 'demo', plan: 'team', effectivePlan: 'team',
+             planName: '團隊版', maxAthletes: 40, activeAthletes: 8, planExpiry: '', expired: false },
+    teams: [
+      { teamId: 'demoTeam', coachId: 'demo', teamName: '示範・鯊魚戰隊', sport: '跆拳道', shareToken: 'demo', status: 'active' }
+    ],
+    athletes: [
+      { athleteId: 'd1', teamId: 'demoTeam', name: '陳柏宇', gradeClass: '八年級', active: true },
+      { athleteId: 'd2', teamId: 'demoTeam', name: '林冠廷', gradeClass: '八年級', active: true },
+      { athleteId: 'd3', teamId: 'demoTeam', name: '黃于軒', gradeClass: '九年級', active: true },
+      { athleteId: 'd4', teamId: 'demoTeam', name: '張承恩', gradeClass: '九年級', active: true },
+      { athleteId: 'd5', teamId: 'demoTeam', name: '吳宥辰', gradeClass: '七年級', active: true },
+      { athleteId: 'd6', teamId: 'demoTeam', name: '李芷瑄', gradeClass: '八年級', active: true },
+      { athleteId: 'd7', teamId: 'demoTeam', name: '王思妤', gradeClass: '九年級', active: true },
+      { athleteId: 'd8', teamId: 'demoTeam', name: '蔡承翰', gradeClass: '七年級', active: true }
+    ],
+    warroom: {
+      ok: true, date: new Date().toISOString().slice(0, 10),
+      total: 8, submittedCount: 6, missingCount: 2, completionRate: 75,
+      lights: { green: 3, yellow: 2, red: 1 },
+      submitted: [
+        { name: '陳柏宇', totalScore: 4.5, status: 'green' },
+        { name: '林冠廷', totalScore: 4.1, status: 'green' },
+        { name: '王思妤', totalScore: 4.0, status: 'green' },
+        { name: '黃于軒', totalScore: 3.6, status: 'yellow' },
+        { name: '吳宥辰', totalScore: 3.2, status: 'yellow' },
+        { name: '蔡承翰', totalScore: 2.6, status: 'red' }
+      ],
+      missing: [ { name: '張承恩' }, { name: '李芷瑄' } ]
+    },
+    teamReport: {
+      ok: true, athleteCount: 8, teamAvg: 3.7, completionRate: 82, totalReports: 92, expectedReports: 112,
+      dimAvg: { technicalAvg: 3.8, tacticalAvg: 3.5, physicalAvg: 4.0, mentalAvg: 3.4, attitudeAvg: 4.2, physiologicalAvg: 3.3 },
+      lights: { green: 48, yellow: 32, red: 12 },
+      trend: [ { avg: 3.3 }, { avg: 3.4 }, { avg: 3.5 }, { avg: 3.6 }, { avg: 3.5 }, { avg: 3.8 }, { avg: 3.9 } ],
+      athletes: [
+        { name: '陳柏宇', filledDays: 13, avgTotal: 4.4, delta: 0.6, lastStatus: 'green' },
+        { name: '林冠廷', filledDays: 12, avgTotal: 4.1, delta: 0.3, lastStatus: 'green' },
+        { name: '王思妤', filledDays: 14, avgTotal: 3.9, delta: 0.4, lastStatus: 'green' },
+        { name: '黃于軒', filledDays: 11, avgTotal: 3.6, delta: 0.1, lastStatus: 'yellow' },
+        { name: '吳宥辰', filledDays: 10, avgTotal: 3.4, delta: -0.2, lastStatus: 'yellow' },
+        { name: '蔡承翰', filledDays: 9, avgTotal: 2.8, delta: -0.4, lastStatus: 'red' }
+      ]
+    }
+  };
+
+  // 為個人報告產生一段有上升趨勢的範例紀錄
+  function demoRecords(range) {
+    var out = [], base = 3.0;
+    for (var i = 0; i < 12; i++) {
+      var d = new Date(); d.setDate(d.getDate() - (11 - i));
+      var v = Math.min(5, +(base + i * 0.12 + (i % 3 === 0 ? 0.2 : 0)).toFixed(1));
+      out.push({
+        date: d.toISOString().slice(0, 10), totalScore: v, status: TP.lightOf(v),
+        technicalAvg: v, tacticalAvg: Math.max(1, v - 0.3), physicalAvg: Math.min(5, v + 0.2),
+        mentalAvg: Math.max(1, v - 0.4), attitudeAvg: Math.min(5, v + 0.3), physiologicalAvg: Math.max(1, v - 0.2),
+        moodIndex: Math.min(5, Math.round(v))
+      });
+    }
+    return out;
+  }
+
+  function enterDemo() {
+    authView.classList.add('hidden'); appView.classList.remove('hidden');
+    // 示範橫幅
+    var banner = TP.el('div', { class: 'plan-banner', style: 'border-color:var(--brand);background:rgba(34,197,94,.08);' });
+    banner.innerHTML = '<div>🔍 <b>示範模式</b>　你看到的是範例資料，所有操作不會儲存。</div>' +
+      '<a class="btn btn-primary btn-sm" href="app.html?signup=1">免費建立我的隊伍 →</a>';
+    appView.insertBefore(banner, appView.querySelector('.plan-banner'));
+
+    state.coach = DEMO_DATA.coach;
+    state.teams = DEMO_DATA.teams;
+    state.athletes = DEMO_DATA.athletes;
+    $('#coachName').textContent = '示範教練（示範模式）';
+    $('#btnLogout').textContent = '結束示範';
+    renderPlan();
+    $('#warDate').value = new Date().toISOString().slice(0, 10);
+
+    var teamOpts = '<option value="">全部團隊</option>' + state.teams.map(function (t) {
+      return '<option value="' + t.teamId + '">' + esc(t.teamName) + '</option>'; }).join('');
+    $('#warTeam').innerHTML = teamOpts;
+    $('#rpTeam').innerHTML = teamOpts;
+    $('#naTeam').innerHTML = state.teams.map(function (t) { return '<option value="' + t.teamId + '">' + esc(t.teamName) + '</option>'; }).join('');
+    fillReportAthletes();
+    renderTeams();
+    renderAthletes();
+    renderWarroom(DEMO_DATA.warroom);
+  }
 
   boot();
 })();
