@@ -42,7 +42,7 @@ var KPI_DIMENSIONS = ['technical', 'tactical', 'physical', 'mental', 'attitude',
 var KPI_ITEMS = [
   // 技術 technical
   'tech_accuracy', 'tech_stability', 'tech_speed', 'tech_power', 'tech_completion',
-  // 戰術 tactical
+  // 戰術 tactical（通用詞：空間掌握/時機掌握/節奏轉換/局勢判讀/戰術執行）
   'tac_distance', 'tac_timing', 'tac_transition', 'tac_read', 'tac_execution',
   // 體能 physical
   'phy_explosive', 'phy_strength', 'phy_endurance', 'phy_cardio', 'phy_agility',

@@ -74,8 +74,8 @@
       ['tech_accuracy', '動作準確度'], ['tech_stability', '動作穩定度'], ['tech_speed', '速度與反應'],
       ['tech_power', '力量傳遞'], ['tech_completion', '技術完成度'] ] },
     { key: 'tactical', name: '戰術', items: [
-      ['tac_distance', '距離控制'], ['tac_timing', '出手時機'], ['tac_transition', '攻防轉換'],
-      ['tac_read', '對手判讀'], ['tac_execution', '教練戰術執行'] ] },
+      ['tac_distance', '空間掌握'], ['tac_timing', '時機掌握'], ['tac_transition', '節奏轉換'],
+      ['tac_read', '局勢判讀'], ['tac_execution', '戰術執行'] ] },
     { key: 'physical', name: '體能', items: [
       ['phy_explosive', '爆發力'], ['phy_strength', '肌力'], ['phy_endurance', '肌耐力'],
       ['phy_cardio', '心肺耐力'], ['phy_agility', '敏捷與協調'] ] },
