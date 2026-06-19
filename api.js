@@ -5,12 +5,15 @@
 (function (global) {
   var LS_URL = 'teampro_webapp_url';
   var LS_TOKEN = 'teampro_token';
+  var DEFAULT_LINE_URL = 'https://line.me/R/ti/p/@529utwnh';
 
   // 若你已部署好固定後端，可在這裡填預設 /exec 網址，使用者就不必自己貼。
   var DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbxPk4FqX_xuzL3bTaNFCpCt5JKW0uGTRuhiL0FcMCaRsK3LjURenSd0VYSjXprReYw-7A/exec';
 
   function getUrl() { return (localStorage.getItem(LS_URL) || DEFAULT_URL || '').trim(); }
   function setUrl(u) { localStorage.setItem(LS_URL, (u || '').trim()); }
+  function getLineUrl() { return (localStorage.getItem('teampro_line_url') || DEFAULT_LINE_URL || '').trim(); }
+  function setLineUrl(u) { localStorage.setItem('teampro_line_url', (u || '').trim()); }
   function getToken() { return localStorage.getItem(LS_TOKEN) || ''; }
   function setToken(t) { if (t) localStorage.setItem(LS_TOKEN, t); }
   function clearToken() { localStorage.removeItem(LS_TOKEN); }
@@ -95,6 +98,7 @@
 
   global.TP = {
     getUrl: getUrl, setUrl: setUrl, getToken: getToken, setToken: setToken, clearToken: clearToken,
+    getLineUrl: getLineUrl, setLineUrl: setLineUrl,
     call: call, callAuth: callAuth,
     $: $, $all: $all, el: el, esc: esc, toast: toast, copy: copy,
     KPI_DIMENSIONS: KPI_DIMENSIONS, lightOf: lightOf, lightText: lightText

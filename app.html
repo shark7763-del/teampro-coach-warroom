@@ -259,6 +259,12 @@
       <h3 style="margin-top:0;">系統設定</h3>
       <label>後端網址（GAS /exec）</label>
       <div class="link-box"><input id="setUrl"><button class="btn" id="setUrlSave">儲存</button></div>
+      <label>官方 LINE 連結</label>
+      <div class="link-box">
+        <input id="setLineUrl" readonly>
+        <button class="btn" id="setLineCopy">複製</button>
+        <a class="btn btn-ghost" id="setLineOpen" target="_blank" rel="noopener">開啟</a>
+      </div>
       <p class="muted" style="font-size:13px;">升級付費方案請填寫 <a href="https://docs.google.com/forms/d/e/1FAIpQLSc2WhGQP1BQhWMgTJFtnR_gznolKA-KDqYVqXzBEfuxZI7OHA/viewform" target="_blank" rel="noopener">TeamPro 升級申請表</a>，確認付款後由管理者開通。</p>
     </div>
   </section>
@@ -351,6 +357,8 @@
     authView.classList.add('hidden'); appView.classList.remove('hidden');
     $('#coachName').textContent = state.coach.name + '（' + state.coach.email + '）';
     $('#setUrl').value = TP.getUrl();
+    $('#setLineUrl').value = TP.getLineUrl();
+    $('#setLineOpen').href = TP.getLineUrl();
     renderPlan();
     $('#warDate').value = localToday();
     loadTeams().then(function () { loadAthletes(); loadWarroom(); loadTrialSummary(); });
@@ -977,6 +985,10 @@
 
   /* ---------- 設定 ---------- */
   $('#setUrlSave').onclick = function () { TP.setUrl($('#setUrl').value); toast('已儲存，重新整理生效'); };
+  $('#setLineCopy').onclick = function () { TP.copy(TP.getLineUrl()); };
+  $('#setLineOpen').onclick = function (e) {
+    if (!TP.getLineUrl()) { e.preventDefault(); toast('尚未設定官方 LINE 連結', true); }
+  };
 
   /* ============================================================
      示範模式（demo=1）：免註冊、唯讀、塞範例資料

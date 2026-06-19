@@ -37,6 +37,7 @@
   <div class="topbar">
     <div class="logo">🥋 TeamPro <span class="mark">教練戰情室</span></div>
     <div style="display:flex; gap:8px;">
+      <a class="btn btn-ghost btn-sm" id="topLineBtn" href="https://line.me/R/ti/p/@529utwnh" target="_blank" rel="noopener">官方 LINE</a>
       <a class="btn btn-ghost btn-sm" href="app.html">教練登入</a>
       <a class="btn btn-primary btn-sm" href="app.html?signup=1">免費開始</a>
     </div>
@@ -52,6 +53,7 @@
     <div class="cta">
       <a class="btn btn-primary" href="app.html?signup=1">免費開始使用 →</a>
       <a class="btn" href="app.html?demo=1">看示範資料</a>
+      <a class="btn btn-ghost" href="https://line.me/R/ti/p/@529utwnh" target="_blank" rel="noopener">加入官方 LINE</a>
     </div>
     <div class="badge-strip">
       <span>✅ 免費版可用 5 位選手</span>
@@ -213,10 +215,22 @@
     TeamPro 教練戰情室 · 讓教練每天 3 分鐘掌握整隊狀態<br>
     隱私權政策 · 未成年資料須取得同意 · 教練資料隔離 · 可申請刪除資料<br>
     客服信箱：<a href="mailto:shark7763@gmail.com">shark7763@gmail.com</a><br>
+    官方 LINE：<a id="footerLine" href="https://line.me/R/ti/p/@529utwnh" target="_blank" rel="noopener">加入 TeamPro 官方 LINE</a><br>
     <a href="app.html">教練登入</a> ·
     <a href="admin.html">管理者後台</a>
   </div>
 </footer>
+
+<script src="api.js"></script>
+<script>
+  (function () {
+    var line = (window.TP && TP.getLineUrl) ? TP.getLineUrl() : 'https://line.me/R/ti/p/@529utwnh';
+    var top = document.getElementById('topLineBtn');
+    var foot = document.getElementById('footerLine');
+    if (top) top.href = line;
+    if (foot) foot.href = line;
+  })();
+</script>
 
 </body>
 </html>
