@@ -6,6 +6,18 @@
   var LS_URL = 'teampro_webapp_url';
   var LS_TOKEN = 'teampro_token';
   var DEFAULT_LINE_URL = 'https://line.me/R/ti/p/@529utwnh';
+
+  /* ============================================================
+     方案權限欄位（商業化核心）
+     plan        = free / coach / team / pro
+     playerLimit = 5    / 15    / 40   / 100   （= 下方 maxAthletes）
+     ------------------------------------------------------------
+     ⚠️ 重要：此處為「前端顯示用」配額表。前端可據此顯示／提示限制，
+     但這些限制【不可】作為真正的存取控制——前端值可被使用者竄改。
+     真正的方案驗證（人數上限、功能解鎖、到期判斷）必須一律由後端
+     （Apps Script / Code.gs）在每個寫入動作時重新檢查 plan 與
+     playerLimit，前端配額僅供 UX 提示之用。
+     ============================================================ */
   var PLAN_LIMITS = {
     free:  { name: '免費版',  maxAthletes: 5,   lineNotifyPerDay: 1,         report7Days: true, report30Days: false, pdfExport: false, multiTeam: false, customKpi: false, assistantAccounts: false, upgradePlan: 'coach' },
     coach: { name: '教練版',  maxAthletes: 15,  lineNotifyPerDay: 'unlimited', report7Days: true, report30Days: true,  pdfExport: true,  multiTeam: false, customKpi: false, assistantAccounts: false, upgradePlan: 'team' },
