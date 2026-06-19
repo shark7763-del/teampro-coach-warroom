@@ -423,10 +423,13 @@
         '<span class="pill ' + l + '">' + t.toFixed(1) + '</span></div>';
     }).join('');
 
+    var fb = last.coachComment && String(last.coachComment).trim();
     $('#perfBody').innerHTML =
       '<div class="center"><div style="font-size:40px;font-weight:800;color:' +
         (light === 'green' ? 'var(--green)' : light === 'yellow' ? 'var(--yellow)' : 'var(--red)') + ';">' + total.toFixed(1) + '</div>' +
         '<span class="pill ' + light + '">最近一次・' + TP.lightText(light) + '（' + esc(String(last.date)) + '）</span></div>' +
+      (fb ? '<div class="card" style="background:rgba(34,197,94,.08);border-color:var(--brand);margin-top:12px;">' +
+        '<b style="color:var(--brand);">👨‍🏫 教練回饋</b><div style="margin-top:4px;white-space:pre-wrap;">' + esc(last.coachComment) + '</div></div>' : '') +
       (totals.length >= 2 ? '<h3 style="margin:14px 0 0;">總分趨勢</h3>' + miniSpark(totals) : '') +
       '<h3 style="margin:14px 0 6px;">最近一次六大面向</h3>' + dims +
       '<h3 style="margin:14px 0 6px;">歷史紀錄</h3>' + rows;

@@ -71,6 +71,8 @@ var RECORD_HEADERS = ['recordId', 'coachId', 'teamId', 'athleteId', 'name', 'dat
     'sleepHours', 'fatigue', 'injuryAreas', 'injuryNote',
     // 鼓勵隊友
     'encourageName', 'encourageMsg',
+    // 教練回饋
+    'coachComment', 'coachFeedbackAt',
     // 產出
     'nutritionAdvice', 'studentLineText', 'parentLineText', 'coachLineText',
     'rawJson'
@@ -139,6 +141,7 @@ function handle(action, d) {
     case 'warroom':         return jsonOut(withCoach(d, warroom));
     case 'athleteRecords':  return jsonOut(withCoach(d, athleteRecords));
     case 'teamReport':      return jsonOut(withCoach(d, teamReport));
+    case 'coachFeedback':   return jsonOut(withCoach(d, coachFeedback));
 
     /* ---- 選手填寫（公開，靠 shareToken 限定團隊） ---- */
     case 'joinInfo':        return jsonOut(joinInfo(d));
@@ -549,6 +552,20 @@ function athleteRecords(c, d) {
     return String(r.coachId) === String(c.coachId) && String(r.athleteId) === aId;
   }).sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
   return { ok: true, records: recs.slice(0, Number(d.limit || 30)) };
+}
+
+/* 教練對某筆紀錄寫回饋 / 建議 */
+function coachFeedback(c, d) {
+  var recId = String(d.recordId || '');
+  if (!recId) return { ok: false, error: '缺少 recordId' };
+  var row = findRow(SHEETS.records, 'recordId', recId);
+  if (row === -1) return { ok: false, error: '找不到紀錄（可能是舊資料）' };
+  var rec = readAll(SHEETS.records)[row - 2];
+  if (String(rec.coachId) !== String(c.coachId)) return { ok: false, error: 'forbidden' };
+  sheet(SHEETS.records).getRange(row, RECORD_HEADERS.indexOf('coachComment') + 1).setValue(d.feedback || '');
+  sheet(SHEETS.records).getRange(row, RECORD_HEADERS.indexOf('coachFeedbackAt') + 1).setValue(now());
+  audit(c.email, 'coachFeedback', recId, '');
+  return { ok: true };
 }
 
 /* 團隊整體報告：彙整某期間全隊（或單一團隊）資料 */
