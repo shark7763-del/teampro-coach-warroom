@@ -321,6 +321,23 @@
   <!-- 設定 -->
   <section id="tab-settings" class="hidden">
     <div class="card">
+      <h3 style="margin-top:0;">帳號設定</h3>
+      <label>顯示名稱（會出現在發給家長的成果報告上）</label>
+      <div class="link-box">
+        <input id="setName" placeholder="教練姓名">
+        <button class="btn btn-primary" id="btnSaveName">儲存名稱</button>
+      </div>
+      <label>登入 Email</label>
+      <input id="setEmail" readonly>
+      <p class="muted" style="font-size:12px;margin:4px 0 0;">Email 為登入帳號，如需變更請聯絡管理者。</p>
+      <hr style="border-color:var(--line);margin:16px 0;">
+      <label>修改密碼</label>
+      <input id="pwCurrent" type="password" placeholder="目前密碼" autocomplete="current-password">
+      <input id="pwNew" type="password" placeholder="新密碼（至少 6 碼）" autocomplete="new-password" style="margin-top:8px;">
+      <input id="pwNew2" type="password" placeholder="再次輸入新密碼" autocomplete="new-password" style="margin-top:8px;">
+      <button class="btn btn-primary" id="btnChangePw" style="margin-top:10px;">更新密碼</button>
+    </div>
+    <div class="card">
       <h3 style="margin-top:0;">系統設定</h3>
       <label>後端網址（GAS /exec）</label>
       <div class="link-box"><input id="setUrl"><button class="btn" id="setUrlSave">儲存</button></div>
@@ -569,6 +586,8 @@
   function showApp() {
     authView.classList.add('hidden'); appView.classList.remove('hidden');
     $('#coachName').textContent = state.coach.name + '（' + state.coach.email + '）';
+    $('#setName').value = state.coach.name || '';
+    $('#setEmail').value = state.coach.email || '';
     $('#setUrl').value = TP.getUrl();
     $('#setLineUrl').value = TP.getLineUrl();
     $('#setLineOpen').href = TP.getLineUrl();
@@ -1372,6 +1391,32 @@
     btn.disabled = false;
     if (r.ok) { toast('已送出回饋'); $('#fbModal').classList.add('hidden'); }
     else { toast(r.error, true); }
+  };
+
+  /* ---------- 帳號設定 ---------- */
+  $('#btnSaveName').onclick = async function () {
+    if (DEMO) { demoBlock(); return; }
+    var name = $('#setName').value.trim();
+    if (!name) { toast('請輸入姓名', true); return; }
+    var r = await TP.callAuth('updateProfile', { name: name });
+    if (r.ok) {
+      state.coach = r.coach;
+      $('#coachName').textContent = state.coach.name + '（' + state.coach.email + '）';
+      toast('已更新名稱');
+    } else { toast(r.message || r.error, true); }
+  };
+
+  $('#btnChangePw').onclick = async function () {
+    if (DEMO) { demoBlock(); return; }
+    var cur = $('#pwCurrent').value, n1 = $('#pwNew').value, n2 = $('#pwNew2').value;
+    if (!cur || !n1) { toast('請輸入目前密碼與新密碼', true); return; }
+    if (n1.length < 6) { toast('新密碼至少 6 碼', true); return; }
+    if (n1 !== n2) { toast('兩次新密碼不一致', true); return; }
+    var r = await TP.callAuth('changePassword', { currentPassword: cur, newPassword: n1 });
+    if (r.ok) {
+      $('#pwCurrent').value = ''; $('#pwNew').value = ''; $('#pwNew2').value = '';
+      toast('密碼已更新');
+    } else { toast(r.message || r.error, true); }
   };
 
   /* ---------- 設定 ---------- */

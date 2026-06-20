@@ -141,6 +141,8 @@ function handle(action, d) {
     case 'login':           return jsonOut(login(d));
     case 'me':              return jsonOut(me(d));
     case 'logout':          return jsonOut(logout(d));
+    case 'updateProfile':   return jsonOut(withCoach(d, updateProfile));
+    case 'changePassword':  return jsonOut(withCoach(d, changePassword));
 
     /* ---- 團隊 ---- */
     case 'listTeams':       return jsonOut(withCoach(d, listTeams));
@@ -328,6 +330,42 @@ function logout(d) {
   var row = findRow(SHEETS.sessions, 'token', d.token || '');
   if (row !== -1) sheet(SHEETS.sessions).deleteRow(row);
   return { ok: true };
+}
+
+/* 教練自助：修改顯示名稱（會反映在發給家長的報告上） */
+function updateProfile(c, d) {
+  var name = String(d.name || '').trim();
+  if (!name) return { ok: false, error: '請輸入姓名' };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var row = findRow(SHEETS.coaches, 'coachId', c.coachId);
+    if (row === -1) return { ok: false, error: '找不到帳號' };
+    sheet(SHEETS.coaches).getRange(row, H.coaches.indexOf('name') + 1).setValue(name);
+    audit(c.email, 'updateProfile', c.coachId, name);
+    return { ok: true, coach: publicCoach(c.coachId) };
+  } finally { lock.releaseLock(); }
+}
+
+/* 教練自助：修改密碼（須驗證目前密碼，重新產生 salt） */
+function changePassword(c, d) {
+  var current = String(d.currentPassword || '');
+  var next = String(d.newPassword || '');
+  if (hashPassword(current, c.salt) !== String(c.passwordHash)) return { ok: false, error: '目前密碼不正確' };
+  if (next.length < 6) return { ok: false, error: '新密碼至少 6 碼' };
+  if (next === current) return { ok: false, error: '新密碼不可與目前密碼相同' };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var row = findRow(SHEETS.coaches, 'coachId', c.coachId);
+    if (row === -1) return { ok: false, error: '找不到帳號' };
+    var salt = uid('s_');
+    var s = sheet(SHEETS.coaches);
+    s.getRange(row, H.coaches.indexOf('salt') + 1).setValue(salt);
+    s.getRange(row, H.coaches.indexOf('passwordHash') + 1).setValue(hashPassword(next, salt));
+    audit(c.email, 'changePassword', c.coachId, '');
+    return { ok: true };
+  } finally { lock.releaseLock(); }
 }
 
 /* 由 token 反推教練；過期/停用都擋。回傳 coach 物件或 null */
