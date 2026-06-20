@@ -672,8 +672,8 @@
 
   async function submit() {
     // 個資法：送出前強制同意
-    if (!$('#consentPrivacy').checked) { toast('請先勾選同意隱私權與資料使用說明', true); return; }
-    if (!$('#guardianConsent').checked) { toast('未滿 18 歲請先確認家長/法定代理人已同意', true); return; }
+    if (!$('#consentPrivacy').checked) { toast('請先閱讀並勾選隱私權與資料使用同意後再送出。', true); return; }
+    if (!$('#guardianConsent').checked) { toast('未滿 18 歲請先確認家長/法定代理人已同意。', true); return; }
     var scores = collectScores();
     var payload = {
       t: shareToken, athleteId: ctx.athleteId, date: ($('#recordDate').value || localToday()),
@@ -686,6 +686,7 @@
       athleteName: ctx.name, teamId: (ctx.team && ctx.team.teamId) || '',
       consentPrivacy: true, guardianConsent: $('#guardianConsent').checked,
       consentAt: new Date().toISOString(), privacyVersion: '2026-06',
+      consentText: '已閱讀並同意 TeamPro 隱私權與資料使用說明',
       deviceInfo: (navigator.userAgent || '').slice(0, 180)
     };
     Object.assign(payload, collectExtras());

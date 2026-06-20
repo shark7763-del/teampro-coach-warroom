@@ -111,7 +111,7 @@ var RECORD_HEADERS = ['recordId', 'coachId', 'teamId', 'athleteId', 'name', 'dat
     // 產出
     'nutritionAdvice', 'studentLineText', 'parentLineText', 'coachLineText',
     // 個資法同意紀錄
-    'consentPrivacy', 'guardianConsent', 'consentAt', 'privacyVersion', 'deviceInfo',
+    'consentPrivacy', 'guardianConsent', 'consentAt', 'privacyVersion', 'consentText', 'deviceInfo',
     'rawJson'
   ]);
 
@@ -1000,6 +1000,7 @@ function submitRecord(d) {
     guardianConsent: d.guardianConsent ? true : false,
     consentAt: d.consentAt || now(),
     privacyVersion: String(d.privacyVersion || ''),
+    consentText: String(d.consentText || ''),
     deviceInfo: String(d.deviceInfo || ''),
     rawJson: JSON.stringify(scores)
   };
