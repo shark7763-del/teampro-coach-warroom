@@ -82,7 +82,9 @@
       </div>
       <p class="muted" style="margin:6px 0 0;">每項 1–5 分，5 分代表最好。可先「帶入上次」再微調。</p>
       <p class="muted" style="font-size:12px;margin:6px 0 0;">🔒 你填寫的訓練資料會用於教練追蹤訓練狀態，系統會依照權限保護你的個人紀錄。</p>
-      <label style="margin-top:10px;">今天是？</label>
+      <label style="margin-top:10px;">訓練日期（預設今天；漏填可往回補填，同一天會覆蓋更新）</label>
+      <input id="recordDate" type="date">
+      <label style="margin-top:10px;">這天是？</label>
       <select id="sessionType">
         <option value="training">訓練日（填全部）</option>
         <option value="rest">非訓練日（只填身體/心情/生理）</option>
@@ -341,6 +343,16 @@
       $('#fatigueHint').textContent = v <= 3 ? '輕鬆' : (v <= 6 ? '適中' : (v <= 8 ? '偏累' : '非常疲勞'));
     }
     fa.addEventListener('input', paintFa); paintFa();
+
+    // 訓練日期：預設台灣本地今天、上限今天（不可挑未來），可往回補填
+    var dt = $('#recordDate');
+    if (dt) { dt.value = localToday(); dt.max = localToday(); }
+  }
+
+  // 本地（非 UTC）日期 YYYY-MM-DD，修正晨操時段被算到前一天的時區問題
+  function localToday() {
+    var d = new Date();
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   }
 
   function slotVal(id) {
@@ -623,7 +635,7 @@
   async function submit() {
     var scores = collectScores();
     var payload = {
-      t: shareToken, athleteId: ctx.athleteId, date: new Date().toISOString().slice(0, 10),
+      t: shareToken, athleteId: ctx.athleteId, date: ($('#recordDate').value || localToday()),
       sessionType: $('#sessionType').value, scores: scores,
       heightCm: $('#heightCm').value, weightKg: $('#weightKg').value, targetWeightKg: $('#targetWeightKg').value,
       breakfast: $('#breakfast').value, lunch: $('#lunch').value, dinner: $('#dinner').value,
