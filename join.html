@@ -206,7 +206,7 @@
     var r = await TP.call('joinInfo', { t: shareToken });
     $('#loading').classList.add('hidden');
     if (!r.ok) return showError(r.error);
-    ctx.team = r.team; ctx.athletes = r.athletes;
+    ctx.team = r.team; ctx.athletes = r.athletes; ctx.pro = !!r.pro;
     $('#teamName').textContent = r.team.teamName;
     $('#whoSelect').innerHTML = r.athletes.length
       ? r.athletes.map(function (a) { return '<option value="' + a.athleteId + '">' + esc(a.name) + '</option>'; }).join('')
@@ -395,39 +395,74 @@
     renderLastPerfOnFill();
   };
 
-  // 填表頁的「上次表現」卡：已驗證PIN(或無PIN)→自動顯示；有PIN未驗證→卡內可輸入PIN解鎖
+  // 填表頁上方卡片：專業版→近 7 日折線趨勢圖（PIN 保護）；非專業版→升級解鎖賣點
   function renderLastPerfOnFill() {
     var card = $('#lastPerfCard'), body = $('#lastPerfBody');
-    if (ctx.last) {
-      var l = ctx.last, total = Number(l.totalScore) || 0, light = l.status || TP.lightOf(total);
-      var dims = TP.KPI_DIMENSIONS.map(function (d) {
-        return esc(d.name) + ' ' + (Number(l[d.key + 'Avg']) || 0).toFixed(1);
-      }).join('　');
+    card.classList.remove('hidden');
+
+    if (!ctx.pro) {
       body.innerHTML =
         '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">' +
-          '<b>📊 上次表現（' + esc(String(l.date || '')) + '）</b>' +
-          '<span class="pill ' + light + '">' + total.toFixed(1) + '・' + TP.lightText(light) + '</span></div>' +
-        '<div class="muted" style="font-size:12px;margin-top:6px;">' + dims + '</div>' +
-        '<p class="muted" style="font-size:12px;margin:6px 0 0;">可按右上「↺ 帶入上次」沿用這次分數再微調。</p>';
-      card.classList.remove('hidden');
-    } else if (ctx.prefillPinNeeded) {
+          '<b>📈 近 7 日表現趨勢圖</b><span class="pill yellow" style="font-size:11px;">🔒 專業版解鎖</span></div>' +
+        '<p class="muted" style="font-size:12px;margin:8px 0 0;">升級專業版後，這裡會自動顯示你近 7 天的總分折線趨勢，一眼看出狀態起伏。</p>';
+      return;
+    }
+
+    if (ctx.pin) { loadSeven(false); return; }
+    if (ctx.prefillPinNeeded) { pinBox(false); return; }
+    pinBox(true);
+
+    function pinBox(setMode) {
       body.innerHTML =
-        '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">' +
-          '<span style="font-size:13px;">🔒 輸入 PIN 查看上次表現</span>' +
+        '<b>📈 近 7 日表現趨勢圖 <span class="pill green" style="font-size:11px;">專業版</span></b>' +
+        '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;">' +
+          '<span style="font-size:13px;">🔒 ' + (setMode ? '設定 PIN 查看你的 7 日趨勢' : '輸入 PIN 查看你的 7 日趨勢') + '</span>' +
           '<input id="fillPin" type="tel" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="off" style="width:110px;text-align:center;letter-spacing:6px;">' +
-          '<button class="btn btn-sm btn-primary" id="fillPinGo">查看</button></div>';
-      card.classList.remove('hidden');
+          '<button class="btn btn-sm btn-primary" id="fillPinGo">' + (setMode ? '設定' : '查看') + '</button></div>';
       $('#fillPinGo').onclick = async function () {
         var pin = ($('#fillPin').value || '').trim();
         if (!/^\d{4}$/.test(pin)) { toast('請輸入 4 位數字 PIN', true); return; }
-        var r = await TP.call('lastRecord', { t: shareToken, athleteId: ctx.athleteId, pin: pin });
-        if (r.pinRequired) { toast('PIN 不正確', true); return; }
-        ctx.pin = pin; ctx.last = (r.ok && r.record) || null; ctx.prefillPinNeeded = false;
-        renderLastPerfOnFill();
-        if (ctx.last) prefill();
+        if (setMode) {
+          var sr = await TP.call('setPerfPin', { t: shareToken, athleteId: ctx.athleteId, pin: pin });
+          if (!sr.ok) { toast(sr.error || '設定失敗', true); return; }
+        }
+        ctx.pin = pin; ctx.prefillPinNeeded = false;
+        loadSeven(true);
       };
-    } else {
-      card.classList.add('hidden');
+    }
+
+    async function loadSeven(alsoPrefill) {
+      body.innerHTML = '<p class="muted" style="font-size:13px;">載入中…</p>';
+      var r = await TP.call('myRecords', { t: shareToken, athleteId: ctx.athleteId, pin: ctx.pin, limit: 7 });
+      if (!r.ok) {
+        if (r.pinRequired) { ctx.pin = ''; toast('PIN 不正確', true); pinBox(false); return; }
+        if (r.noPin) { pinBox(true); return; }
+        body.innerHTML = '<p class="muted" style="font-size:13px;">' + esc(r.error || '載入失敗') + '</p>'; return;
+      }
+      var recs = r.records || [];
+      ctx.last = recs[0] || null;
+      if (alsoPrefill && ctx.last) prefill();
+      render7(recs);
+    }
+
+    function render7(recs) {
+      var head = '<b>📈 近 7 日表現趨勢圖 <span class="pill green" style="font-size:11px;">專業版</span></b>';
+      if (!recs.length) {
+        body.innerHTML = head + '<p class="muted" style="font-size:12px;margin-top:6px;">還沒有紀錄，今天填第一筆吧！</p>';
+        return;
+      }
+      var asc = recs.slice().sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); });
+      var totals = asc.map(function (x) { return Number(x.totalScore) || 0; });
+      var last = asc[asc.length - 1], lt = Number(last.totalScore) || 0, ll = last.status || TP.lightOf(lt);
+      var labels = asc.map(function (x) {
+        return '<span class="muted" style="font-size:10px;flex:1;text-align:center;">' + esc(String(x.date).slice(5)) + '</span>';
+      }).join('');
+      body.innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">' +
+          head + '<span class="pill ' + ll + '">最近 ' + lt.toFixed(1) + '</span></div>' +
+        (totals.length >= 2 ? miniSpark(totals) + '<div style="display:flex;">' + labels + '</div>'
+          : '<p class="muted" style="font-size:12px;margin:8px 0;">至少 2 天才畫得出折線，再多填幾天就會出現趨勢。</p>') +
+        '<p class="muted" style="font-size:12px;margin:8px 0 0;">可按右上「↺ 帶入上次」沿用最近分數再微調。</p>';
     }
   }
 

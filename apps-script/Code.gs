@@ -870,7 +870,10 @@ function joinInfo(d) {
   var athletes = readAll(SHEETS.athletes).filter(function (a) {
     return String(a.teamId) === String(t.teamId) && (String(a.active) !== 'false' && a.active !== false);
   }).map(function (a) { return { athleteId: a.athleteId, name: a.name }; });
-  return { ok: true, team: { teamId: t.teamId, teamName: t.teamName, sport: t.sport }, athletes: athletes, items: KPI_ITEMS };
+  // 教練是否專業版 → 選手端「7 日趨勢圖」賣點解鎖判斷
+  var crow = findRow(SHEETS.coaches, 'coachId', t.coachId);
+  var pro = crow !== -1 && effectivePlan(readAll(SHEETS.coaches)[crow - 2]) === 'pro';
+  return { ok: true, team: { teamId: t.teamId, teamName: t.teamName, sport: t.sport }, athletes: athletes, items: KPI_ITEMS, pro: pro };
 }
 
 /* ---- 選手 PIN：保護「近期表現／帶入上次」只給本人看 ---- */
