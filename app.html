@@ -842,6 +842,7 @@
         '<input data-e-grade style="width:130px;flex:0 0 auto;" value="' + esc(a.gradeClass || '') + '" placeholder="年級/班別">' +
         '<label style="margin:0;width:auto;flex:0 0 auto;display:flex;align-items:center;gap:4px;font-size:12px;">🔒上次表現可見' +
           '<select data-e-vis style="width:auto;">' + visOpts + '</select></label>' +
+        (a.hasPerfPin ? '<button class="btn btn-sm btn-danger" data-e-resetpin="' + a.athleteId + '" data-name="' + esc(a.name) + '">重設 PIN</button>' : '') +
         '<button class="btn btn-sm btn-primary" data-e-save="' + a.athleteId + '">儲存</button>' +
         '<button class="btn btn-sm" data-e-cancel>取消</button>' +
       '</div>';
@@ -878,6 +879,12 @@
         var rowEl = box.querySelector('[data-arow="' + id + '"]');
         rowEl.innerHTML = athleteEditHTML(a);
         rowEl.querySelector('[data-e-cancel]').onclick = function () { renderAthletes(); };
+        var resetBtn = rowEl.querySelector('[data-e-resetpin]');
+        if (resetBtn) resetBtn.onclick = async function () {
+          if (!confirm('重設「' + resetBtn.dataset.name + '」的近期表現 PIN？\n重設後該選手下次查看近期表現時需重新設定一組新 PIN。')) return;
+          var rr = await TP.callAuth('updateAthlete', { athleteId: id, name: a.name, resetPerfPin: true });
+          if (rr.ok) { toast('已重設 PIN'); loadAthletes(); } else { toast(rr.message || rr.error, true); }
+        };
         rowEl.querySelector('[data-e-save]').onclick = async function () {
           var name = rowEl.querySelector('[data-e-name]').value.trim();
           if (!name) { toast('請輸入姓名', true); return; }

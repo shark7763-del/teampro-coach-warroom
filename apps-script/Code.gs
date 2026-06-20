@@ -33,7 +33,7 @@ var H = {
   coaches:  ['coachId', 'email', 'passwordHash', 'salt', 'name', 'plan', 'planExpiry', 'status', 'createdAt', 'lastLogin', 'paymentNote'],
   sessions: ['token', 'coachId', 'expiresAt'],
   teams:    ['teamId', 'coachId', 'teamName', 'sport', 'shareToken', 'status', 'createdAt'],
-  athletes: ['athleteId', 'coachId', 'teamId', 'name', 'gradeClass', 'grp', 'active', 'createdAt', 'lastPerformanceVisibility'],
+  athletes: ['athleteId', 'coachId', 'teamId', 'name', 'gradeClass', 'grp', 'active', 'createdAt', 'lastPerformanceVisibility', 'perfPinHash', 'perfPinSalt'],
   audit:    ['time', 'actor', 'action', 'target', 'detail']
 };
 
@@ -204,6 +204,8 @@ function handle(action, d) {
     case 'submitRecord':    return jsonOut(submitRecord(d));
     case 'lastRecord':      return jsonOut(lastRecord(d));
     case 'myRecords':       return jsonOut(myRecords(d));
+    case 'perfPinStatus':   return jsonOut(perfPinStatus(d));
+    case 'setPerfPin':      return jsonOut(setPerfPin(d));
 
     /* ---- 管理者 ---- */
     case 'adminListCoaches':return jsonOut(withAdmin(d, adminListCoaches));
@@ -546,6 +548,11 @@ function deleteRowsByValue(name, colKey, value) {
 function listAthletes(c, d) {
   var list = readAll(SHEETS.athletes).filter(function (a) {
     return String(a.coachId) === String(c.coachId) && (!d.teamId || String(a.teamId) === String(d.teamId));
+  }).map(function (a) {
+    // 不外洩 PIN 雜湊/鹽，只回是否已設定
+    a.hasPerfPin = athleteHasPin(a);
+    delete a.perfPinHash; delete a.perfPinSalt;
+    return a;
   });
   return { ok: true, athletes: list, activeCount: countActiveAthletes(c.coachId), max: PLANS[effectivePlan(c)].maxAthletes };
 }
@@ -644,7 +651,11 @@ function updateAthlete(c, d) {
     s.getRange(row, H.athletes.indexOf('teamId') + 1).setValue(teamId);
     if (d.lastPerformanceVisibility != null)
       s.getRange(row, H.athletes.indexOf('lastPerformanceVisibility') + 1).setValue(normVisibility(d.lastPerformanceVisibility));
-    audit(c.email, 'updateAthlete', d.athleteId, name);
+    if (d.resetPerfPin) {
+      s.getRange(row, H.athletes.indexOf('perfPinHash') + 1).setValue('');
+      s.getRange(row, H.athletes.indexOf('perfPinSalt') + 1).setValue('');
+    }
+    audit(c.email, 'updateAthlete', d.athleteId, name + (d.resetPerfPin ? ' (PIN已重設)' : ''));
     return { ok: true };
   } finally { lock.releaseLock(); }
 }
@@ -862,25 +873,71 @@ function joinInfo(d) {
   return { ok: true, team: { teamId: t.teamId, teamName: t.teamName, sport: t.sport }, athletes: athletes, items: KPI_ITEMS };
 }
 
-/* 回上次紀錄（供「帶入上次分數」降低填寫摩擦） */
+/* ---- 選手 PIN：保護「近期表現／帶入上次」只給本人看 ---- */
+function athleteInTeam(teamId, athleteId) {
+  var arow = findRow(SHEETS.athletes, 'athleteId', String(athleteId || ''));
+  if (arow === -1) return null;
+  var a = readAll(SHEETS.athletes)[arow - 2];
+  return String(a.teamId) === String(teamId) ? a : null;
+}
+function athleteHasPin(a) { return !!(a && a.perfPinHash && String(a.perfPinHash).length); }
+function pinOk(a, pin) {
+  pin = String(pin == null ? '' : pin);
+  return athleteHasPin(a) && pin && hashPassword(pin, a.perfPinSalt) === String(a.perfPinHash);
+}
+
+function perfPinStatus(d) {
+  var t = teamFromShareToken(d.t || d.shareToken);
+  if (!t) return { ok: false, error: '連結無效' };
+  var a = athleteInTeam(t.teamId, d.athleteId);
+  if (!a) return { ok: false, error: '選手不屬於此團隊' };
+  return { ok: true, hasPin: athleteHasPin(a) };
+}
+
+/* 首次設定 PIN（已設過則需請教練重設，避免被覆蓋） */
+function setPerfPin(d) {
+  var t = teamFromShareToken(d.t || d.shareToken);
+  if (!t) return { ok: false, error: '連結無效' };
+  var pin = String(d.pin || '');
+  if (!/^\d{4}$/.test(pin)) return { ok: false, error: 'PIN 需為 4 位數字' };
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var row = findRow(SHEETS.athletes, 'athleteId', String(d.athleteId || ''));
+    if (row === -1) return { ok: false, error: '找不到選手' };
+    var a = readAll(SHEETS.athletes)[row - 2];
+    if (String(a.teamId) !== String(t.teamId)) return { ok: false, error: '選手不屬於此團隊' };
+    if (athleteHasPin(a)) return { ok: false, error: '已設定 PIN，請直接輸入；忘記請找教練重設' };
+    var salt = uid('p_');
+    var s = sheet(SHEETS.athletes);
+    s.getRange(row, H.athletes.indexOf('perfPinSalt') + 1).setValue(salt);
+    s.getRange(row, H.athletes.indexOf('perfPinHash') + 1).setValue(hashPassword(pin, salt));
+    return { ok: true };
+  } finally { lock.releaseLock(); }
+}
+
+/* 回上次紀錄（供「帶入上次分數」降低填寫摩擦）。有設 PIN 時須驗證，否則不回內容 */
 function lastRecord(d) {
   var t = teamFromShareToken(d.t || d.shareToken);
   if (!t) return { ok: false, error: '連結無效' };
   var aId = String(d.athleteId || '');
+  var a = athleteInTeam(t.teamId, aId);
+  if (!a) return { ok: false, error: '選手不屬於此團隊' };
+  if (athleteHasPin(a) && !pinOk(a, d.pin)) return { ok: true, record: null, pinRequired: true };
   var recs = readAll(SHEETS.records).filter(function (r) {
     return String(r.teamId) === String(t.teamId) && String(r.athleteId) === aId;
   }).sort(function (a, b) { return String(b.timestamp).localeCompare(String(a.timestamp)); });
   return { ok: true, record: recs[0] || null };
 }
 
-/* 選手查自己的近期紀錄（公開：靠 shareToken 限定團隊，只回自己的） */
+/* 選手查自己的近期紀錄（公開：靠 shareToken 限定團隊；有 PIN 須驗證、無 PIN 則先請設定） */
 function myRecords(d) {
   var t = teamFromShareToken(d.t || d.shareToken);
   if (!t) return { ok: false, error: '連結無效' };
   var aId = String(d.athleteId || '');
-  var arow = findRow(SHEETS.athletes, 'athleteId', aId);
-  if (arow === -1 || String(readAll(SHEETS.athletes)[arow - 2].teamId) !== String(t.teamId))
-    return { ok: false, error: '選手不屬於此團隊' };
+  var a = athleteInTeam(t.teamId, aId);
+  if (!a) return { ok: false, error: '選手不屬於此團隊' };
+  if (!athleteHasPin(a)) return { ok: false, noPin: true, error: '尚未設定 PIN' };
+  if (!pinOk(a, d.pin)) return { ok: false, pinRequired: true, error: 'PIN 不正確' };
   var recs = readAll(SHEETS.records).filter(function (r) {
     return String(r.teamId) === String(t.teamId) && String(r.athleteId) === aId;
   }).sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });

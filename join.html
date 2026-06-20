@@ -65,7 +65,7 @@
         <h2 style="margin:0;">📈 我的近期表現</h2>
         <button class="btn btn-sm" id="perfBack">← 返回</button>
       </div>
-      <p class="muted" style="font-size:12px;margin:8px 0 0;">🔒 你的上次表現紀錄預設只有你和主教練看得到，不會公開給其他隊友。</p>
+      <p class="muted" style="font-size:12px;margin:8px 0 0;">🔒 你的上次表現只有你（用 PIN）和主教練看得到，不會公開給其他隊友。</p>
       <div id="perfBody" style="margin-top:12px;"></div>
     </div>
   </div>
@@ -369,10 +369,13 @@
     $('#encourageName').innerHTML = '<option value="">—</option>' + ctx.athletes
       .filter(function (a) { return a.athleteId !== id; })
       .map(function (a) { return '<option value="' + esc(a.name) + '">' + esc(a.name) + '</option>'; }).join('');
-    // 預抓上次紀錄供「帶入上次」
-    var r = await TP.call('lastRecord', { t: shareToken, athleteId: id });
-    ctx.last = (r.ok && r.record) || null;
-    if (ctx.last) { toast('已找到上次紀錄，可按「帶入上次」'); prefill(); }
+    // 預抓上次紀錄供「帶入上次」（有設 PIN 時不自動帶入，避免他人選你名字偷看；按「帶入上次」時再驗證）
+    var r = await TP.call('lastRecord', { t: shareToken, athleteId: id, pin: ctx.pin });
+    if (r.pinRequired) { ctx.last = null; ctx.prefillPinNeeded = true; }
+    else {
+      ctx.last = (r.ok && r.record) || null; ctx.prefillPinNeeded = false;
+      if (ctx.last) { toast('已找到上次紀錄，可按「帶入上次」'); prefill(); }
+    }
     show('kpi');
   };
 
@@ -381,17 +384,58 @@
   $('#whoPerf').onclick = async function () {
     var id = $('#whoSelect').value;
     if (!id) { toast('請先選擇選手', true); return; }
-    var name = $('#whoSelect').options[$('#whoSelect').selectedIndex].text;
+    ctx.athleteId = id;
+    ctx.name = $('#whoSelect').options[$('#whoSelect').selectedIndex].text;
     $('#perfBody').innerHTML = '<p class="muted">載入中…</p>';
     show('perf');
-    var r = await TP.call('myRecords', { t: shareToken, athleteId: id, limit: 14 });
-    var recs = (r.ok && r.records) ? r.records : null;
-    if (!recs) { // 後端尚未支援 myRecords → 退而求其次顯示上次一筆
-      var lr = await TP.call('lastRecord', { t: shareToken, athleteId: id });
-      recs = (lr.ok && lr.record) ? [lr.record] : [];
+    var st = await TP.call('perfPinStatus', { t: shareToken, athleteId: id });
+    if (!st.ok) {
+      // 後端尚未支援 PIN（舊版未重部署）→ 暫時沿用舊行為，避免報錯；重部署後 PIN 即生效
+      var r0 = await TP.call('myRecords', { t: shareToken, athleteId: id, limit: 14 });
+      renderPerf(ctx.name, (r0.ok && r0.records) ? r0.records : []);
+      return;
     }
-    renderPerf(name, recs);
+    renderPinGate(id, ctx.name, st.hasPin);
   };
+
+  // 近期表現 PIN 關卡：未設→引導設定；已設→輸入；已驗證過→直接載入
+  function renderPinGate(id, name, hasPin) {
+    if (ctx.pin) {
+      TP.call('myRecords', { t: shareToken, athleteId: id, pin: ctx.pin, limit: 14 }).then(function (r) {
+        if (r.ok) renderPerf(name, r.records || []);
+        else { ctx.pin = ''; renderPinGate(id, name, hasPin); }
+      });
+      return;
+    }
+    var setMode = !hasPin;
+    $('#perfBody').innerHTML =
+      '<div style="max-width:280px;margin:0 auto;text-align:center;">' +
+      '<p class="muted" style="font-size:13px;">🔒 ' + (setMode
+        ? '第一次查看，請設定一組 4 位數 PIN；之後只有輸入正確 PIN 才能看你的近期表現。'
+        : '請輸入你的 4 位數 PIN 查看近期表現。') + '</p>' +
+      '<input id="perfPin" type="tel" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="off" ' +
+        'style="text-align:center;letter-spacing:8px;font-size:22px;max-width:160px;margin:0 auto;">' +
+      '<button class="btn btn-primary btn-block" id="perfPinGo" style="margin-top:12px;">' + (setMode ? '設定並查看' : '確認') + '</button>' +
+      (setMode ? '' : '<p class="muted" style="font-size:12px;margin-top:8px;">忘記 PIN？請找教練重設。</p>') +
+      '</div>';
+    $('#perfPin').focus();
+    $('#perfPinGo').onclick = async function () {
+      var pin = ($('#perfPin').value || '').trim();
+      if (!/^\d{4}$/.test(pin)) { toast('請輸入 4 位數字 PIN', true); return; }
+      if (setMode) {
+        var sr = await TP.call('setPerfPin', { t: shareToken, athleteId: id, pin: pin });
+        if (!sr.ok) { toast(sr.error || '設定失敗', true); return; }
+      }
+      var r = await TP.call('myRecords', { t: shareToken, athleteId: id, pin: pin, limit: 14 });
+      if (!r.ok) {
+        if (r.pinRequired) { toast('PIN 不正確', true); return; }
+        if (r.noPin) { renderPinGate(id, name, false); return; }
+        toast(r.error || '載入失敗', true); return;
+      }
+      ctx.pin = pin;
+      renderPerf(name, r.records || []);
+    };
+  }
 
   function miniSpark(vals) {
     if (vals.length < 2) return '';
@@ -439,7 +483,17 @@
       '<h3 style="margin:14px 0 6px;">歷史紀錄</h3>' + rows;
   }
 
-  $('#btnPrefill').onclick = prefill;
+  $('#btnPrefill').onclick = async function () {
+    if (ctx.last) { prefill(); return; }
+    if (ctx.prefillPinNeeded) {
+      var pin = ctx.pin || (window.prompt('請輸入你的 4 位數 PIN 以帶入上次分數') || '').trim();
+      if (!/^\d{4}$/.test(pin)) { toast('請輸入 4 位數字 PIN', true); return; }
+      var r = await TP.call('lastRecord', { t: shareToken, athleteId: ctx.athleteId, pin: pin });
+      if (r.pinRequired) { toast('PIN 不正確', true); return; }
+      ctx.pin = pin; ctx.last = (r.ok && r.record) || null;
+      if (ctx.last) prefill(); else toast('沒有上次紀錄可帶入');
+    } else { toast('沒有上次紀錄可帶入'); }
+  };
   function prefill() {
     if (!ctx.last) { toast('沒有上次紀錄可帶入'); return; }
     TP.KPI_DIMENSIONS.forEach(function (dim) {
