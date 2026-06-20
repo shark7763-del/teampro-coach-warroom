@@ -72,6 +72,9 @@
 
   <!-- Step 1：KPI 30 項 -->
   <div id="step-kpi" class="step">
+    <div class="card hidden" id="lastPerfCard" style="background:rgba(34,197,94,.06);border-color:var(--brand);">
+      <div id="lastPerfBody"></div>
+    </div>
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <h2 style="margin:0;">今日狀態評分</h2>
@@ -377,7 +380,44 @@
       if (ctx.last) { toast('已找到上次紀錄，可按「帶入上次」'); prefill(); }
     }
     show('kpi');
+    renderLastPerfOnFill();
   };
+
+  // 填表頁的「上次表現」卡：已驗證PIN(或無PIN)→自動顯示；有PIN未驗證→卡內可輸入PIN解鎖
+  function renderLastPerfOnFill() {
+    var card = $('#lastPerfCard'), body = $('#lastPerfBody');
+    if (ctx.last) {
+      var l = ctx.last, total = Number(l.totalScore) || 0, light = l.status || TP.lightOf(total);
+      var dims = TP.KPI_DIMENSIONS.map(function (d) {
+        return esc(d.name) + ' ' + (Number(l[d.key + 'Avg']) || 0).toFixed(1);
+      }).join('　');
+      body.innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">' +
+          '<b>📊 上次表現（' + esc(String(l.date || '')) + '）</b>' +
+          '<span class="pill ' + light + '">' + total.toFixed(1) + '・' + TP.lightText(light) + '</span></div>' +
+        '<div class="muted" style="font-size:12px;margin-top:6px;">' + dims + '</div>' +
+        '<p class="muted" style="font-size:12px;margin:6px 0 0;">可按右上「↺ 帶入上次」沿用這次分數再微調。</p>';
+      card.classList.remove('hidden');
+    } else if (ctx.prefillPinNeeded) {
+      body.innerHTML =
+        '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">' +
+          '<span style="font-size:13px;">🔒 輸入 PIN 查看上次表現</span>' +
+          '<input id="fillPin" type="tel" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="off" style="width:110px;text-align:center;letter-spacing:6px;">' +
+          '<button class="btn btn-sm btn-primary" id="fillPinGo">查看</button></div>';
+      card.classList.remove('hidden');
+      $('#fillPinGo').onclick = async function () {
+        var pin = ($('#fillPin').value || '').trim();
+        if (!/^\d{4}$/.test(pin)) { toast('請輸入 4 位數字 PIN', true); return; }
+        var r = await TP.call('lastRecord', { t: shareToken, athleteId: ctx.athleteId, pin: pin });
+        if (r.pinRequired) { toast('PIN 不正確', true); return; }
+        ctx.pin = pin; ctx.last = (r.ok && r.record) || null; ctx.prefillPinNeeded = false;
+        renderLastPerfOnFill();
+        if (ctx.last) prefill();
+      };
+    } else {
+      card.classList.add('hidden');
+    }
+  }
 
   /* ---------- 我的近期表現 ---------- */
   $('#perfBack').onclick = function () { show('who'); };
