@@ -32,6 +32,20 @@
   .train-slot .notrain.sel { border-color:var(--yellow); background:rgba(245,158,11,.14); color:#fcd34d; font-weight:700; }
   .consent { display:flex; gap:8px; align-items:flex-start; font-size:13px; color:var(--muted); margin-top:10px; }
   .consent input { width:auto; margin-top:3px; }
+  .choice-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin:7px 0 12px; }
+  .choice-grid button { min-height:46px; padding:10px 8px; border:1px solid var(--line); border-radius:12px;
+    background:var(--panel-2); color:var(--text); font-size:15px; cursor:pointer; }
+  .choice-grid button.sel { border-color:var(--brand); background:rgba(34,197,94,.15); font-weight:800; }
+  .choice-grid.urine-grid button { text-align:left; }
+  .choice-grid.urine-grid button[data-value="clear"] { border-left:8px solid #e5f7ff; }
+  .choice-grid.urine-grid button[data-value="pale_yellow"] { border-left:8px solid #fff7a8; }
+  .choice-grid.urine-grid button[data-value="yellow"] { border-left:8px solid #facc15; }
+  .choice-grid.urine-grid button[data-value="dark"] { border-left:8px solid #d97706; }
+  .choice-grid.urine-grid button[data-value="abnormal"] { border-left:8px solid #991b1b; }
+  .risk-note { border-radius:10px; padding:10px 12px; margin:8px 0; font-size:13px; }
+  .risk-note.yellow { background:rgba(245,158,11,.12); color:#fcd34d; }
+  .risk-note.red { background:rgba(239,68,68,.12); color:#fca5a5; }
+  @media (max-width:420px) { .choice-grid { grid-template-columns:1fr 1fr; } .choice-grid button { font-size:14px; } }
 </style>
 </head>
 <body>
@@ -115,14 +129,24 @@
       <div class="nutri-chips" id="nutri_dinner"></div>
       <div class="grid grid-3">
         <div><label>零食/飲料</label><input id="snacksDrinks"></div>
-        <div><label>喝水量</label><input id="waterIntake" placeholder="例：2000cc"></div>
         <div><label>宵夜</label><input id="lateNightSnack"></div>
       </div>
     </div>
     <div class="card">
+      <h2 style="margin-top:0;">水分狀態</h2>
+      <label>今日喝水量</label><div class="choice-grid" id="waterChoices"></div>
+      <label>今日流汗量</label><div class="choice-grid" id="sweatChoices"></div>
+      <label>今日尿液顏色</label><div class="choice-grid urine-grid" id="urineChoices"></div>
+      <p class="muted" id="urineHint" style="font-size:13px;margin:5px 0;"></p>
+      <p class="muted" style="font-size:12px;">尿液顏色只是水分狀態參考，不是醫療診斷。若出現紅色、茶色、異常混濁或身體明顯不適，請主動告知教練與家長。</p>
+    </div>
+    <div class="card">
       <h2 style="margin-top:0;">今日身體監控</h2>
       <div class="grid grid-2">
-        <div><label>睡眠時間（小時）</label><input id="sleepHours" type="number" inputmode="decimal" step="0.5" placeholder="例：7.5"></div>
+        <div><label>昨晚幾點睡</label><input id="sleepBedTime" type="time"></div>
+        <div><label>今天幾點起床</label><input id="wakeTime" type="time"></div>
+        <div><label>睡眠品質</label><select id="sleepQuality"><option value="good">好</option><option value="normal" selected>普通</option><option value="poor">差</option></select></div>
+        <div><label>系統計算</label><div id="sleepCalc" class="risk-note">請選擇就寢與起床時間</div></div>
         <div>
           <label>疲勞指數（1 很輕鬆 ～ 10 非常疲勞）</label>
           <div class="slider-row" style="margin:2px 0;">
@@ -134,9 +158,15 @@
     </div>
     <div class="card">
       <h2 style="margin-top:0;">傷勢狀況</h2>
-      <p class="muted" style="margin:4px 0;">有不舒服或受傷的部位嗎？點選讓教練知道。</p>
-      <div class="nutri-chips" id="injuryChips"></div>
-      <label>傷勢補充說明（選填）</label><input id="injuryNote" placeholder="例：右腳踝外側，落地時會痛">
+      <label>今日是否有疼痛</label><div class="choice-grid" id="painStatusChoices"></div>
+      <div id="painDetails" class="hidden">
+        <label>疼痛部位（可複選）</label><div class="nutri-chips" id="injuryChips"></div>
+        <label>疼痛分數 0–10</label>
+        <div class="slider-row"><div class="top"><span id="painHint">完全不痛</span><span class="val" id="painVal">0</span></div><input id="painScore" type="range" min="0" max="10" step="1" value="0"></div>
+        <p class="muted" id="painScaleHelp" style="font-size:13px;margin:4px 0 10px;">0 分：完全不痛，身體感覺正常。</p>
+        <label>功能影響</label><div class="choice-grid" id="painImpactChoices"></div>
+        <label>疼痛補充說明（選填）</label><input id="injuryNote" placeholder="例：右膝外側，跳躍落地時會痛">
+      </div>
     </div>
     <div class="card">
       <h2 style="margin-top:0;">今日心情</h2>
@@ -156,6 +186,9 @@
       <label>想對教練說的話（選填）</label><textarea id="reflection"></textarea>
     </div>
     <div class="card">
+      <div class="risk-note yellow">這份回報會影響教練今天的訓練安排，請依照真實狀況填寫。</div>
+      <div id="painSubmitWarn" class="risk-note yellow hidden">你填寫的疼痛狀況會提醒教練調整訓練內容，請確認是否符合真實感受。</div>
+      <div id="sleepSubmitWarn" class="risk-note red hidden">你今天睡眠時間偏少，系統會提醒教練注意你的疲勞狀態。</div>
       <label class="consent" for="consentPrivacy"><input type="checkbox" id="consentPrivacy"><span>我已閱讀並了解 <a href="privacy.html" target="_blank" rel="noopener">TeamPro 隱私權與資料使用說明</a>，並同意將本次回報提供給我的主教練作為訓練管理使用。</span></label>
       <label class="consent" for="guardianConsent"><input type="checkbox" id="guardianConsent"><span>我確認已由家長或法定代理人了解並同意使用本系統（未滿 18 歲必勾）。</span></label>
     </div>
@@ -272,9 +305,34 @@
 
   /* ---------- 額外欄位：營養 chips / 傷勢 / 訓練時段 / BMI / 疲勞 ---------- */
   var NUTRI = ['蛋白質', '澱粉/主食', '蔬菜', '水果', '乳製品', '好油脂'];
-  var INJURY = ['頭/頸', '肩膀', '手肘', '手腕/手', '上背', '下背/腰', '髖部', '大腿', '膝蓋', '小腿', '腳踝', '腳掌'];
+  var INJURY = ['頭頸', '肩', '手肘', '手腕', '背', '腰', '髖', '膝', '腳踝', '腳掌', '其他'];
   var nutriSel = { breakfast: [], lunch: [], dinner: [] };
   var injurySel = [];
+  var formState = { painStatus: 'none', painImpact: 'none', waterAmount: 'normal', sweatAmount: 'normal', urineColor: 'pale_yellow' };
+  var PAIN_STATUS = [['none','無疼痛'],['old','舊傷不適'],['new','新出現疼痛'],['acute','急性受傷']];
+  var PAIN_IMPACT = [['none','不影響訓練'],['high_intensity','高強度時會痛'],['power_down','動作出力下降'],['cannot_sport','無法完成專項動作'],['daily_affected','日常活動也受影響']];
+  var WATER = [['very_little','很少'],['normal','普通'],['enough','足夠'],['a_lot','很多']];
+  var SWEAT = [['low','少'],['normal','普通'],['high','多'],['very_high','非常多']];
+  var URINE = [['clear','⚪ 透明 / 很淡'],['pale_yellow','🟡 淡黃色'],['yellow','🟨 黃色'],['dark','🟧 深黃色 / 琥珀色'],['abnormal','🟥 茶色 / 紅色 / 異常混濁']];
+  var URINE_HINTS = {
+    clear:'水分充足；若長期過度透明，適量補水即可。', pale_yellow:'理想狀態，水分狀況良好。',
+    yellow:'尚可，今天需要注意補水。', dark:'可能水分不足，高溫或大量流汗時請加強補水。',
+    abnormal:'異常狀況，請立即告知教練與家長，必要時尋求醫療協助。'
+  };
+
+  function buildSingleChoices(id, options, stateKey, onChange) {
+    var box = $('#' + id); box.innerHTML = '';
+    options.forEach(function (opt) {
+      var b = document.createElement('button'); b.type = 'button'; b.dataset.value = opt[0]; b.textContent = opt[1];
+      b.classList.toggle('sel', formState[stateKey] === opt[0]);
+      b.onclick = function () {
+        formState[stateKey] = opt[0];
+        TP.$all('button', box).forEach(function (x) { x.classList.toggle('sel', x === b); });
+        if (onChange) onChange(opt[0]);
+      };
+      box.appendChild(b);
+    });
+  }
 
   function buildChipRow(containerId, options, selArr, opts) {
     opts = opts || {};
@@ -319,7 +377,24 @@
     buildChipRow('nutri_breakfast', NUTRI, nutriSel.breakfast, {});
     buildChipRow('nutri_lunch', NUTRI, nutriSel.lunch, {});
     buildChipRow('nutri_dinner', NUTRI, nutriSel.dinner, {});
-    buildChipRow('injuryChips', INJURY, injurySel, { none: '無受傷' });
+    buildChipRow('injuryChips', INJURY, injurySel, {});
+    buildSingleChoices('painStatusChoices', PAIN_STATUS, 'painStatus', function (v) {
+      $('#painDetails').classList.toggle('hidden', v === 'none');
+      if (v === 'none') {
+        injurySel.length = 0; $('#painScore').value = 0; formState.painImpact = 'none';
+        TP.$all('button', $('#injuryChips')).forEach(function (x) { x.classList.remove('sel'); });
+        TP.$all('button', $('#painImpactChoices')).forEach(function (x) { x.classList.toggle('sel', x.dataset.value === 'none'); });
+      }
+      updatePainUi();
+    });
+    buildSingleChoices('painImpactChoices', PAIN_IMPACT, 'painImpact', updatePainUi);
+    buildSingleChoices('waterChoices', WATER, 'waterAmount');
+    buildSingleChoices('sweatChoices', SWEAT, 'sweatAmount');
+    buildSingleChoices('urineChoices', URINE, 'urineColor', function (v) { $('#urineHint').textContent = URINE_HINTS[v]; });
+    $('#urineHint').textContent = URINE_HINTS[formState.urineColor];
+
+    $('#painScore').addEventListener('input', updatePainUi); updatePainUi();
+    ['sleepBedTime', 'wakeTime'].forEach(function (id) { $('#' + id).addEventListener('input', updateSleepUi); });
 
     // 訓練時段「無訓練」切換
     TP.$all('.notrain').forEach(function (b) {
@@ -352,6 +427,35 @@
     if (dt) { dt.value = localToday(); dt.max = localToday(); }
   }
 
+  function sleepMinutes() {
+    var bed = $('#sleepBedTime').value, wake = $('#wakeTime').value;
+    if (!bed || !wake) return null;
+    var b = bed.split(':'), w = wake.split(':');
+    var mins = Number(w[0]) * 60 + Number(w[1]) - Number(b[0]) * 60 - Number(b[1]);
+    if (mins <= 0) mins += 1440;
+    return mins;
+  }
+  function sleepText(mins) { return Math.floor(mins / 60) + ' 小時 ' + (mins % 60) + ' 分'; }
+  function updateSleepUi() {
+    var mins = sleepMinutes(), box = $('#sleepCalc');
+    if (mins === null) { box.textContent = '請選擇就寢與起床時間'; box.className = 'risk-note'; return; }
+    var risk = mins >= 420 && mins <= 1080 ? 'green' : (mins > 300 && mins < 420 ? 'yellow' : 'red');
+    box.textContent = sleepText(mins) + ' · ' + (risk === 'green' ? '睡眠充足' : risk === 'yellow' ? '睡眠偏少' : '睡眠不足');
+    box.className = 'risk-note ' + (risk === 'green' ? '' : risk);
+    $('#sleepSubmitWarn').classList.toggle('hidden', mins >= 300);
+  }
+  function updatePainUi() {
+    var score = formState.painStatus === 'none' ? 0 : Number($('#painScore').value || 0);
+    $('#painVal').textContent = score;
+    $('#painHint').textContent = score === 0 ? '完全不痛' : score <= 3 ? '輕度疼痛' : score <= 6 ? '中度疼痛' : score <= 9 ? '重度疼痛' : '痛到極限';
+    $('#painScaleHelp').textContent = score === 0 ? '0 分：完全不痛，身體感覺正常，能正常發揮。'
+      : score <= 3 ? '1–3 分：輕微緊繃或隱痛，日常與技術動作大致不受影響。'
+      : score <= 6 ? '4–6 分：動作時明顯疼痛、出力下降，應降低訓練強度。'
+      : score <= 9 ? '7–9 分：靜止時也可能疼痛，應停止專項訓練並告知教練。'
+      : '10 分：無法忍受的劇痛，請停止活動並立即尋求協助。';
+    $('#painSubmitWarn').classList.toggle('hidden', score < 4);
+  }
+
   // 本地（非 UTC）日期 YYYY-MM-DD，修正晨操時段被算到前一天的時區問題
   function localToday() {
     var d = new Date();
@@ -369,9 +473,13 @@
       breakfastNutri: nutriSel.breakfast.join(','), lunchNutri: nutriSel.lunch.join(','), dinnerNutri: nutriSel.dinner.join(','),
       trainingAM: slotVal('train_am'), trainingPM: slotVal('train_pm'), trainingEve: slotVal('train_eve'),
       trainingNotes: $('#trainingNotes').value.trim(),
-      injuryAreas: injurySel.indexOf('__none__') !== -1 ? '無受傷' : injurySel.join(','),
+      injuryAreas: formState.painStatus === 'none' ? '無受傷' : injurySel.join(','),
       injuryNote: $('#injuryNote').value.trim(),
-      sleepHours: $('#sleepHours').value, fatigue: $('#fatigue').value,
+      sleepBedTime: $('#sleepBedTime').value, wakeTime: $('#wakeTime').value, sleepQuality: $('#sleepQuality').value,
+      painStatus: formState.painStatus, painAreas: injurySel.join(','), painScore: formState.painStatus === 'none' ? 0 : Number($('#painScore').value),
+      painImpact: formState.painImpact, painNote: $('#injuryNote').value.trim(),
+      waterAmount: formState.waterAmount, sweatAmount: formState.sweatAmount, urineColor: formState.urineColor,
+      fatigue: $('#fatigue').value,
       encourageName: $('#encourageName').value, encourageMsg: $('#encourageMsg').value.trim()
     };
   }
@@ -646,8 +754,16 @@
       tips.push('🩹 回報傷處：' + payload.injuryAreas + '。請降低該部位負荷、做好防護，並讓教練評估是否調整訓練。');
 
     // 睡眠時間
-    var sleep = Number(payload.sleepHours);
-    if (sleep && sleep < 7) tips.push('睡眠僅 ' + sleep + ' 小時：青少年選手建議 8 小時以上，睡眠不足會直接拖累恢復與表現。');
+    var sleep = sleepMinutes();
+    if (sleep !== null && sleep < 420) tips.push('睡眠僅 ' + sleepText(sleep) + '：今日請降低疲勞累積並優先恢復。');
+
+    if (Number(payload.painScore) >= 7 || payload.painImpact === 'cannot_sport' || payload.painImpact === 'daily_affected')
+      tips.push('⚠️ 疼痛風險偏高：建議停止專項訓練，立即告知教練與家長。');
+    else if (Number(payload.painScore) >= 4)
+      tips.push('疼痛達 ' + payload.painScore + ' 分：今日降低疼痛部位與高衝擊動作負荷。');
+    if (payload.urineColor === 'abnormal') tips.push('⚠️ 尿液顏色異常：請立即告知教練與家長，必要時尋求醫療協助。');
+    else if (payload.urineColor === 'dark' || payload.waterAmount === 'very_little')
+      tips.push('水分狀態需注意：訓練前後分次補水，流汗多時適量補充電解質。');
 
     // 疲勞監控 1–10
     var fat = Number(payload.fatigue);
@@ -674,13 +790,18 @@
     // 個資法：送出前強制同意
     if (!$('#consentPrivacy').checked) { toast('請先閱讀並勾選隱私權與資料使用同意後再送出。', true); return; }
     if (!$('#guardianConsent').checked) { toast('未滿 18 歲請先確認家長/法定代理人已同意。', true); return; }
+    if (!$('#sleepBedTime').value || !$('#wakeTime').value) { toast('請填寫昨晚就寢與今天起床時間。', true); return; }
+    if (formState.painStatus !== 'none' && !injurySel.length) { toast('請至少選擇一個疼痛部位。', true); return; }
+    if (formState.painStatus !== 'none' && Number($('#painScore').value) < 1) { toast('有疼痛時，疼痛分數請選擇 1–10 分。', true); return; }
     var scores = collectScores();
     var payload = {
       t: shareToken, athleteId: ctx.athleteId, date: ($('#recordDate').value || localToday()),
       sessionType: $('#sessionType').value, scores: scores,
       heightCm: $('#heightCm').value, weightKg: $('#weightKg').value, targetWeightKg: $('#targetWeightKg').value,
       breakfast: $('#breakfast').value, lunch: $('#lunch').value, dinner: $('#dinner').value,
-      snacksDrinks: $('#snacksDrinks').value, waterIntake: $('#waterIntake').value, lateNightSnack: $('#lateNightSnack').value,
+      snacksDrinks: $('#snacksDrinks').value,
+      waterIntake: ({very_little:'很少',normal:'普通',enough:'足夠',a_lot:'很多'})[formState.waterAmount],
+      lateNightSnack: $('#lateNightSnack').value,
       moodIndex: mood, moodReason: $('#moodReason').value, gratitude: $('#gratitude').value, reflection: $('#reflection').value,
       // 個資法同意紀錄
       athleteName: ctx.name, teamId: (ctx.team && ctx.team.teamId) || '',
@@ -713,6 +834,7 @@
       return esc(d.name) + ' ' + (Number(r.dimAvg[d.key]) || 0).toFixed(1);
     }).join('　');
     $('#resAdvice').innerHTML = tips.map(function (t) { return '• ' + esc(t); }).join('<br>');
+    if (r.quality) $('#resAdvice').innerHTML += '<br><br>回報可信度：<b>' + esc(r.quality.score) + '（' + esc(r.quality.label) + '）</b>';
 
     var studentText = '【' + ctx.name + ' 今日回報】\n總分 ' + total.toFixed(1) + '（' + TP.lightText(light) + '）\n' +
       TP.KPI_DIMENSIONS.map(function (d) { return d.name + ' ' + (Number(r.dimAvg[d.key]) || 0).toFixed(1); }).join('・') +

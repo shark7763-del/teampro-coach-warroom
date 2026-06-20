@@ -26,7 +26,8 @@ var SHEETS = {
   athletes: 'athletes',
   records:  'records',
   audit:    'audit',
-  contacts: 'contacts'
+  contacts: 'contacts',
+  privacyRequests: 'privacyRequests'
 };
 
 /* ---------- 表頭 ---------- */
@@ -36,7 +37,8 @@ var H = {
   teams:    ['teamId', 'coachId', 'teamName', 'sport', 'shareToken', 'status', 'createdAt', 'competitionSystem', 'sportCategory', 'memberTerm'],
   athletes: ['athleteId', 'coachId', 'teamId', 'name', 'gradeClass', 'grp', 'active', 'createdAt', 'lastPerformanceVisibility', 'perfPinHash', 'perfPinSalt'],
   audit:    ['time', 'actor', 'action', 'target', 'detail'],
-  contacts: ['time', 'topic', 'name', 'email', 'message']
+  contacts: ['time', 'topic', 'name', 'email', 'message'],
+  privacyRequests: ['requestId', 'coachId', 'athleteId', 'athleteName', 'requestType', 'scope', 'note', 'status', 'createdAt', 'handledAt', 'resolutionNote']
 };
 
 /* ============================================================
@@ -57,12 +59,8 @@ var H = {
      排行榜的實際限制（本輪先做持久化＋設定＋標示，避免動到主畫面）。
    - 助教帳號制度（assistantAccounts）尚未實作：目前僅主教練可見完整內容，
      助教可見性待帳號系統建立後依 coach_assistant 規則開放。
-   - 隱私請求（資料隱藏/刪除/更正/停止使用）：預留欄位，待建後台流程：
-       privacyRequestType   ∈ hide_record | delete_record | correct_data | stop_use
-       privacyRequestAt     （ISO 時間）
-       privacyRequestStatus ∈ pending | handled | rejected
-       privacyRequestNote   （備註）
-     目前先以前端說明文字＋聯絡管理者方式處理（見 privacy.html / app 內提示）。
+   - 隱私請求已具備建立、查詢與結案流程；實際資料更正／隱藏／刪除仍由
+     教練確認請求範圍後執行，避免誤刪敏感資料。
    ============================================================ */
 var DEFAULT_LAST_PERF_VISIBILITY = 'self_coach_only';
 var LAST_PERF_VISIBILITIES = ['self_coach_only', 'coach_assistant', 'parent_summary_only', 'anonymous_stats'];
@@ -114,7 +112,12 @@ var RECORD_HEADERS = ['recordId', 'coachId', 'teamId', 'athleteId', 'name', 'dat
     'nutritionAdvice', 'studentLineText', 'parentLineText', 'coachLineText',
     // 個資法同意紀錄
     'consentPrivacy', 'guardianConsent', 'consentAt', 'privacyVersion', 'consentText', 'deviceInfo',
-    'rawJson'
+    'rawJson',
+    // 新欄位只能追加在尾端，避免既有 Sheet 的欄位位置與歷史資料錯位。
+    'sleepBedTime', 'wakeTime', 'sleepQuality', 'sleepDurationMinutes', 'sleepDurationText', 'sleepRisk',
+    'painStatus', 'painAreas', 'painScore', 'painImpact', 'painNote', 'painRisk',
+    'waterAmount', 'sweatAmount', 'urineColor', 'hydrationRisk', 'hydrationAdvice', 'hydrationFlags',
+    'reportQualityScore', 'reportQualityLabel', 'reportQualityReasons', 'coachSuggestion'
   ]);
 
 /* ---------- 方案設定（寫死，不進 Sheet） ---------- */
@@ -202,6 +205,11 @@ function handle(action, d) {
     case 'teamReport':      return jsonOut(withCoach(d, teamReport));
     case 'trialSummary':    return jsonOut(withCoach(d, trialSummary));
     case 'coachFeedback':   return jsonOut(withCoach(d, coachFeedback));
+
+    /* ---- 個資請求 ---- */
+    case 'listPrivacyRequests': return jsonOut(withCoach(d, listPrivacyRequests));
+    case 'createPrivacyRequest':return jsonOut(withCoach(d, createPrivacyRequest));
+    case 'resolvePrivacyRequest':return jsonOut(withCoach(d, resolvePrivacyRequest));
 
     /* ---- 選手填寫（公開，靠 shareToken 限定團隊） ---- */
     case 'contact':         return jsonOut(contactSubmit(d));
@@ -308,6 +316,70 @@ function appendObj(name, obj) { sheet(name).appendRow(toRow(name, obj)); }
 function audit(actor, action, target, detail) {
   try { appendObj(SHEETS.audit, { time: now(), actor: actor, action: action, target: target, detail: detail || '' }); }
   catch (e) { /* 稽核失敗不影響主流程 */ }
+}
+
+/* ============================================================
+   個資請求：由教練代選手／家長建立並追蹤處理狀態
+   ============================================================ */
+var PRIVACY_REQUEST_TYPES = ['hide_record', 'delete_record', 'correct_data', 'stop_use'];
+var PRIVACY_REQUEST_STATUSES = ['pending', 'handled', 'rejected'];
+
+function listPrivacyRequests(c, d) {
+  var rows = readAll(SHEETS.privacyRequests).filter(function (r) {
+    return String(r.coachId) === String(c.coachId);
+  });
+  rows.sort(function (a, b) { return String(b.createdAt).localeCompare(String(a.createdAt)); });
+  return { ok: true, requests: rows };
+}
+
+function createPrivacyRequest(c, d) {
+  var athleteId = String(d.athleteId || '').trim();
+  var requestType = String(d.requestType || '').trim();
+  var scope = String(d.scope || '').trim();
+  var note = String(d.note || '').trim();
+  if (!athleteId) return { ok: false, error: '請選擇選手' };
+  if (PRIVACY_REQUEST_TYPES.indexOf(requestType) === -1) return { ok: false, error: '無效的請求類型' };
+  if (!scope) return { ok: false, error: '請填寫資料範圍' };
+
+  var athlete = readAll(SHEETS.athletes).filter(function (a) {
+    return String(a.athleteId) === athleteId && String(a.coachId) === String(c.coachId);
+  })[0];
+  if (!athlete) return { ok: false, error: '找不到選手' };
+
+  var item = {
+    requestId: uid('pr_'), coachId: c.coachId, athleteId: athleteId,
+    athleteName: athlete.name, requestType: requestType, scope: scope,
+    note: note, status: 'pending', createdAt: now(), handledAt: '', resolutionNote: ''
+  };
+  appendObj(SHEETS.privacyRequests, item);
+  audit(c.email, 'createPrivacyRequest', item.requestId, athlete.name + ' / ' + requestType + ' / ' + scope);
+  return { ok: true, request: item };
+}
+
+function resolvePrivacyRequest(c, d) {
+  var requestId = String(d.requestId || '').trim();
+  var status = String(d.status || '').trim();
+  var resolutionNote = String(d.resolutionNote || '').trim();
+  if (PRIVACY_REQUEST_STATUSES.indexOf(status) === -1 || status === 'pending') {
+    return { ok: false, error: '結案狀態只能是已處理或已駁回' };
+  }
+  if (!resolutionNote) return { ok: false, error: '請填寫處理說明' };
+
+  var item = readAll(SHEETS.privacyRequests).filter(function (r) {
+    return String(r.requestId) === requestId && String(r.coachId) === String(c.coachId);
+  })[0];
+  if (!item) return { ok: false, error: '找不到個資請求' };
+  if (String(item.status) !== 'pending') return { ok: false, error: '此請求已結案' };
+
+  item.status = status;
+  item.handledAt = now();
+  item.resolutionNote = resolutionNote;
+  var row = findRow(SHEETS.privacyRequests, 'requestId', requestId);
+  if (row === -1) return { ok: false, error: '找不到個資請求' };
+  sheet(SHEETS.privacyRequests).getRange(row, 1, 1, H.privacyRequests.length)
+    .setValues([toRow(SHEETS.privacyRequests, item)]);
+  audit(c.email, 'resolvePrivacyRequest', requestId, status + ' / ' + resolutionNote);
+  return { ok: true, request: item };
 }
 
 /* ---------- 密碼雜湊（GAS 無 bcrypt：salt + 多輪 SHA-256） ---------- */
@@ -723,8 +795,18 @@ function warroom(c, d) {
         Number(history[0].totalScore) < Number(history[1].totalScore) &&
         Number(history[1].totalScore) < Number(history[2].totalScore);
       lights[light] = (lights[light] || 0) + 1;
-      submitted.push({ athleteId: a.athleteId, name: a.name, totalScore: r.totalScore, status: light,
-                       moodIndex: r.moodIndex, recordId: r.recordId, declining: isDeclining });
+      submitted.push({
+        athleteId: a.athleteId, name: a.name, totalScore: r.totalScore, status: light,
+        moodIndex: r.moodIndex, recordId: r.recordId, declining: isDeclining,
+        sleepDurationMinutes: r.sleepDurationMinutes, sleepDurationText: r.sleepDurationText,
+        sleepRisk: r.sleepRisk, painStatus: r.painStatus, painAreas: r.painAreas || r.injuryAreas,
+        painScore: r.painScore, painImpact: r.painImpact, painRisk: r.painRisk,
+        waterAmount: r.waterAmount, sweatAmount: r.sweatAmount, urineColor: r.urineColor,
+        hydrationRisk: r.hydrationRisk, hydrationAdvice: r.hydrationAdvice,
+        hydrationFlags: r.hydrationFlags, reportQualityScore: r.reportQualityScore,
+        reportQualityLabel: r.reportQualityLabel, reportQualityReasons: r.reportQualityReasons,
+        coachSuggestion: r.coachSuggestion
+      });
       if (isDeclining) declining.push({ athleteId: a.athleteId, name: a.name });
       if (light === 'green' && Number(r.totalScore) >= 4.3)
         worthEncouraging.push({ athleteId: a.athleteId, name: a.name, totalScore: r.totalScore });
@@ -983,6 +1065,112 @@ function myRecords(d) {
   return { ok: true, records: recs.slice(0, Number(d.limit || 14)) };
 }
 
+function sleepMetrics(bedTime, wakeTime) {
+  var valid = /^([01]\d|2[0-3]):[0-5]\d$/;
+  bedTime = String(bedTime || ''); wakeTime = String(wakeTime || '');
+  if (!valid.test(bedTime) || !valid.test(wakeTime))
+    return { minutes: '', text: '', risk: '' };
+  var bp = bedTime.split(':'), wp = wakeTime.split(':');
+  var start = Number(bp[0]) * 60 + Number(bp[1]);
+  var end = Number(wp[0]) * 60 + Number(wp[1]);
+  var minutes = end - start;
+  if (minutes <= 0) minutes += 24 * 60;
+  // 超過 18 小時通常是輸入錯誤，仍保留時數但標成紅燈供教練確認。
+  var risk = minutes >= 420 && minutes <= 1080 ? 'green' : (minutes > 300 && minutes < 420 ? 'yellow' : 'red');
+  return { minutes: minutes, text: Math.floor(minutes / 60) + ' 小時 ' + (minutes % 60) + ' 分', risk: risk };
+}
+
+function painMetrics(status, score, impact) {
+  var allowedStatus = ['none', 'old', 'new', 'acute'];
+  var allowedImpact = ['none', 'high_intensity', 'power_down', 'cannot_sport', 'daily_affected'];
+  status = allowedStatus.indexOf(String(status)) !== -1 ? String(status) : 'none';
+  impact = allowedImpact.indexOf(String(impact)) !== -1 ? String(impact) : 'none';
+  score = Math.max(0, Math.min(10, Number(score) || 0));
+  if (status === 'none') score = 0;
+  var risk = score >= 7 ? 'red' : (score >= 4 ? 'yellow' : 'green');
+  if (impact === 'cannot_sport' || impact === 'daily_affected') risk = 'red';
+  return { status: status, score: score, impact: impact, risk: risk };
+}
+
+function previousDate(date) {
+  var p = String(date || '').split('-');
+  if (p.length !== 3) return '';
+  var d = new Date(Date.UTC(Number(p[0]), Number(p[1]) - 1, Number(p[2])) - 86400000);
+  return Utilities.formatDate(d, 'UTC', 'yyyy-MM-dd');
+}
+
+function hydrationMetrics(d, previous, sleep) {
+  var water = ['very_little', 'normal', 'enough', 'a_lot'].indexOf(String(d.waterAmount)) !== -1 ? String(d.waterAmount) : '';
+  var sweat = ['low', 'normal', 'high', 'very_high'].indexOf(String(d.sweatAmount)) !== -1 ? String(d.sweatAmount) : '';
+  var urine = ['clear', 'pale_yellow', 'yellow', 'dark', 'abnormal'].indexOf(String(d.urineColor)) !== -1 ? String(d.urineColor) : '';
+  var risk = 'green', flags = [];
+  var highSweatLowWater = (sweat === 'high' || sweat === 'very_high') && (water === 'very_little' || water === 'normal');
+  var consecutiveDark = urine === 'dark' && previous && String(previous.date) === previousDate(d.date) && String(previous.urineColor) === 'dark';
+  if (urine === 'yellow') { risk = 'yellow'; flags.push('urine_yellow'); }
+  if (water === 'very_little') { risk = 'yellow'; flags.push('low_water'); }
+  if (highSweatLowWater) { risk = 'yellow'; flags.push('high_sweat_low_water'); }
+  if (urine === 'dark') { risk = 'yellow'; flags.push('dark_urine'); }
+  if (sweat === 'very_high' && water === 'very_little') flags.push('severe_dehydration_risk');
+  if (urine === 'abnormal' || consecutiveDark ||
+      (urine === 'dark' && Number(d.fatigue) >= 7 && sleep.minutes !== '' && Number(sleep.minutes) < 420)) risk = 'red';
+  if (urine === 'abnormal') flags.push('abnormal_urine');
+  if (consecutiveDark) flags.push('consecutive_dark');
+  var advice = risk === 'red'
+    ? '水分狀態需立即確認；若尿液呈茶色、紅色或異常混濁，請通知家長並視情況尋求醫療協助。'
+    : risk === 'yellow'
+      ? '今日訓練前後加強補水，流汗多時分次補充水分與電解質。'
+      : urine === 'clear' ? '水分充足，維持適量補水，避免短時間過量飲水。' : '水分狀況良好，維持規律補水。';
+  return { water: water, sweat: sweat, urine: urine, risk: risk, flags: flags, advice: advice };
+}
+
+function scoreSimilarity(scores, record) {
+  var old = {};
+  try { old = JSON.parse(String(record && record.rawJson || '{}')); } catch (e) { old = {}; }
+  var same = 0, compared = 0;
+  KPI_ITEMS.forEach(function (k) {
+    var a = Number(scores[k]), b = Number(old[k]);
+    if (a >= 1 && a <= 5 && b >= 1 && b <= 5) { compared++; if (a === b) same++; }
+  });
+  return compared ? same / compared : 0;
+}
+
+function qualityMetrics(d, scores, total, dimAvg, previousRecords, pain, sleep) {
+  var score = 100, reasons = [];
+  if (String(d.trainingNotes || '').replace(/\s/g, '').length < 4) { score -= 15; reasons.push('心得過短'); }
+  var prev = previousRecords[0];
+  if (prev && scoreSimilarity(scores, prev) >= 0.9) { score -= 25; reasons.push('KPI 與前次高度相同'); }
+  if (pain.score >= 7 && (Number(total) >= 4 || Number(dimAvg.physical) >= 4 || Number(dimAvg.physiological) >= 4)) {
+    score -= 20; reasons.push('高疼痛但狀態分數過高');
+  }
+  if (sleep.minutes !== '' && Number(sleep.minutes) < 300 && (Number(scores.pio_spirit) === 5 || Number(scores.pio_recovery) === 5)) {
+    score -= 20; reasons.push('睡眠不足但恢復填滿分');
+  }
+  var day1 = previousDate(d.date), day2 = previousDate(day1);
+  if (previousRecords.length >= 2 && String(previousRecords[0].date) === day1 && String(previousRecords[1].date) === day2 &&
+      scoreSimilarity(scores, previousRecords[0]) >= 0.9 && scoreSimilarity(scores, previousRecords[1]) >= 0.9) {
+    score -= 30; reasons.push('連續 3 天填寫幾乎相同');
+  }
+  score = Math.max(0, score);
+  return { score: score, label: score >= 80 ? '正常' : (score >= 60 ? '需確認' : '疑似敷衍'), reasons: reasons };
+}
+
+function riskStatus(base, painRisk, sleepRisk, hydrationRisk) {
+  var rank = { green: 0, yellow: 1, red: 2 }, result = base || 'green';
+  [painRisk, sleepRisk, hydrationRisk].forEach(function (r) { if (rank[r] > rank[result]) result = r; });
+  return result;
+}
+
+function coachSuggestionFor(rec) {
+  if (rec.painRisk === 'red') return '建議停止專項訓練，立即確認疼痛並通知教練／家長。';
+  if (rec.hydrationRisk === 'red') return rec.hydrationAdvice;
+  if (rec.sleepRisk === 'red') return '今日降低訓練強度與反應負荷，優先安排恢復。';
+  if (Number(rec.painScore) >= 4) return '今日降低高衝擊與疼痛部位負荷，訓練中持續觀察。';
+  if (rec.hydrationRisk === 'yellow') return rec.hydrationAdvice;
+  if (rec.sleepRisk === 'yellow') return '睡眠偏少，今日控制高強度訓練量並留意疲勞。';
+  if (rec.reportQualityLabel !== '正常') return '先口頭確認今日狀態，再依實際情況安排訓練。';
+  return '今日狀態穩定，可依原定計畫訓練並持續觀察。';
+}
+
 function submitRecord(d) {
   var t = teamFromShareToken(d.t || d.shareToken);
   if (!t) return { ok: false, error: '連結無效或已被重設' };
@@ -1006,7 +1194,20 @@ function submitRecord(d) {
   var dims = KPI_DIMENSIONS.map(function (k) { return Number(dimAvg[k]) || 0; });
   var filled = dims.filter(function (v) { return v > 0; }).length;
   var total = filled ? +(dims.reduce(function (s, v) { return s + v; }, 0) / filled).toFixed(2) : 0;
-  var status = lightOf(total);
+  var baseStatus = lightOf(total);
+
+  var athleteHistory = readAll(SHEETS.records).filter(function (r) {
+    return String(r.teamId) === String(t.teamId) && String(r.athleteId) === aId && String(r.date) < String(date);
+  }).sort(function (x, y) { return String(y.date).localeCompare(String(x.date)); });
+  d.date = date;
+  var sleep = sleepMetrics(d.sleepBedTime, d.wakeTime);
+  var pain = painMetrics(d.painStatus, d.painScore, d.painImpact);
+  var hydration = hydrationMetrics({
+    date: date, waterAmount: d.waterAmount, sweatAmount: d.sweatAmount,
+    urineColor: d.urineColor, fatigue: d.fatigue
+  }, athleteHistory[0] || null, sleep);
+  var quality = qualityMetrics(d, scores, total, dimAvg, athleteHistory, pain, sleep);
+  var status = riskStatus(baseStatus, pain.risk, sleep.risk, hydration.risk);
 
   var height = Number(d.heightCm) || '';
   var weight = Number(d.weightKg) || '';
@@ -1025,7 +1226,16 @@ function submitRecord(d) {
     reflection: d.reflection || '',
     breakfastNutri: d.breakfastNutri || '', lunchNutri: d.lunchNutri || '', dinnerNutri: d.dinnerNutri || '',
     trainingAM: d.trainingAM || '', trainingPM: d.trainingPM || '', trainingEve: d.trainingEve || '', trainingNotes: d.trainingNotes || '',
-    sleepHours: d.sleepHours || '', fatigue: Number(d.fatigue) || '', injuryAreas: d.injuryAreas || '', injuryNote: d.injuryNote || '',
+    sleepHours: sleep.minutes !== '' ? +(sleep.minutes / 60).toFixed(2) : (d.sleepHours || ''),
+    fatigue: Number(d.fatigue) || '', injuryAreas: d.injuryAreas || '', injuryNote: d.injuryNote || '',
+    sleepBedTime: d.sleepBedTime || '', wakeTime: d.wakeTime || '', sleepQuality: d.sleepQuality || '',
+    sleepDurationMinutes: sleep.minutes, sleepDurationText: sleep.text, sleepRisk: sleep.risk,
+    painStatus: pain.status, painAreas: pain.status === 'none' ? '' : (d.painAreas || d.injuryAreas || ''),
+    painScore: pain.score, painImpact: pain.impact, painNote: d.painNote || d.injuryNote || '', painRisk: pain.risk,
+    waterAmount: hydration.water, sweatAmount: hydration.sweat, urineColor: hydration.urine,
+    hydrationRisk: hydration.risk, hydrationAdvice: hydration.advice, hydrationFlags: hydration.flags.join(','),
+    reportQualityScore: quality.score, reportQualityLabel: quality.label,
+    reportQualityReasons: quality.reasons.join('、'), coachSuggestion: '',
     encourageName: d.encourageName || '', encourageMsg: d.encourageMsg || '',
     nutritionAdvice: d.nutritionAdvice || '', studentLineText: d.studentLineText || '',
     parentLineText: d.parentLineText || '', coachLineText: d.coachLineText || '',
@@ -1038,6 +1248,7 @@ function submitRecord(d) {
     deviceInfo: String(d.deviceInfo || ''),
     rawJson: JSON.stringify(scores)
   };
+  rec.coachSuggestion = coachSuggestionFor(rec);
   KPI_ITEMS.forEach(function (k) { rec[k] = Number(scores[k]) || ''; });
 
   // upsert：同團隊同選手同日只留一筆
@@ -1051,10 +1262,12 @@ function submitRecord(d) {
   if (hitRow !== -1) {
     rec.recordId = existing[hitRow - 2].recordId || rec.recordId;
     sheet(SHEETS.records).getRange(hitRow, 1, 1, RECORD_HEADERS.length).setValues([toRow(SHEETS.records, rec)]);
-    return { ok: true, updated: true, totalScore: total, status: status, dimAvg: dimAvg };
+    return { ok: true, updated: true, totalScore: total, status: status, dimAvg: dimAvg,
+             sleep: sleep, pain: pain, hydration: hydration, quality: quality };
   }
   appendObj(SHEETS.records, rec);
-  return { ok: true, updated: false, totalScore: total, status: status, dimAvg: dimAvg };
+  return { ok: true, updated: false, totalScore: total, status: status, dimAvg: dimAvg,
+           sleep: sleep, pain: pain, hydration: hydration, quality: quality };
 }
 
 /* ============================================================
@@ -1150,7 +1363,7 @@ function setAdminPassword() {
    一鍵清除測試資料（在編輯器手動執行）
    ------------------------------------------------------------
    刪除所有 email 含 TEST_EMAIL_SUFFIX 的教練，及其名下
-   sessions / teams / athletes / records。正式帳號不受影響。
+   sessions / teams / athletes / records / privacyRequests。正式帳號不受影響。
    由下往上刪以避免列位移。
    ============================================================ */
 var TEST_EMAIL_SUFFIX = '@teampro.test';
@@ -1172,11 +1385,13 @@ function cleanupTestData() {
   report.teams    = deleteRowsByCoach(SHEETS.teams,    'coachId', testIds);
   report.athletes = deleteRowsByCoach(SHEETS.athletes, 'coachId', testIds);
   report.records  = deleteRowsByCoach(SHEETS.records,  'coachId', testIds);
+  report.privacyRequests = deleteRowsByCoach(SHEETS.privacyRequests, 'coachId', testIds);
 
   audit('admin', 'cleanupTestData', ids.join(','), JSON.stringify(report));
   return '已清除 ' + ids.length + ' 個測試教練。刪除列數：' +
     'coaches=' + report.coaches + '、sessions=' + report.sessions +
-    '、teams=' + report.teams + '、athletes=' + report.athletes + '、records=' + report.records + '。';
+    '、teams=' + report.teams + '、athletes=' + report.athletes + '、records=' + report.records +
+    '、privacyRequests=' + report.privacyRequests + '。';
 }
 
 function deleteRowsByCoach(name, colKey, idSet) {

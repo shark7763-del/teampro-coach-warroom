@@ -134,7 +134,7 @@
   function visibilityText(v) { return VISIBILITY_LABELS[v] || VISIBILITY_LABELS.self_coach_only; }
   function normVisibility(v) { return VISIBILITY_LABELS[v] ? v : DEFAULT_LAST_PERF_VISIBILITY; }
 
-  // 隱私請求型別/狀態（資料隱藏、刪除、更正、停止使用）— 目前為前端說明＋預留欄位
+  // 隱私請求型別/狀態（資料隱藏、刪除、更正、停止使用）
   var PRIVACY_REQUEST_TYPES = ['hide_record', 'delete_record', 'correct_data', 'stop_use'];
   var PRIVACY_REQUEST_STATUS = ['pending', 'handled', 'rejected'];
 

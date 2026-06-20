@@ -81,6 +81,14 @@
     color:#16a34a; border:1px solid #bbf7d0; background:#f0fdf4; border-radius:6px; padding:2px 8px; }
   .rp-wm-foot { color:#94a3b8; font-style:italic; }
   .report-doc h2,.report-doc h3 { color:#0f1115; margin:0; }
+  .risk-filters { display:flex; gap:7px; flex-wrap:wrap; margin:0 0 14px; }
+  .risk-filters button { min-height:38px; }
+  .risk-filters button.active { border-color:var(--brand); background:rgba(34,197,94,.14); color:#86efac; }
+  .athlete-risk-card { border:1px solid var(--line); border-radius:12px; padding:12px; margin:8px 0; cursor:pointer; }
+  .athlete-risk-card:hover { border-color:var(--brand); }
+  .athlete-risk-card .risk-head { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .athlete-risk-card .risk-meta { display:flex; flex-wrap:wrap; gap:6px 12px; margin-top:8px; font-size:13px; color:var(--muted); }
+  .athlete-risk-card .risk-advice { margin-top:8px; font-size:13px; }
   .rp-head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #0f1115; padding-bottom:12px; }
   .rp-brand { color:#16a34a; font-weight:800; }
   .rp-brand img { width:22px; height:22px; border-radius:50%; vertical-align:-6px; margin-right:6px; }
@@ -207,6 +215,18 @@
       <select id="warTeam" style="max-width:220px;"></select>
       <input id="warDate" type="date" style="max-width:170px;">
       <button class="btn btn-sm" id="warRefresh">重新整理</button>
+    </div>
+    <div class="risk-filters" id="riskFilters">
+      <button class="btn btn-sm active" data-risk-filter="all">全部</button>
+      <button class="btn btn-sm" data-risk-filter="red">今日紅燈</button>
+      <button class="btn btn-sm" data-risk-filter="pain">疼痛 ≥ 4</button>
+      <button class="btn btn-sm" data-risk-filter="sleep">睡眠 &lt; 6 小時</button>
+      <button class="btn btn-sm" data-risk-filter="quality">疑似敷衍</button>
+      <button class="btn btn-sm" data-risk-filter="missing">尚未回報</button>
+      <button class="btn btn-sm" data-risk-filter="hydration_red">水分紅燈</button>
+      <button class="btn btn-sm" data-risk-filter="urine_dark">尿液深黃色以上</button>
+      <button class="btn btn-sm" data-risk-filter="sweat_water">高流汗但喝水不足</button>
+      <button class="btn btn-sm" data-risk-filter="hydration_repeat">連續兩天水分不足</button>
     </div>
     <div class="grid grid-3" style="margin-bottom:16px;">
       <div class="stat"><div class="num" id="stCompletion">0%</div><div class="lbl">今日完成率</div></div>
@@ -366,6 +386,18 @@
         <li>若選手或家長要求更正、隱藏或刪除資料，應協助處理或聯絡 TeamPro 管理者。</li>
       </ol>
       <p class="muted" style="font-size:12px;margin:8px 0 0;">詳見 <a href="privacy.html" target="_blank" rel="noopener">隱私權與資料使用說明</a>。</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0;">個資請求管理</h3>
+      <p class="muted" style="font-size:13px;">收到選手或家長的資料更正、隱藏、刪除或停止使用要求時，請先登記範圍，完成實際處理後再結案。</p>
+      <div class="form-grid">
+        <div><label>選手</label><select id="prAthlete"></select></div>
+        <div><label>請求類型</label><select id="prType"><option value="correct_data">更正資料</option><option value="hide_record">隱藏紀錄</option><option value="delete_record">刪除紀錄</option><option value="stop_use">停止使用</option></select></div>
+        <div><label>資料範圍</label><input id="prScope" placeholder="例：2026-06-01 的訓練紀錄"></div>
+      </div>
+      <label>請求說明（選填）</label><textarea id="prNote" placeholder="記錄請求人、聯絡方式與具體要求；避免填入不必要的敏感資料。"></textarea>
+      <button class="btn btn-primary" id="btnCreatePrivacy" style="margin-top:8px;">建立個資請求</button>
+      <div id="privacyRequestList" style="margin-top:16px;"><span class="muted">載入中…</span></div>
     </div>
     <div class="card">
       <h3 style="margin-top:0;">帳號設定</h3>
@@ -649,6 +681,7 @@
     renderPlan();
     $('#warDate').value = localToday();
     loadTeams().then(function () { loadAthletes(); loadWarroom(); loadTrialSummary(); });
+    loadPrivacyRequests();
   }
 
   function renderPlan() {
@@ -731,6 +764,7 @@
     ['warroom', 'athletes', 'teams', 'report', 'settings'].forEach(function (t) {
       $('#tab-' + t).classList.toggle('hidden', t !== tab);
     });
+    if (tab === 'settings' && !DEMO) loadPrivacyRequests();
   }
 
   function copyFirstTeamLink() {
@@ -891,6 +925,7 @@
     renderAthletes();
     renderQuotaWarn();
     fillReportAthletes();
+    fillPrivacyAthletes();
     renderOnboarding();
   }
 
@@ -898,6 +933,14 @@
     var actives = state.athletes.filter(function (a) { return String(a.active) !== 'false' && a.active !== false; });
     $('#rpAthlete').innerHTML = actives.length
       ? actives.map(function (a) { return '<option value="' + a.athleteId + '">' + esc(a.name) + '</option>'; }).join('')
+      : '<option value="">（尚無選手）</option>';
+  }
+
+  function fillPrivacyAthletes() {
+    var select = $('#prAthlete');
+    if (!select) return;
+    select.innerHTML = state.athletes.length
+      ? state.athletes.map(function (a) { return '<option value="' + a.athleteId + '">' + esc(a.name) + '</option>'; }).join('')
       : '<option value="">（尚無選手）</option>';
   }
 
@@ -1063,21 +1106,7 @@
     renderPriority('#priorityDeclining', priority.declining || [], '目前沒有需要特別支持的選手');
     renderPriority('#priorityEncouraging', priority.encouraging || [], '完成回報後會自動推薦');
 
-    $('#missList').innerHTML = r.missing.length
-      ? r.missing.map(function (m) { return '<div class="row"><span>' + esc(m.name) + '</span><span class="muted">尚未回報</span></div>'; }).join('')
-      : '<p class="muted">今天全員都已完成回報。</p>';
-
-    $('#doneList').innerHTML = r.submitted.length
-      ? r.submitted.sort(function (a, b) { return (a.totalScore || 0) - (b.totalScore || 0); }).map(function (s) {
-          var l = s.status || TP.lightOf(s.totalScore);
-          return '<div class="row clickable" data-fb="' + s.athleteId + '" data-rec="' + (s.recordId || '') + '" data-name="' + esc(s.name) + '" title="點擊寫回饋">' +
-            '<span><span class="dot ' + l + '"></span> ' + esc(s.name) + ' <span class="muted" style="font-size:12px;">✍️</span></span>' +
-            '<span class="pill ' + l + '">' + (Number(s.totalScore) || 0).toFixed(1) + '</span></div>';
-        }).join('')
-      : '<p class="muted">今天尚無回報，請先提醒選手完成填寫。</p>';
-    TP.$all('[data-fb]', $('#doneList')).forEach(function (el) {
-      el.onclick = function () { openFeedback(el.dataset.fb, el.dataset.name, el.dataset.rec); };
-    });
+    renderWarroomLists(r);
 
     var enc = r.encourages || [];
     $('#encourageCard').style.display = enc.length ? '' : 'none';
@@ -1087,6 +1116,61 @@
     }).join('');
     renderOnboarding();
   }
+
+  var currentRiskFilter = 'all';
+  var waterLabels = { very_little:'很少', normal:'普通', enough:'足夠', a_lot:'很多' };
+  var sweatLabels = { low:'少', normal:'普通', high:'多', very_high:'非常多' };
+  var urineLabels = { clear:'透明／很淡', pale_yellow:'淡黃色', yellow:'黃色', dark:'深黃色／琥珀色', abnormal:'茶色／紅色／異常混濁' };
+
+  function hasHydrationFlag(s, flag) { return String(s.hydrationFlags || '').split(',').indexOf(flag) !== -1; }
+  function matchRiskFilter(s, filter) {
+    if (filter === 'all') return true;
+    if (filter === 'red') return s.status === 'red';
+    if (filter === 'pain') return Number(s.painScore) >= 4;
+    if (filter === 'sleep') return Number(s.sleepDurationMinutes) > 0 && Number(s.sleepDurationMinutes) < 360;
+    if (filter === 'quality') return s.reportQualityLabel === '疑似敷衍';
+    if (filter === 'hydration_red') return s.hydrationRisk === 'red';
+    if (filter === 'urine_dark') return s.urineColor === 'dark' || s.urineColor === 'abnormal';
+    if (filter === 'sweat_water') return hasHydrationFlag(s, 'high_sweat_low_water');
+    if (filter === 'hydration_repeat') return hasHydrationFlag(s, 'consecutive_dark');
+    return true;
+  }
+
+  function renderWarroomLists(r) {
+    var showMissing = currentRiskFilter === 'all' || currentRiskFilter === 'missing';
+    $('#missList').innerHTML = showMissing && r.missing.length
+      ? r.missing.map(function (m) { return '<div class="row"><span>' + esc(m.name) + '</span><span class="muted">尚未回報</span></div>'; }).join('')
+      : '<p class="muted">' + (currentRiskFilter === 'missing' ? '今天全員都已完成回報。' : '此篩選不包含未回報選手。') + '</p>';
+    var rows = currentRiskFilter === 'missing' ? [] : r.submitted.filter(function (s) { return matchRiskFilter(s, currentRiskFilter); });
+    $('#doneList').innerHTML = rows.length ? rows.sort(function (a, b) {
+      return (a.status === 'red' ? -2 : a.status === 'yellow' ? -1 : 0) - (b.status === 'red' ? -2 : b.status === 'yellow' ? -1 : 0);
+    }).map(function (s) {
+      var l = s.status || TP.lightOf(s.totalScore);
+      var sleep = s.sleepDurationText || (s.sleepDurationMinutes ? Math.floor(Number(s.sleepDurationMinutes) / 60) + ' 小時 ' + (Number(s.sleepDurationMinutes) % 60) + ' 分' : '未填');
+      var pain = Number(s.painScore || 0) + ' 分' + (s.painAreas ? '（' + s.painAreas + '）' : '');
+      var quality = s.reportQualityScore === '' || s.reportQualityScore == null ? '舊資料' : s.reportQualityScore + '・' + (s.reportQualityLabel || '正常');
+      var hydrationLabel = hasHydrationFlag(s, 'severe_dehydration_risk') && s.hydrationRisk !== 'red'
+        ? '水分黃燈偏紅' : '水分' + TP.lightText(s.hydrationRisk || 'green');
+      return '<div class="athlete-risk-card" data-fb="' + s.athleteId + '" data-rec="' + (s.recordId || '') + '" data-name="' + esc(s.name) + '">' +
+        '<div class="risk-head"><b><span class="dot ' + l + '"></span> ' + esc(s.name) + '</b><span class="pill ' + l + '">' + TP.lightText(l) + ' ' + (Number(s.totalScore) || 0).toFixed(1) + '</span></div>' +
+        '<div class="risk-meta"><span>睡眠：' + esc(sleep) + '</span><span>疼痛：' + esc(pain) + '</span><span>可信度：' + esc(quality) + '</span></div>' +
+        '<div class="risk-meta"><span class="pill ' + esc(s.hydrationRisk || 'green') + '">' + esc(hydrationLabel) + '</span>' +
+        '<span>喝水：' + esc(waterLabels[s.waterAmount] || '未填') + '</span><span>流汗：' + esc(sweatLabels[s.sweatAmount] || '未填') + '</span><span>尿液：' + esc(urineLabels[s.urineColor] || '未填') + '</span></div>' +
+        (s.reportQualityReasons ? '<div class="muted" style="font-size:12px;margin-top:6px;">需確認：' + esc(s.reportQualityReasons) + '</div>' : '') +
+        '<div class="risk-advice"><b>建議：</b>' + esc(s.coachSuggestion || '依今日狀態安排訓練並持續觀察。') + '</div></div>';
+    }).join('') : '<p class="muted">此條件目前沒有選手。</p>';
+    TP.$all('[data-fb]', $('#doneList')).forEach(function (el) {
+      el.onclick = function () { openFeedback(el.dataset.fb, el.dataset.name, el.dataset.rec); };
+    });
+  }
+
+  TP.$all('[data-risk-filter]', $('#riskFilters')).forEach(function (b) {
+    b.onclick = function () {
+      currentRiskFilter = b.dataset.riskFilter;
+      TP.$all('[data-risk-filter]', $('#riskFilters')).forEach(function (x) { x.classList.toggle('active', x === b); });
+      if (lastWar) renderWarroomLists(lastWar);
+    };
+  });
 
   function renderPriority(selector, list, emptyText) {
     $(selector).innerHTML = list.length
@@ -1519,8 +1603,11 @@
     $('#fbMeta').innerHTML = esc(rec.date) + '　總分 <b>' + (Number(rec.totalScore) || 0).toFixed(1) + '</b> <span class="pill ' + light + '">' + TP.lightText(light) + '</span>';
     var bits = [];
     if (rec.fatigue) bits.push('疲勞 ' + rec.fatigue + '/10');
-    if (rec.sleepHours) bits.push('睡眠 ' + rec.sleepHours + 'h');
-    if (rec.injuryAreas && rec.injuryAreas !== '無受傷') bits.push('傷:' + rec.injuryAreas);
+    if (rec.sleepDurationText || rec.sleepHours) bits.push('睡眠 ' + (rec.sleepDurationText || rec.sleepHours + 'h'));
+    if (Number(rec.painScore) > 0) bits.push('疼痛 ' + rec.painScore + '/10 ' + (rec.painAreas || ''));
+    else if (rec.injuryAreas && rec.injuryAreas !== '無受傷') bits.push('傷:' + rec.injuryAreas);
+    if (rec.hydrationRisk && rec.hydrationRisk !== 'green') bits.push('水分' + TP.lightText(rec.hydrationRisk));
+    if (rec.reportQualityLabel && rec.reportQualityLabel !== '正常') bits.push('可信度:' + rec.reportQualityLabel);
     if (rec.trainingNotes) bits.push('心得:' + rec.trainingNotes);
     $('#fbDetail').innerHTML = bits.length ? '<span class="muted">' + esc(bits.join('　')) + '</span>' : '';
     $('#fbText').value = rec.coachComment || '';
@@ -1542,6 +1629,56 @@
     btn.disabled = false;
     if (r.ok) { toast('已送出回饋'); $('#fbModal').classList.add('hidden'); }
     else { toast(r.error, true); }
+  };
+
+  /* ---------- 個資請求 ---------- */
+  var privacyTypeLabels = { hide_record: '隱藏紀錄', delete_record: '刪除紀錄', correct_data: '更正資料', stop_use: '停止使用' };
+  var privacyStatusLabels = { pending: '待處理', handled: '已處理', rejected: '已駁回' };
+
+  async function loadPrivacyRequests() {
+    if (DEMO || !TP.getToken()) return;
+    var box = $('#privacyRequestList');
+    if (!box) return;
+    var r = await TP.callAuth('listPrivacyRequests');
+    if (!r.ok) { box.innerHTML = '<span class="muted">' + esc(r.error || '載入失敗') + '</span>'; return; }
+    var rows = r.requests || [];
+    if (!rows.length) { box.innerHTML = '<span class="muted">目前沒有個資請求。</span>'; return; }
+    box.innerHTML = rows.map(function (item) {
+      var pending = String(item.status) === 'pending';
+      return '<div class="row" style="align-items:flex-start;gap:12px;border-top:1px solid var(--line);padding:12px 0;">' +
+        '<div style="flex:1;min-width:220px;"><b>' + esc(item.athleteName) + '</b> · ' + esc(privacyTypeLabels[item.requestType] || item.requestType) +
+        ' <span class="pill ' + (pending ? 'yellow' : (item.status === 'handled' ? 'green' : 'red')) + '">' + esc(privacyStatusLabels[item.status] || item.status) + '</span>' +
+        '<div class="muted" style="font-size:13px;margin-top:4px;">範圍：' + esc(item.scope) + ' · 建立：' + esc(String(item.createdAt || '').slice(0, 10)) + '</div>' +
+        (item.note ? '<div style="font-size:13px;margin-top:4px;">說明：' + esc(item.note) + '</div>' : '') +
+        (item.resolutionNote ? '<div style="font-size:13px;margin-top:4px;">處理結果：' + esc(item.resolutionNote) + '</div>' : '') + '</div>' +
+        (pending ? '<div><button class="btn btn-sm" data-pr-resolve="' + item.requestId + '" data-pr-status="handled">處理完成</button> ' +
+          '<button class="btn btn-sm btn-ghost" data-pr-resolve="' + item.requestId + '" data-pr-status="rejected">駁回</button></div>' : '') + '</div>';
+    }).join('');
+    TP.$all('[data-pr-resolve]', box).forEach(function (b) {
+      b.onclick = async function () {
+        var label = b.dataset.prStatus === 'handled' ? '處理說明' : '駁回原因';
+        var note = prompt('請填寫' + label + '：');
+        if (note === null) return;
+        note = note.trim();
+        if (!note) { toast('請填寫' + label, true); return; }
+        var rr = await TP.callAuth('resolvePrivacyRequest', { requestId: b.dataset.prResolve, status: b.dataset.prStatus, resolutionNote: note });
+        if (rr.ok) { toast('個資請求已結案'); loadPrivacyRequests(); } else { toast(rr.error, true); }
+      };
+    });
+  }
+
+  $('#btnCreatePrivacy').onclick = async function () {
+    if (DEMO) { demoBlock(); return; }
+    var athleteId = $('#prAthlete').value, scope = $('#prScope').value.trim();
+    if (!athleteId) { toast('請先建立或選擇選手', true); return; }
+    if (!scope) { toast('請填寫資料範圍', true); return; }
+    var r = await TP.callAuth('createPrivacyRequest', {
+      athleteId: athleteId, requestType: $('#prType').value, scope: scope, note: $('#prNote').value.trim()
+    });
+    if (r.ok) {
+      $('#prScope').value = ''; $('#prNote').value = '';
+      toast('已建立個資請求'); loadPrivacyRequests();
+    } else { toast(r.error, true); }
   };
 
   /* ---------- 帳號設定 ---------- */
@@ -1620,10 +1757,10 @@
     warroom: {
       ok: true, date: localToday(),
       total: 15, submittedCount: 11, missingCount: 4, completionRate: 73,
-      lights: { green: 6, yellow: 3, red: 2 },
+      lights: { green: 5, yellow: 4, red: 2 },
       submitted: [
-        { athleteId: 'd1', name: '陳柏宇', totalScore: 4.7, status: 'green' },
-        { athleteId: 'd2', name: '林冠廷', totalScore: 4.5, status: 'green' },
+        { athleteId: 'd1', name: '陳柏宇', totalScore: 4.7, status: 'green', sleepDurationMinutes:460, sleepDurationText:'7 小時 40 分', sleepRisk:'green', painScore:0, painRisk:'green', waterAmount:'enough', sweatAmount:'normal', urineColor:'pale_yellow', hydrationRisk:'green', reportQualityScore:92, reportQualityLabel:'正常', coachSuggestion:'今日狀態穩定，可依原定計畫訓練並持續觀察。' },
+        { athleteId: 'd2', name: '林冠廷', totalScore: 4.5, status: 'yellow', sleepDurationMinutes:380, sleepDurationText:'6 小時 20 分', sleepRisk:'yellow', painAreas:'右膝', painScore:5, painRisk:'yellow', waterAmount:'normal', sweatAmount:'high', urineColor:'dark', hydrationRisk:'yellow', hydrationFlags:'dark_urine,high_sweat_low_water', hydrationAdvice:'今日訓練前後加強補水。', reportQualityScore:88, reportQualityLabel:'正常', coachSuggestion:'今日降低高衝擊與疼痛部位負荷，訓練中持續觀察。' },
         { athleteId: 'd7', name: '王思妤', totalScore: 4.4, status: 'green' },
         { athleteId: 'd9', name: '周子晴', totalScore: 4.3, status: 'green' },
         { athleteId: 'd10', name: '許哲維', totalScore: 4.2, status: 'green' },
@@ -1631,15 +1768,15 @@
         { athleteId: 'd3', name: '黃于軒', totalScore: 3.7, status: 'yellow', declining: true },
         { athleteId: 'd5', name: '吳宥辰', totalScore: 3.4, status: 'yellow' },
         { athleteId: 'd12', name: '鄭宇翔', totalScore: 3.1, status: 'yellow', declining: true },
-        { athleteId: 'd8', name: '蔡承翰', totalScore: 2.7, status: 'red' },
-        { athleteId: 'd13', name: '何品妤', totalScore: 2.5, status: 'red' }
+        { athleteId: 'd8', name: '蔡承翰', totalScore: 2.7, status: 'red', sleepDurationMinutes:280, sleepDurationText:'4 小時 40 分', sleepRisk:'red', painAreas:'腳踝', painScore:8, painRisk:'red', waterAmount:'very_little', sweatAmount:'very_high', urineColor:'abnormal', hydrationRisk:'red', hydrationFlags:'abnormal_urine,high_sweat_low_water', reportQualityScore:55, reportQualityLabel:'疑似敷衍', reportQualityReasons:'心得過短、高疼痛但狀態分數過高', coachSuggestion:'建議停止專項訓練，立即確認疼痛並通知教練／家長。' },
+        { athleteId: 'd13', name: '何品妤', totalScore: 2.5, status: 'red', sleepDurationMinutes:330, sleepDurationText:'5 小時 30 分', sleepRisk:'yellow', painScore:0, painRisk:'green', waterAmount:'normal', sweatAmount:'high', urineColor:'dark', hydrationRisk:'red', hydrationFlags:'dark_urine,consecutive_dark', reportQualityScore:70, reportQualityLabel:'需確認', reportQualityReasons:'KPI 與昨日高度相同', coachSuggestion:'水分狀態需立即確認並加強補水。' }
       ],
       missing: [ { athleteId: 'd4', name: '張承恩' }, { athleteId: 'd6', name: '李芷瑄' }, { athleteId: 'd14', name: '羅冠宇' }, { athleteId: 'd15', name: '謝語恩' } ],
       priority: {
         red: [ { name: '蔡承翰' }, { name: '何品妤' } ],
         missing: [ { name: '張承恩' }, { name: '李芷瑄' }, { name: '羅冠宇' }, { name: '謝語恩' } ],
         declining: [ { name: '黃于軒' }, { name: '鄭宇翔' } ],
-        encouraging: [ { name: '陳柏宇' }, { name: '林冠廷' }, { name: '王思妤' }, { name: '周子晴' } ]
+        encouraging: [ { name: '陳柏宇' }, { name: '王思妤' }, { name: '周子晴' } ]
       },
       encourages: [
         { from: '陳柏宇', to: '蔡承翰', msg: '今天實戰很拚，下次一定更好！' },
