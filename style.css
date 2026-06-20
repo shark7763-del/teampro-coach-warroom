@@ -114,6 +114,9 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 28p
   padding: 14px 0; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
 .logo { font-weight: 800; font-size: 18px; }
 .logo .mark { color: var(--brand); }
+.logo a { color: inherit; }
+.logo-img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover;
+  vertical-align: middle; margin: -3px 8px 0 0; box-shadow: 0 1px 4px rgba(0, 0, 0, .45); }
 
 /* tabs */
 .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
