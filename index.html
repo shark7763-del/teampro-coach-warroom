@@ -48,6 +48,12 @@
   .line-qr { display: inline-flex; flex-direction: column; gap: 10px; align-items: center; margin: 18px auto 0; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
   .line-qr img { width: 168px; height: 168px; object-fit: cover; border-radius: 10px; background: #fff; }
   @media (max-width: 760px) { .steps-5, .report-sample .stats { grid-template-columns: 1fr; } }
+  /* 手機版 topbar：隱藏官方LINE鈕（hero與footer都還有），收緊間距讓 logo+登入+免費開始 一行放得下 */
+  @media (max-width: 520px) {
+    #topLineBtn { display: none; }
+    .topbar > div:last-child { gap: 6px; }
+    .topbar .btn-sm { padding: 6px 10px; font-size: 12px; }
+  }
 </style>
 </head>
 <body>
