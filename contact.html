@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>聯絡我們｜TeamPro 教練戰情室</title>
+<meta name="description" content="與 TeamPro 教練戰情室聯絡：一般詢問、升級諮詢、資料權利申請（查詢／更正／刪除）。">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+  <div class="topbar">
+    <div class="logo"><a href="index.html" style="color:inherit;"><img class="logo-img" src="assets/logo.png" alt="TeamPro logo">TeamPro <span class="mark">教練戰情室</span></a></div>
+    <div style="display:flex;gap:8px;">
+      <a class="btn btn-ghost btn-sm" href="index.html">回首頁</a>
+      <a class="btn btn-primary btn-sm" href="app.html?signup=1">免費開始</a>
+    </div>
+  </div>
+</div>
+
+<div class="doc container" style="max-width:560px;">
+  <h1>聯絡我們</h1>
+  <p class="lead">有任何問題、升級諮詢，或要提出資料權利申請（查詢／更正／隱藏／刪除），都可以在這裡留言，我們會儘快回覆。</p>
+
+  <div class="card">
+    <label>主題</label>
+    <select id="cTopic">
+      <option value="一般詢問">一般詢問</option>
+      <option value="升級諮詢">升級諮詢</option>
+      <option value="資料權利申請（查詢／更正／刪除）">資料權利申請（查詢／更正／刪除）</option>
+      <option value="問題回報">問題回報</option>
+    </select>
+    <label>你的稱呼（選填）</label>
+    <input id="cName" placeholder="王教練 / 家長">
+    <label>回覆 Email（方便我們回覆你）</label>
+    <input id="cEmail" type="email" placeholder="you@example.com">
+    <label>訊息內容</label>
+    <textarea id="cMessage" rows="5" placeholder="請描述你的問題或申請內容…"></textarea>
+    <!-- 蜜罐：人類不會看到，機器人若填寫就會被擋 -->
+    <input id="cWebsite" type="text" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px;" aria-hidden="true">
+    <button class="btn btn-primary btn-block" id="cSend" style="margin-top:14px;">送出</button>
+    <p class="muted" id="cHint" style="font-size:13px;margin-top:10px;">送出後訊息會直接寄到 TeamPro 管理者；也可加入官方 LINE 直接聯絡。</p>
+    <a class="btn btn-block" href="https://line.me/R/ti/p/@529utwnh" target="_blank" rel="noopener" style="margin-top:8px;">加入官方 LINE</a>
+  </div>
+</div>
+
+<footer>
+  <div class="container">
+    <div class="foot-links">
+      <a href="index.html">首頁</a>
+      <a href="about.html">品牌故事</a>
+      <a href="terms.html">服務條款</a>
+      <a href="privacy.html">隱私權與資料使用說明</a>
+      <a href="changelog.html">版本紀錄</a>
+      <a href="app.html">教練登入</a>
+    </div>
+    聯絡我們：<a href="contact.html">📬 聯絡表單</a> ·
+    官方 LINE：<a href="https://line.me/R/ti/p/@529utwnh" target="_blank" rel="noopener">加入官方 LINE</a>
+    <div class="legal-note">
+      <b>© 2026 TeamPro Coach Warroom. All rights reserved.</b><br>
+      TeamPro 教練戰情室之網站設計、文案、操作流程、報告模板、KPI 架構與系統內容，均受智慧財產權保護。<br>
+      未經授權，不得重製、改作、公開傳輸、商業使用或製作相似競爭服務。
+    </div>
+  </div>
+</footer>
+
+<script src="api.js"></script>
+<script>
+  (function () {
+    var $ = TP.$, toast = TP.toast;
+    $('#cSend').onclick = async function () {
+      var msg = $('#cMessage').value.trim();
+      if (msg.length < 2) { toast('請填寫訊息內容', true); return; }
+      $('#cSend').disabled = true; $('#cSend').textContent = '送出中…';
+      var r = await TP.call('contact', {
+        topic: $('#cTopic').value, name: $('#cName').value.trim(),
+        email: $('#cEmail').value.trim(), message: msg, website: $('#cWebsite').value
+      });
+      $('#cSend').disabled = false; $('#cSend').textContent = '送出';
+      if (r && r.ok) {
+        $('#cMessage').value = ''; $('#cName').value = ''; $('#cEmail').value = '';
+        toast('已送出，感謝你的來訊！');
+        $('#cHint').textContent = '✅ 已收到你的訊息，我們會儘快回覆。';
+      } else {
+        toast((r && r.error) || '送出失敗，請改用官方 LINE 聯絡', true);
+      }
+    };
+  })();
+</script>
+
+</body>
+</html>

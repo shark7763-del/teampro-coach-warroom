@@ -25,7 +25,8 @@ var SHEETS = {
   teams:    'teams',
   athletes: 'athletes',
   records:  'records',
-  audit:    'audit'
+  audit:    'audit',
+  contacts: 'contacts'
 };
 
 /* ---------- 表頭 ---------- */
@@ -34,7 +35,8 @@ var H = {
   sessions: ['token', 'coachId', 'expiresAt'],
   teams:    ['teamId', 'coachId', 'teamName', 'sport', 'shareToken', 'status', 'createdAt'],
   athletes: ['athleteId', 'coachId', 'teamId', 'name', 'gradeClass', 'grp', 'active', 'createdAt', 'lastPerformanceVisibility', 'perfPinHash', 'perfPinSalt'],
-  audit:    ['time', 'actor', 'action', 'target', 'detail']
+  audit:    ['time', 'actor', 'action', 'target', 'detail'],
+  contacts: ['time', 'topic', 'name', 'email', 'message']
 };
 
 /* ============================================================
@@ -202,6 +204,7 @@ function handle(action, d) {
     case 'coachFeedback':   return jsonOut(withCoach(d, coachFeedback));
 
     /* ---- 選手填寫（公開，靠 shareToken 限定團隊） ---- */
+    case 'contact':         return jsonOut(contactSubmit(d));
     case 'joinInfo':        return jsonOut(joinInfo(d));
     case 'submitRecord':    return jsonOut(submitRecord(d));
     case 'lastRecord':      return jsonOut(lastRecord(d));
@@ -864,6 +867,35 @@ function teamFromShareToken(shareToken) {
   var crow = findRow(SHEETS.coaches, 'coachId', t.coachId);
   if (crow === -1 || String(readAll(SHEETS.coaches)[crow - 2].status) === 'disabled') return null;
   return t;
+}
+
+/* 公開聯絡表單：寄信給站長（用 getEffectiveUser，不寫死信箱），並備援存入 contacts 表 */
+function contactSubmit(d) {
+  if (d.website) return { ok: true }; // 蜜罐：機器人填了 hidden 欄就假裝成功
+  var name = String(d.name || '').trim().slice(0, 100);
+  var email = String(d.email || '').trim().slice(0, 150);
+  var topic = String(d.topic || '網站來訊').trim().slice(0, 80);
+  var msg = String(d.message || '').trim().slice(0, 5000);
+  if (msg.length < 2) return { ok: false, error: '請填寫訊息內容' };
+
+  // 備援：先寫入 contacts 表，避免寄信失敗時遺失訊息
+  try { appendObj(SHEETS.contacts, { time: now(), topic: topic, name: name, email: email, message: msg }); } catch (e) {}
+
+  // 寄信給指令碼擁有者（不在程式或網頁暴露信箱）
+  try {
+    var to = Session.getEffectiveUser().getEmail();
+    if (to) {
+      var opts = {
+        to: to,
+        subject: '[TeamPro 聯絡] ' + topic + (name ? '（' + name + '）' : ''),
+        body: '主題：' + topic + '\n姓名：' + (name || '(未填)') + '\n回覆信箱：' + (email || '(未填)') +
+              '\n時間：' + now() + '\n\n訊息：\n' + msg
+      };
+      if (email) opts.replyTo = email;
+      MailApp.sendEmail(opts);
+    }
+  } catch (e) { /* 已存 contacts 表，仍回成功 */ }
+  return { ok: true };
 }
 
 function joinInfo(d) {
