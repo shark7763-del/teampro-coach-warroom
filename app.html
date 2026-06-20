@@ -83,6 +83,7 @@
   .report-doc h2,.report-doc h3 { color:#0f1115; margin:0; }
   .rp-head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #0f1115; padding-bottom:12px; }
   .rp-brand { color:#16a34a; font-weight:800; }
+  .rp-brand img { width:22px; height:22px; border-radius:50%; vertical-align:-6px; margin-right:6px; }
   .rp-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:18px 0; }
   .rp-stat { background:#f3f5f8; border-radius:10px; padding:12px; text-align:center; }
   .rp-stat .n { font-size:24px; font-weight:800; }
@@ -1169,7 +1170,7 @@
 
     var html = '<div class="report-doc">' +
       '<div class="rp-head"><div>' +
-        '<div class="rp-brand">🥋 TeamPro 教練戰情室</div>' +
+        '<div class="rp-brand"><img src="assets/logo.png" alt="">TeamPro 教練戰情室</div>' +
         '<h2 style="margin:4px 0;">選手成果報告</h2></div>' +
         '<div style="text-align:right;"><div><b>' + esc(athlete.name) + '</b></div>' +
         '<div class="muted" style="color:#5b6675;">' + esc(athlete.gradeClass || '') + '</div>' +
@@ -1235,7 +1236,7 @@
 
     var html = '<div class="report-doc">' +
       '<div class="rp-head"><div>' +
-        '<div class="rp-brand">🥋 TeamPro 教練戰情室</div>' +
+        '<div class="rp-brand"><img src="assets/logo.png" alt="">TeamPro 教練戰情室</div>' +
         '<h2 style="margin:4px 0;">團隊成果報告</h2></div>' +
         '<div style="text-align:right;"><div><b>' + esc(teamName) + '</b></div>' +
         '<div style="color:#5b6675;">' + tr.athleteCount + ' 位選手</div>' +
