@@ -141,6 +141,7 @@
       <input id="cfgUrl" placeholder="https://script.google.com/macros/s/XXXX/exec">
       <button class="btn btn-sm" id="cfgSave" style="margin-top:8px;">儲存網址</button>
     </details>
+    <p class="muted" style="font-size:12px;text-align:center;margin:14px 0 0;"><a href="privacy.html" target="_blank" rel="noopener">隱私權與資料使用說明</a></p>
   </div>
 </div>
 
@@ -198,8 +199,8 @@
       <p class="muted" style="margin:0;">3 分鐘掌握誰需要關心、誰還沒填，以及要傳什麼給家長。</p>
     </div>
     <div class="today-steps">
-      <div class="today-step"><span class="step-no">第一件事</span><b>先關心紅燈選手</b><span class="muted" id="taskRed">等待載入</span></div>
-      <div class="today-step"><span class="step-no">第二件事</span><b>催繳未填選手</b><span class="muted" id="taskMissing">等待載入</span></div>
+      <div class="today-step"><span class="step-no">第一件事</span><b>先關心今日需要關心的選手</b><span class="muted" id="taskRed">等待載入</span></div>
+      <div class="today-step"><span class="step-no">第二件事</span><b>提醒尚未完成回報</b><span class="muted" id="taskMissing">等待載入</span></div>
       <div class="today-step"><span class="step-no">第三件事</span><b>複製家長通知</b><button class="btn btn-sm" id="btnParentNotify" style="margin-top:5px;">複製家長通知</button></div>
     </div>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
@@ -210,7 +211,7 @@
     <div class="grid grid-3" style="margin-bottom:16px;">
       <div class="stat"><div class="num" id="stCompletion">0%</div><div class="lbl">今日完成率</div></div>
       <div class="stat"><div class="num" id="stSubmitted">0</div><div class="lbl">已繳</div></div>
-      <div class="stat"><div class="num" id="stMissing">0</div><div class="lbl">未繳</div></div>
+      <div class="stat"><div class="num" id="stMissing">0</div><div class="lbl">尚未回報</div></div>
       <div class="stat"><div class="num" id="stGreen" style="color:var(--green)">0</div><div class="lbl">綠燈</div></div>
       <div class="stat"><div class="num" id="stYellow" style="color:var(--yellow)">0</div><div class="lbl">黃燈</div></div>
       <div class="stat"><div class="num" id="stRed" style="color:var(--red)">0</div><div class="lbl">紅燈</div></div>
@@ -218,16 +219,16 @@
     <div class="card" style="margin-bottom:16px;">
       <h3 style="margin-top:0;">今日優先處理名單</h3>
       <div class="grid grid-4">
-        <div class="priority-card"><h4>紅燈選手</h4><div class="priority-names" id="priorityRed">載入中</div></div>
-        <div class="priority-card"><h4>未繳選手</h4><div class="priority-names" id="priorityMissing">載入中</div></div>
-        <div class="priority-card"><h4>連續下降選手</h4><div class="priority-names" id="priorityDeclining">載入中</div></div>
+        <div class="priority-card"><h4>今日需要關心</h4><div class="priority-names" id="priorityRed">載入中</div></div>
+        <div class="priority-card"><h4>尚未完成回報</h4><div class="priority-names" id="priorityMissing">載入中</div></div>
+        <div class="priority-card"><h4>近期需要支持</h4><div class="priority-names" id="priorityDeclining">載入中</div></div>
         <div class="priority-card"><h4>今日值得鼓勵</h4><div class="priority-names" id="priorityEncouraging">載入中</div></div>
       </div>
     </div>
     <div class="grid grid-2">
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;">
-          <h3 style="margin:0;">今日未繳 <span id="missCount" class="muted"></span></h3>
+          <h3 style="margin:0;">今日尚未完成回報 <span id="missCount" class="muted"></span></h3>
           <button class="btn btn-sm" id="btnRemind">複製催繳 LINE</button>
         </div>
         <div id="missList" style="margin-top:10px;"></div>
@@ -314,6 +315,7 @@
         <button class="btn" id="btnPrint">🖨️ 列印 / 存成 PDF</button>
         <span class="muted" style="font-size:13px;align-self:center;">列印視窗選「另存為 PDF」即可匯出檔案給家長/學校。</span>
       </div>
+      <p class="muted no-print" style="font-size:12px;margin:10px 0 0;">🔒 報告含選手私人訓練資料，請避免截圖公開或轉傳到群組；提供家長時建議搭配口頭說明。</p>
     </div>
     <div id="reportArea"></div>
   </section>
@@ -360,6 +362,11 @@
       <p class="muted" style="font-size:13px;">升級付費方案請填寫 <a href="https://docs.google.com/forms/d/e/1FAIpQLSc2WhGQP1BQhWMgTJFtnR_gznolKA-KDqYVqXzBEfuxZI7OHA/viewform" target="_blank" rel="noopener">TeamPro 升級申請表</a>，確認付款後由管理者開通。</p>
     </div>
   </section>
+
+  <p class="muted" style="font-size:12px;text-align:center;margin:24px 0 8px;">
+    🔒 選手訓練資料依角色權限保護，僅授權教練可見完整內容 ·
+    <a href="privacy.html" target="_blank" rel="noopener">隱私權與資料使用說明</a>
+  </p>
 </div>
 
 <!-- 教練回饋 modal -->
@@ -371,8 +378,10 @@
     </div>
     <div id="fbMeta" class="muted" style="font-size:13px;margin:6px 0;"></div>
     <div id="fbDetail" style="font-size:14px;margin-bottom:8px;"></div>
+    <p class="muted" style="font-size:12px;margin:0 0 8px;">🔒 上次表現屬於選手私人訓練資料，請避免截圖公開或轉傳到群組。</p>
     <label>AI 教練模組（點一下產生草稿，可再修改）</label>
     <div class="ai-modules" id="aiModules"></div>
+    <p class="muted" style="font-size:12px;margin:2px 0 0;">AI 回饋僅供教練撰寫參考，送出前請由教練確認內容，不作為醫療、心理診斷或專業治療建議；提供給家長時會自動套用家長摘要規則。</p>
     <label>給這位選手的回饋 / 建議</label>
     <textarea id="fbText" placeholder="例：今天恢復分數偏低，今晚早點睡；明天踢靶注意收腿速度。"></textarea>
     <button class="btn btn-primary btn-block" id="fbSend" style="margin-top:10px;">送出回饋</button>
@@ -942,17 +951,17 @@
     $('#stYellow').textContent = r.lights.yellow || 0;
     $('#stRed').textContent = r.lights.red || 0;
     $('#missCount').textContent = '（' + r.missingCount + '）';
-    $('#taskRed').textContent = (r.lights.red || 0) ? (r.lights.red + ' 位需要先關心') : '今天沒有紅燈選手';
+    $('#taskRed').textContent = (r.lights.red || 0) ? (r.lights.red + ' 位需要先關心') : '今天沒有需要特別關心的選手';
     $('#taskMissing').textContent = r.missingCount ? (r.missingCount + ' 位尚未完成') : '今天全員已完成';
 
     var priority = r.priority || {};
-    renderPriority('#priorityRed', priority.red || r.submitted.filter(function (s) { return s.status === 'red'; }), '今天沒有紅燈選手');
+    renderPriority('#priorityRed', priority.red || r.submitted.filter(function (s) { return s.status === 'red'; }), '今天沒有需要特別關心的選手');
     renderPriority('#priorityMissing', priority.missing || r.missing, '今天全員已完成');
-    renderPriority('#priorityDeclining', priority.declining || [], '目前沒有連續下降');
+    renderPriority('#priorityDeclining', priority.declining || [], '目前沒有需要特別支持的選手');
     renderPriority('#priorityEncouraging', priority.encouraging || [], '完成回報後會自動推薦');
 
     $('#missList').innerHTML = r.missing.length
-      ? r.missing.map(function (m) { return '<div class="row"><span>' + esc(m.name) + '</span><span class="muted">未繳</span></div>'; }).join('')
+      ? r.missing.map(function (m) { return '<div class="row"><span>' + esc(m.name) + '</span><span class="muted">尚未回報</span></div>'; }).join('')
       : '<p class="muted">今天全員都已完成回報。</p>';
 
     $('#doneList').innerHTML = r.submitted.length
@@ -1000,11 +1009,10 @@
     loadTrialSummary();
   };
 
+  // 家長通知文字：走共用家長摘要規則（不含原始分數/燈號/敏感原文）
   function parentMessage(s) {
     var light = s.status || TP.lightOf(s.totalScore);
-    if (light === 'green') return s.name + '家長您好，' + s.name + '今天整體狀態很好，訓練投入和恢復都很穩定，請多給孩子一個肯定，我也會繼續陪他把好狀態維持下去。';
-    if (light === 'yellow') return s.name + '家長您好，' + s.name + '今天狀態有些起伏，目前先持續觀察，今晚請協助留意休息、飲食和精神狀況；明天訓練我也會再確認。';
-    return s.name + '家長您好，' + s.name + '今天回報的身體與訓練狀態比較低，今晚請先讓孩子充分休息、補水與恢復，不需要勉強撐住。我會主動關心並視情況調整訓練。';
+    return s.name + '家長您好，' + TP.parentSummary({ name: s.name, light: light });
   }
 
   async function loadTrialSummary() {
@@ -1020,7 +1028,7 @@
     var noticeCount = DEMO ? r.parentNotificationCount : Number(localStorage.getItem(parentNoticeKey()) || 0);
     var stats = [
       [r.athleteCount, '已追蹤選手'], [r.reportCount, '完成回報'],
-      [r.redAthleteCount, '發現紅燈'], [noticeCount, '產生家長通知'],
+      [r.redAthleteCount, '今日需要關心'], [noticeCount, '產生家長通知'],
       [r.estimatedMinutes + ' 分', '預估節省時間']
     ];
     $('#trialStats').innerHTML = stats.map(function (x) {

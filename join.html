@@ -55,6 +55,7 @@
     </div>
     <button class="btn btn-primary btn-block" id="whoNext" style="margin-top:14px;">開始填寫 →</button>
     <button class="btn btn-block" id="whoPerf" style="margin-top:8px;">📈 看我的近期表現</button>
+    <p class="muted" style="font-size:12px;text-align:center;margin:12px 0 0;"><a href="privacy.html" target="_blank" rel="noopener">隱私權與資料使用說明</a></p>
   </div>
 
   <!-- 我的近期表現 -->
@@ -64,6 +65,7 @@
         <h2 style="margin:0;">📈 我的近期表現</h2>
         <button class="btn btn-sm" id="perfBack">← 返回</button>
       </div>
+      <p class="muted" style="font-size:12px;margin:8px 0 0;">🔒 你的上次表現紀錄預設只有你和主教練看得到，不會公開給其他隊友。</p>
       <div id="perfBody" style="margin-top:12px;"></div>
     </div>
   </div>
@@ -76,6 +78,7 @@
         <button class="btn btn-sm" id="btnPrefill">↺ 帶入上次</button>
       </div>
       <p class="muted" style="margin:6px 0 0;">每項 1–5 分，5 分代表最好。可先「帶入上次」再微調。</p>
+      <p class="muted" style="font-size:12px;margin:6px 0 0;">🔒 你填寫的訓練資料會用於教練追蹤訓練狀態，系統會依照權限保護你的個人紀錄。</p>
       <label style="margin-top:10px;">今天是？</label>
       <select id="sessionType">
         <option value="training">訓練日（填全部）</option>
@@ -147,6 +150,7 @@
       <textarea id="trainingNotes" placeholder="例：今天旋踢轉胯更順，但實戰時防守反應還是慢半拍，下次想多練閃避。"></textarea>
       <label>想對教練說的話（選填）</label><textarea id="reflection"></textarea>
     </div>
+    <p class="muted" style="font-size:12px;text-align:center;margin:14px 4px 0;">送出即表示你了解本資料將提供教練作為訓練追蹤使用，系統會依權限保護你的個人紀錄。<br><a href="privacy.html" target="_blank" rel="noopener">隱私權與資料使用說明</a></p>
   </div>
 
   <!-- Step 3：結果 -->
@@ -560,9 +564,10 @@
     var studentText = '【' + ctx.name + ' 今日回報】\n總分 ' + total.toFixed(1) + '（' + TP.lightText(light) + '）\n' +
       TP.KPI_DIMENSIONS.map(function (d) { return d.name + ' ' + (Number(r.dimAvg[d.key]) || 0).toFixed(1); }).join('・') +
       '\n建議：' + tips[0];
-    var parentText = '家長您好，' + ctx.name + ' 今日訓練狀態回報：\n總分 ' + total.toFixed(1) + '（' + TP.lightText(light) + '）\n' +
-      (light === 'red' ? '今日狀態偏低，再請多關心孩子的休息與飲食 🙏\n' : '狀態穩定，感謝協助孩子養成回報習慣 🙏\n') +
-      '建議：' + tips[0];
+    // 家長版只給「整理後摘要」：不含原始分數、燈號標籤、受傷/睡眠等敏感原文
+    var hasSensitive = (light === 'red') || (payload.injuryAreas && payload.injuryAreas !== '無受傷');
+    var parentText = '家長您好：\n' + TP.parentSummary({ name: ctx.name, light: light, private: hasSensitive }) +
+      '\n\n感謝您的陪伴與支持 🙏';
 
     $('#btnCopyStudent').onclick = function () { TP.copy(studentText); };
     $('#btnCopyParent').onclick = function () { TP.copy(parentText); };

@@ -115,12 +115,50 @@
   function lightOf(total) { var t = Number(total) || 0; return t >= 4 ? 'green' : (t >= 3 ? 'yellow' : 'red'); }
   function lightText(l) { return l === 'green' ? '綠燈' : (l === 'yellow' ? '黃燈' : '紅燈'); }
 
+  /* ============================================================
+     隱私／權限相關常數與共用函式（全站一致，避免各頁規則不同步）
+     ============================================================ */
+  // 「上次表現」可見範圍。預設 self_coach_only：只有選手本人與主教練可看完整內容。
+  var LAST_PERF_VISIBILITY = {
+    SELF_COACH_ONLY: 'self_coach_only',   // 選手本人 + 主教練
+    COACH_ASSISTANT: 'coach_assistant',   // 主教練 + 有權限助教
+    PARENT_SUMMARY_ONLY: 'parent_summary_only', // 家長只看整理後摘要
+    ANONYMOUS_STATS: 'anonymous_stats'    // 只進匿名團隊統計
+  };
+  var DEFAULT_LAST_PERF_VISIBILITY = LAST_PERF_VISIBILITY.SELF_COACH_ONLY;
+
+  // 隱私請求型別/狀態（資料隱藏、刪除、更正、停止使用）— 目前為前端說明＋預留欄位
+  var PRIVACY_REQUEST_TYPES = ['hide_record', 'delete_record', 'correct_data', 'stop_use'];
+  var PRIVACY_REQUEST_STATUS = ['pending', 'handled', 'rejected'];
+
+  // 負面標籤 → 保護性說法（只改顯示文字，不影響資料邏輯與判斷條件）
+  var SOFT_LABELS = {
+    '紅燈選手': '今日需要關心', '連續下降選手': '近期需要支持', '未繳選手': '尚未完成回報',
+    '退步': '需要加強', '狀態差': '狀態需關注', '心理低落': '情緒需要支持', '表現不好': '表現待穩定'
+  };
+  function softLabel(s) { var t = String(s == null ? '' : s); Object.keys(SOFT_LABELS).forEach(function (k) { t = t.split(k).join(SOFT_LABELS[k]); }); return t; }
+
+  /* 家長端摘要：把原始訓練資料轉成「溫和、無原始分數/負面文字/敏感資料」的家長可看摘要。
+     opts: { name, light: 'green'|'yellow'|'red', private: true 表示涉私密狀態 } */
+  function parentSummary(opts) {
+    opts = opts || {};
+    var name = (opts.name && String(opts.name).trim()) || '孩子';
+    if (opts.private) return '本週' + name + '有部分訓練狀態已由教練關心追蹤，詳細內容將由教練視情況與家長溝通。';
+    var light = opts.light || 'green';
+    if (light === 'green') return name + '近期訓練出席穩定，態度表現良好。教練將持續協助加強技術細節與訓練節奏。';
+    if (light === 'yellow') return name + '近期訓練狀態大致穩定，教練會持續關心訓練節奏與恢復狀況，建議家長以鼓勵和陪伴為主。';
+    return name + '近期訓練狀態需要支持，教練會持續關心與調整訓練安排，建議家長以鼓勵和陪伴為主。';
+  }
+
   global.TP = {
     getUrl: getUrl, setUrl: setUrl, getToken: getToken, setToken: setToken, clearToken: clearToken,
     getLineUrl: getLineUrl, setLineUrl: setLineUrl,
     planLimits: PLAN_LIMITS, getPlanLimits: getPlanLimits,
     call: call, callAuth: callAuth,
     $: $, $all: $all, el: el, esc: esc, toast: toast, copy: copy,
-    KPI_DIMENSIONS: KPI_DIMENSIONS, lightOf: lightOf, lightText: lightText
+    KPI_DIMENSIONS: KPI_DIMENSIONS, lightOf: lightOf, lightText: lightText,
+    LAST_PERF_VISIBILITY: LAST_PERF_VISIBILITY, DEFAULT_LAST_PERF_VISIBILITY: DEFAULT_LAST_PERF_VISIBILITY,
+    PRIVACY_REQUEST_TYPES: PRIVACY_REQUEST_TYPES, PRIVACY_REQUEST_STATUS: PRIVACY_REQUEST_STATUS,
+    softLabel: softLabel, parentSummary: parentSummary
   };
 })(window);

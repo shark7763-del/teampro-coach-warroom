@@ -37,6 +37,33 @@ var H = {
   audit:    ['time', 'actor', 'action', 'target', 'detail']
 };
 
+/* ============================================================
+   隱私／可見度設定（向後相容：不更動現有欄位，缺值一律以預設值處理）
+   ------------------------------------------------------------
+   lastPerformanceVisibility（「上次表現」可見範圍）預設 self_coach_only：
+     - self_coach_only    ：只有選手本人與主教練可看完整內容（預設）
+     - coach_assistant    ：主教練 + 有權限助教
+     - parent_summary_only：家長只看整理後摘要
+     - anonymous_stats    ：只進匿名團隊統計，不顯示個人原始內容
+   讀取時請用 lastPerfVisibilityOf(athlete)，舊資料無此欄會回傳預設值。
+
+   TODO（後續再做、避免本次破壞線上 Sheet 結構）：
+   - 在 athletes 表新增欄位 lastPerformanceVisibility，並提供教練端逐選手設定 UI。
+   - 助教帳號制度（assistantAccounts）尚未實作：目前僅主教練可見完整內容，
+     助教可見性待帳號系統建立後依 coach_assistant 規則開放。
+   - 隱私請求（資料隱藏/刪除/更正/停止使用）：預留欄位，待建後台流程：
+       privacyRequestType   ∈ hide_record | delete_record | correct_data | stop_use
+       privacyRequestAt     （ISO 時間）
+       privacyRequestStatus ∈ pending | handled | rejected
+       privacyRequestNote   （備註）
+     目前先以前端說明文字＋聯絡管理者方式處理（見 privacy.html / app 內提示）。
+   ============================================================ */
+var DEFAULT_LAST_PERF_VISIBILITY = 'self_coach_only';
+function lastPerfVisibilityOf(a) {
+  var v = a && a.lastPerformanceVisibility;
+  return v ? String(v) : DEFAULT_LAST_PERF_VISIBILITY;
+}
+
 /* records 欄位：基本識別 + 30 項 KPI + 計分 + 身體/心情/飲食 + 產出文字 */
 var KPI_DIMENSIONS = ['technical', 'tactical', 'physical', 'mental', 'attitude', 'physiological'];
 var KPI_ITEMS = [
