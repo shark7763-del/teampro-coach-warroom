@@ -152,6 +152,7 @@ function handle(action, d) {
     case 'listAthletes':    return jsonOut(withCoach(d, listAthletes));
     case 'addAthlete':      return jsonOut(withCoach(d, addAthlete));
     case 'setAthleteActive':return jsonOut(withCoach(d, setAthleteActive));
+    case 'updateAthlete':   return jsonOut(withCoach(d, updateAthlete));
     case 'deleteAthlete':   return jsonOut(withCoach(d, deleteAthlete));
 
     /* ---- 戰情室 / 報告 ---- */
@@ -533,6 +534,43 @@ function setAthleteActive(c, d) {
   }
   audit(c.email, 'setAthleteActive', d.athleteId, String(want));
   return { ok: true, activeCount: countActiveAthletes(c.coachId) };
+}
+
+/* 修改選手基本資料（姓名／年級班別／所屬團隊），用於 key 錯字或異動 */
+function updateAthlete(c, d) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var row = findRow(SHEETS.athletes, 'athleteId', d.athleteId || '');
+    if (row === -1) return { ok: false, error: '找不到選手' };
+    var all = readAll(SHEETS.athletes);
+    var a = all[row - 2];
+    if (String(a.coachId) !== String(c.coachId)) return { ok: false, error: 'forbidden' };
+
+    var name = String(d.name == null ? a.name : d.name).trim();
+    if (!name) return { ok: false, error: '請輸入選手姓名' };
+    var teamId = String(d.teamId == null ? a.teamId : d.teamId).trim() || a.teamId;
+    // 若有指定團隊，確認該團隊屬於本教練
+    if (teamId && teamId !== String(a.teamId)) {
+      var trow = findRow(SHEETS.teams, 'teamId', teamId);
+      if (trow === -1 || String(readAll(SHEETS.teams)[trow - 2].coachId) !== String(c.coachId))
+        return { ok: false, error: '找不到團隊或無權限' };
+    }
+    // 同團隊不可有同名的啟用中選手（排除自己）
+    var dup = all.some(function (x) {
+      return String(x.athleteId) !== String(a.athleteId) &&
+             String(x.coachId) === String(c.coachId) && String(x.teamId) === String(teamId) &&
+             String(x.name).trim() === name && (String(x.active) !== 'false' && x.active !== false);
+    });
+    if (dup) return { ok: false, error: '此團隊已有同名選手「' + name + '」' };
+
+    var s = sheet(SHEETS.athletes);
+    s.getRange(row, H.athletes.indexOf('name') + 1).setValue(name);
+    s.getRange(row, H.athletes.indexOf('gradeClass') + 1).setValue(String(d.gradeClass == null ? a.gradeClass : d.gradeClass));
+    s.getRange(row, H.athletes.indexOf('teamId') + 1).setValue(teamId);
+    audit(c.email, 'updateAthlete', d.athleteId, name);
+    return { ok: true };
+  } finally { lock.releaseLock(); }
 }
 
 /* 永久刪除選手＋其所有回報紀錄（不可復原）。用於誤建或示範假資料清理 */

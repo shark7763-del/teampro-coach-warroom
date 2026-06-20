@@ -799,23 +799,61 @@
     $('#btnAddAthlete').disabled = c.activeAthletes >= cfg.maxAthletes;
   }
 
+  function athleteEditHTML(a) {
+    var opts = state.teams.map(function (t) {
+      return '<option value="' + t.teamId + '"' + (String(t.teamId) === String(a.teamId) ? ' selected' : '') + '>' + esc(t.teamName) + '</option>';
+    }).join('');
+    return '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;width:100%;">' +
+        '<input data-e-name style="flex:1;min-width:120px;" value="' + esc(a.name) + '" placeholder="姓名">' +
+        '<select data-e-team style="width:auto;flex:0 0 auto;">' + opts + '</select>' +
+        '<input data-e-grade style="width:130px;flex:0 0 auto;" value="' + esc(a.gradeClass || '') + '" placeholder="年級/班別">' +
+        '<button class="btn btn-sm btn-primary" data-e-save="' + a.athleteId + '">儲存</button>' +
+        '<button class="btn btn-sm" data-e-cancel>取消</button>' +
+      '</div>';
+  }
+
   function renderAthletes() {
     var box = $('#athleteList');
     if (!state.athletes.length) { box.innerHTML = '<p class="muted">目前尚無選手，請先新增選手或載入示範資料。</p>'; return; }
     var teamName = {}; state.teams.forEach(function (t) { teamName[t.teamId] = t.teamName; });
     box.innerHTML = state.athletes.map(function (a) {
       var active = String(a.active) !== 'false' && a.active !== false;
-      return '<div class="row">' +
+      return '<div class="row" data-arow="' + a.athleteId + '">' +
         '<div><b>' + esc(a.name) + '</b> <span class="muted">· ' + esc(teamName[a.teamId] || '未分隊') +
           (a.gradeClass ? ' · ' + esc(a.gradeClass) : '') + '</span>' +
           (active ? '' : ' <span class="pill red">已停用</span>') + '</div>' +
         '<div style="display:flex;gap:6px;">' +
+          '<button class="btn btn-sm" data-edit="' + a.athleteId + '">修改</button>' +
           '<button class="btn btn-sm" data-toggle="' + a.athleteId + '" data-active="' + active + '">' +
             (active ? '停用' : '恢復') + '</button>' +
           '<button class="btn btn-sm btn-danger" data-del="' + a.athleteId + '" data-name="' + esc(a.name) + '">刪除</button>' +
         '</div>' +
         '</div>';
     }).join('');
+
+    TP.$all('[data-edit]', box).forEach(function (b) {
+      b.onclick = function () {
+        if (DEMO) { demoBlock(); return; }
+        var id = b.dataset.edit;
+        var a = state.athletes.filter(function (x) { return String(x.athleteId) === String(id); })[0];
+        if (!a) return;
+        var rowEl = box.querySelector('[data-arow="' + id + '"]');
+        rowEl.innerHTML = athleteEditHTML(a);
+        rowEl.querySelector('[data-e-cancel]').onclick = function () { renderAthletes(); };
+        rowEl.querySelector('[data-e-save]').onclick = async function () {
+          var name = rowEl.querySelector('[data-e-name]').value.trim();
+          if (!name) { toast('請輸入姓名', true); return; }
+          var r = await TP.callAuth('updateAthlete', {
+            athleteId: id, name: name,
+            teamId: rowEl.querySelector('[data-e-team]').value,
+            gradeClass: rowEl.querySelector('[data-e-grade]').value.trim()
+          });
+          if (r.ok) { toast('已更新選手資料'); loadTeams(); loadAthletes(); loadWarroom(); }
+          else { toast(r.message || r.error, true); }
+        };
+      };
+    });
+
     TP.$all('[data-toggle]', box).forEach(function (b) {
       b.onclick = async function () {
         if (DEMO) { demoBlock(); return; }
