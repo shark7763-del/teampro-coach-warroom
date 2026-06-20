@@ -155,7 +155,10 @@
       <textarea id="trainingNotes" placeholder="例：今天旋踢轉胯更順，但實戰時防守反應還是慢半拍，下次想多練閃避。"></textarea>
       <label>想對教練說的話（選填）</label><textarea id="reflection"></textarea>
     </div>
-    <p class="muted" style="font-size:12px;text-align:center;margin:14px 4px 0;">送出即表示你了解本資料將提供教練作為訓練追蹤使用，系統會依權限保護你的個人紀錄。<br><a href="privacy.html" target="_blank" rel="noopener">隱私權與資料使用說明</a></p>
+    <div class="card">
+      <label class="consent" for="consentPrivacy"><input type="checkbox" id="consentPrivacy"><span>我已閱讀並了解 <a href="privacy.html" target="_blank" rel="noopener">TeamPro 隱私權與資料使用說明</a>，並同意將本次回報提供給我的主教練作為訓練管理使用。</span></label>
+      <label class="consent" for="guardianConsent"><input type="checkbox" id="guardianConsent"><span>我確認已由家長或法定代理人了解並同意使用本系統（未滿 18 歲必勾）。</span></label>
+    </div>
   </div>
 
   <!-- Step 3：結果 -->
@@ -668,6 +671,9 @@
   }
 
   async function submit() {
+    // 個資法：送出前強制同意
+    if (!$('#consentPrivacy').checked) { toast('請先勾選同意隱私權與資料使用說明', true); return; }
+    if (!$('#guardianConsent').checked) { toast('未滿 18 歲請先確認家長/法定代理人已同意', true); return; }
     var scores = collectScores();
     var payload = {
       t: shareToken, athleteId: ctx.athleteId, date: ($('#recordDate').value || localToday()),
@@ -675,7 +681,12 @@
       heightCm: $('#heightCm').value, weightKg: $('#weightKg').value, targetWeightKg: $('#targetWeightKg').value,
       breakfast: $('#breakfast').value, lunch: $('#lunch').value, dinner: $('#dinner').value,
       snacksDrinks: $('#snacksDrinks').value, waterIntake: $('#waterIntake').value, lateNightSnack: $('#lateNightSnack').value,
-      moodIndex: mood, moodReason: $('#moodReason').value, gratitude: $('#gratitude').value, reflection: $('#reflection').value
+      moodIndex: mood, moodReason: $('#moodReason').value, gratitude: $('#gratitude').value, reflection: $('#reflection').value,
+      // 個資法同意紀錄
+      athleteName: ctx.name, teamId: (ctx.team && ctx.team.teamId) || '',
+      consentPrivacy: true, guardianConsent: $('#guardianConsent').checked,
+      consentAt: new Date().toISOString(), privacyVersion: '2026-06',
+      deviceInfo: (navigator.userAgent || '').slice(0, 180)
     };
     Object.assign(payload, collectExtras());
     var tips = buildAdvice(scores, payload);

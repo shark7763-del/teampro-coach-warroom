@@ -110,6 +110,8 @@ var RECORD_HEADERS = ['recordId', 'coachId', 'teamId', 'athleteId', 'name', 'dat
     'coachComment', 'coachFeedbackAt',
     // 產出
     'nutritionAdvice', 'studentLineText', 'parentLineText', 'coachLineText',
+    // 個資法同意紀錄
+    'consentPrivacy', 'guardianConsent', 'consentAt', 'privacyVersion', 'deviceInfo',
     'rawJson'
   ]);
 
@@ -993,6 +995,12 @@ function submitRecord(d) {
     encourageName: d.encourageName || '', encourageMsg: d.encourageMsg || '',
     nutritionAdvice: d.nutritionAdvice || '', studentLineText: d.studentLineText || '',
     parentLineText: d.parentLineText || '', coachLineText: d.coachLineText || '',
+    // 個資法同意紀錄（隨每次回報留存）
+    consentPrivacy: d.consentPrivacy ? true : false,
+    guardianConsent: d.guardianConsent ? true : false,
+    consentAt: d.consentAt || now(),
+    privacyVersion: String(d.privacyVersion || ''),
+    deviceInfo: String(d.deviceInfo || ''),
     rawJson: JSON.stringify(scores)
   };
   KPI_ITEMS.forEach(function (k) { rec[k] = Number(scores[k]) || ''; });
