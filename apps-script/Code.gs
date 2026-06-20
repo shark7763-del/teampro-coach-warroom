@@ -152,6 +152,7 @@ function handle(action, d) {
     case 'listAthletes':    return jsonOut(withCoach(d, listAthletes));
     case 'addAthlete':      return jsonOut(withCoach(d, addAthlete));
     case 'setAthleteActive':return jsonOut(withCoach(d, setAthleteActive));
+    case 'deleteAthlete':   return jsonOut(withCoach(d, deleteAthlete));
 
     /* ---- 戰情室 / 報告 ---- */
     case 'warroom':         return jsonOut(withCoach(d, warroom));
@@ -532,6 +533,23 @@ function setAthleteActive(c, d) {
   }
   audit(c.email, 'setAthleteActive', d.athleteId, String(want));
   return { ok: true, activeCount: countActiveAthletes(c.coachId) };
+}
+
+/* 永久刪除選手＋其所有回報紀錄（不可復原）。用於誤建或示範假資料清理 */
+function deleteAthlete(c, d) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var row = findRow(SHEETS.athletes, 'athleteId', d.athleteId || '');
+    if (row === -1) return { ok: false, error: '找不到選手' };
+    var a = readAll(SHEETS.athletes)[row - 2];
+    if (String(a.coachId) !== String(c.coachId)) return { ok: false, error: 'forbidden' };
+    var recN = deleteRowsByValue(SHEETS.records, 'athleteId', d.athleteId);
+    var arow = findRow(SHEETS.athletes, 'athleteId', d.athleteId);
+    if (arow !== -1) sheet(SHEETS.athletes).deleteRow(arow);
+    audit(c.email, 'deleteAthlete', d.athleteId, a.name + ' (紀錄' + recN + ')');
+    return { ok: true, deletedRecords: recN, activeCount: countActiveAthletes(c.coachId) };
+  } finally { lock.releaseLock(); }
 }
 
 /* ============================================================

@@ -703,9 +703,9 @@
       ? publicBase + 'join.html'
       : new URL('join.html', location.href).href;
     base += '?t=' + encodeURIComponent(token);
-    // 帶上後端網址，選手開連結即可用，免設定（後端網址本來就是公開的）
-    var api = TP.getUrl();
-    return api ? (base + '&api=' + encodeURIComponent(api)) : base;
+    // 後端網址已內建於 api.js（DEFAULT_URL），join.html 開啟即可用，
+    // 不需再把 &api= 塞進連結 → 連結大幅縮短。
+    return base;
   }
 
   function renderTeams() {
@@ -809,8 +809,11 @@
         '<div><b>' + esc(a.name) + '</b> <span class="muted">· ' + esc(teamName[a.teamId] || '未分隊') +
           (a.gradeClass ? ' · ' + esc(a.gradeClass) : '') + '</span>' +
           (active ? '' : ' <span class="pill red">已停用</span>') + '</div>' +
-        '<button class="btn btn-sm" data-toggle="' + a.athleteId + '" data-active="' + active + '">' +
-          (active ? '停用' : '恢復') + '</button>' +
+        '<div style="display:flex;gap:6px;">' +
+          '<button class="btn btn-sm" data-toggle="' + a.athleteId + '" data-active="' + active + '">' +
+            (active ? '停用' : '恢復') + '</button>' +
+          '<button class="btn btn-sm btn-danger" data-del="' + a.athleteId + '" data-name="' + esc(a.name) + '">刪除</button>' +
+        '</div>' +
         '</div>';
     }).join('');
     TP.$all('[data-toggle]', box).forEach(function (b) {
@@ -819,6 +822,15 @@
         var want = b.dataset.active === 'false'; // 目前停用→要恢復
         var r = await TP.callAuth('setAthleteActive', { athleteId: b.dataset.toggle, active: want });
         if (r.ok) { toast('已更新'); await refreshMe(); loadAthletes(); }
+        else { toast(r.message || r.error, true); }
+      };
+    });
+    TP.$all('[data-del]', box).forEach(function (b) {
+      b.onclick = async function () {
+        if (DEMO) { demoBlock(); return; }
+        if (!confirm('確定刪除選手「' + b.dataset.name + '」？\n\n該選手及其所有回報紀錄將永久刪除，無法復原。\n（若只是離隊／畢業，建議改用「停用」即可保留歷史。）')) return;
+        var r = await TP.callAuth('deleteAthlete', { athleteId: b.dataset.del });
+        if (r.ok) { toast('已刪除選手（紀錄 ' + (r.deletedRecords || 0) + ' 筆）'); await refreshMe(); loadTeams(); loadAthletes(); loadWarroom(); }
         else { toast(r.message || r.error, true); }
       };
     });
