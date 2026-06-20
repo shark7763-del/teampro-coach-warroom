@@ -832,10 +832,16 @@
     var opts = state.teams.map(function (t) {
       return '<option value="' + t.teamId + '"' + (String(t.teamId) === String(a.teamId) ? ' selected' : '') + '>' + esc(t.teamName) + '</option>';
     }).join('');
+    var curVis = TP.normVisibility(a.lastPerformanceVisibility);
+    var visOpts = Object.keys(TP.VISIBILITY_LABELS).map(function (k) {
+      return '<option value="' + k + '"' + (k === curVis ? ' selected' : '') + '>' + esc(TP.VISIBILITY_LABELS[k]) + '</option>';
+    }).join('');
     return '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;width:100%;">' +
         '<input data-e-name style="flex:1;min-width:120px;" value="' + esc(a.name) + '" placeholder="姓名">' +
         '<select data-e-team style="width:auto;flex:0 0 auto;">' + opts + '</select>' +
         '<input data-e-grade style="width:130px;flex:0 0 auto;" value="' + esc(a.gradeClass || '') + '" placeholder="年級/班別">' +
+        '<label style="margin:0;width:auto;flex:0 0 auto;display:flex;align-items:center;gap:4px;font-size:12px;">🔒上次表現可見' +
+          '<select data-e-vis style="width:auto;">' + visOpts + '</select></label>' +
         '<button class="btn btn-sm btn-primary" data-e-save="' + a.athleteId + '">儲存</button>' +
         '<button class="btn btn-sm" data-e-cancel>取消</button>' +
       '</div>';
@@ -847,9 +853,12 @@
     var teamName = {}; state.teams.forEach(function (t) { teamName[t.teamId] = t.teamName; });
     box.innerHTML = state.athletes.map(function (a) {
       var active = String(a.active) !== 'false' && a.active !== false;
+      var vis = TP.normVisibility(a.lastPerformanceVisibility);
+      var visBadge = vis !== TP.DEFAULT_LAST_PERF_VISIBILITY
+        ? ' <span class="muted" style="font-size:11px;">🔒 ' + esc(TP.visibilityText(vis)) + '</span>' : '';
       return '<div class="row" data-arow="' + a.athleteId + '">' +
         '<div><b>' + esc(a.name) + '</b> <span class="muted">· ' + esc(teamName[a.teamId] || '未分隊') +
-          (a.gradeClass ? ' · ' + esc(a.gradeClass) : '') + '</span>' +
+          (a.gradeClass ? ' · ' + esc(a.gradeClass) : '') + '</span>' + visBadge +
           (active ? '' : ' <span class="pill red">已停用</span>') + '</div>' +
         '<div style="display:flex;gap:6px;">' +
           '<button class="btn btn-sm" data-edit="' + a.athleteId + '">修改</button>' +
@@ -875,7 +884,8 @@
           var r = await TP.callAuth('updateAthlete', {
             athleteId: id, name: name,
             teamId: rowEl.querySelector('[data-e-team]').value,
-            gradeClass: rowEl.querySelector('[data-e-grade]').value.trim()
+            gradeClass: rowEl.querySelector('[data-e-grade]').value.trim(),
+            lastPerformanceVisibility: rowEl.querySelector('[data-e-vis]').value
           });
           if (r.ok) { toast('已更新選手資料'); loadTeams(); loadAthletes(); loadWarroom(); }
           else { toast(r.message || r.error, true); }

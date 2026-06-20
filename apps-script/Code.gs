@@ -33,7 +33,7 @@ var H = {
   coaches:  ['coachId', 'email', 'passwordHash', 'salt', 'name', 'plan', 'planExpiry', 'status', 'createdAt', 'lastLogin', 'paymentNote'],
   sessions: ['token', 'coachId', 'expiresAt'],
   teams:    ['teamId', 'coachId', 'teamName', 'sport', 'shareToken', 'status', 'createdAt'],
-  athletes: ['athleteId', 'coachId', 'teamId', 'name', 'gradeClass', 'grp', 'active', 'createdAt'],
+  athletes: ['athleteId', 'coachId', 'teamId', 'name', 'gradeClass', 'grp', 'active', 'createdAt', 'lastPerformanceVisibility'],
   audit:    ['time', 'actor', 'action', 'target', 'detail']
 };
 
@@ -47,8 +47,12 @@ var H = {
      - anonymous_stats    ：只進匿名團隊統計，不顯示個人原始內容
    讀取時請用 lastPerfVisibilityOf(athlete)，舊資料無此欄會回傳預設值。
 
-   TODO（後續再做、避免本次破壞線上 Sheet 結構）：
-   - 在 athletes 表新增欄位 lastPerformanceVisibility，並提供教練端逐選手設定 UI。
+   已完成：athletes 表已新增 lastPerformanceVisibility 欄位（sheet() 會自動補欄、
+     舊列回空值＝預設），教練端「修改選手」可逐選手設定。
+
+   TODO（後續再做）：
+   - enforcement：parent_summary_only / anonymous_stats 對戰情室具名清單、匯出、
+     排行榜的實際限制（本輪先做持久化＋設定＋標示，避免動到主畫面）。
    - 助教帳號制度（assistantAccounts）尚未實作：目前僅主教練可見完整內容，
      助教可見性待帳號系統建立後依 coach_assistant 規則開放。
    - 隱私請求（資料隱藏/刪除/更正/停止使用）：預留欄位，待建後台流程：
@@ -59,9 +63,13 @@ var H = {
      目前先以前端說明文字＋聯絡管理者方式處理（見 privacy.html / app 內提示）。
    ============================================================ */
 var DEFAULT_LAST_PERF_VISIBILITY = 'self_coach_only';
+var LAST_PERF_VISIBILITIES = ['self_coach_only', 'coach_assistant', 'parent_summary_only', 'anonymous_stats'];
 function lastPerfVisibilityOf(a) {
   var v = a && a.lastPerformanceVisibility;
-  return v ? String(v) : DEFAULT_LAST_PERF_VISIBILITY;
+  return v && LAST_PERF_VISIBILITIES.indexOf(String(v)) !== -1 ? String(v) : DEFAULT_LAST_PERF_VISIBILITY;
+}
+function normVisibility(v) {
+  return LAST_PERF_VISIBILITIES.indexOf(String(v)) !== -1 ? String(v) : DEFAULT_LAST_PERF_VISIBILITY;
 }
 
 /* records 欄位：基本識別 + 30 項 KPI + 計分 + 身體/心情/飲食 + 產出文字 */
@@ -571,7 +579,8 @@ function addAthlete(c, d) {
     }
     var a = {
       athleteId: uid('a_'), coachId: c.coachId, teamId: teamId, name: name,
-      gradeClass: String(d.gradeClass || ''), grp: String(d.grp || ''), active: true, createdAt: now()
+      gradeClass: String(d.gradeClass || ''), grp: String(d.grp || ''), active: true, createdAt: now(),
+      lastPerformanceVisibility: normVisibility(d.lastPerformanceVisibility)
     };
     appendObj(SHEETS.athletes, a);
     audit(c.email, 'addAthlete', a.athleteId, name);
@@ -633,6 +642,8 @@ function updateAthlete(c, d) {
     s.getRange(row, H.athletes.indexOf('name') + 1).setValue(name);
     s.getRange(row, H.athletes.indexOf('gradeClass') + 1).setValue(String(d.gradeClass == null ? a.gradeClass : d.gradeClass));
     s.getRange(row, H.athletes.indexOf('teamId') + 1).setValue(teamId);
+    if (d.lastPerformanceVisibility != null)
+      s.getRange(row, H.athletes.indexOf('lastPerformanceVisibility') + 1).setValue(normVisibility(d.lastPerformanceVisibility));
     audit(c.email, 'updateAthlete', d.athleteId, name);
     return { ok: true };
   } finally { lock.releaseLock(); }

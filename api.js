@@ -126,6 +126,13 @@
     ANONYMOUS_STATS: 'anonymous_stats'    // 只進匿名團隊統計
   };
   var DEFAULT_LAST_PERF_VISIBILITY = LAST_PERF_VISIBILITY.SELF_COACH_ONLY;
+  // 白話標籤（給教練端下拉與名單 badge 用）
+  var VISIBILITY_LABELS = {
+    self_coach_only: '只有我和選手本人', coach_assistant: '我和有權限助教',
+    parent_summary_only: '家長可看摘要', anonymous_stats: '僅匿名統計'
+  };
+  function visibilityText(v) { return VISIBILITY_LABELS[v] || VISIBILITY_LABELS.self_coach_only; }
+  function normVisibility(v) { return VISIBILITY_LABELS[v] ? v : DEFAULT_LAST_PERF_VISIBILITY; }
 
   // 隱私請求型別/狀態（資料隱藏、刪除、更正、停止使用）— 目前為前端說明＋預留欄位
   var PRIVACY_REQUEST_TYPES = ['hide_record', 'delete_record', 'correct_data', 'stop_use'];
@@ -159,6 +166,7 @@
     KPI_DIMENSIONS: KPI_DIMENSIONS, lightOf: lightOf, lightText: lightText,
     LAST_PERF_VISIBILITY: LAST_PERF_VISIBILITY, DEFAULT_LAST_PERF_VISIBILITY: DEFAULT_LAST_PERF_VISIBILITY,
     PRIVACY_REQUEST_TYPES: PRIVACY_REQUEST_TYPES, PRIVACY_REQUEST_STATUS: PRIVACY_REQUEST_STATUS,
+    VISIBILITY_LABELS: VISIBILITY_LABELS, visibilityText: visibilityText, normVisibility: normVisibility,
     softLabel: softLabel, parentSummary: parentSummary
   };
 })(window);
