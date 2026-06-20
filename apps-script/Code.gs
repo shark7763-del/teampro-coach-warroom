@@ -33,7 +33,7 @@ var SHEETS = {
 var H = {
   coaches:  ['coachId', 'email', 'passwordHash', 'salt', 'name', 'plan', 'planExpiry', 'status', 'createdAt', 'lastLogin', 'paymentNote'],
   sessions: ['token', 'coachId', 'expiresAt'],
-  teams:    ['teamId', 'coachId', 'teamName', 'sport', 'shareToken', 'status', 'createdAt'],
+  teams:    ['teamId', 'coachId', 'teamName', 'sport', 'shareToken', 'status', 'createdAt', 'competitionSystem', 'sportCategory', 'memberTerm'],
   athletes: ['athleteId', 'coachId', 'teamId', 'name', 'gradeClass', 'grp', 'active', 'createdAt', 'lastPerformanceVisibility', 'perfPinHash', 'perfPinSalt'],
   audit:    ['time', 'actor', 'action', 'target', 'detail'],
   contacts: ['time', 'topic', 'name', 'email', 'message']
@@ -495,7 +495,9 @@ function createTeam(c, d) {
     if (dup) return { ok: false, error: '已有同名團隊「' + teamName + '」，請換個名稱' };
     var team = {
       teamId: uid('tm_'), coachId: c.coachId, teamName: teamName,
-      sport: String(d.sport || '跆拳道'), shareToken: uid('sh_'), status: 'active', createdAt: now()
+      sport: String(d.sport || '跆拳道'), shareToken: uid('sh_'), status: 'active', createdAt: now(),
+      competitionSystem: String(d.competitionSystem || ''), sportCategory: String(d.sportCategory || ''),
+      memberTerm: String(d.memberTerm || '選手')
     };
     appendObj(SHEETS.teams, team);
     audit(c.email, 'createTeam', team.teamId, teamName);

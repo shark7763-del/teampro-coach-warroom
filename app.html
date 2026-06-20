@@ -277,9 +277,44 @@
       <h3 style="margin-top:0;">建立團隊</h3>
       <div class="grid grid-3">
         <div><label>團隊名稱</label><input id="ntName" placeholder="例：跆拳道隊 / 田徑隊 / 籃球隊"></div>
-        <div><label>運動項目</label><input id="ntSport" value="跆拳道"></div>
+        <div><label>競賽體系</label>
+          <select id="ntSystem">
+            <option value="全中運項目">全中運項目</option>
+            <option value="奧運項目">奧運項目</option>
+            <option value="亞運項目">亞運項目</option>
+            <option value="自訂競技項目">自訂競技項目</option>
+          </select>
+        </div>
+        <div><label>運動分類</label>
+          <select id="ntCategory">
+            <option value="田徑與體能型">田徑與體能型</option>
+            <option value="水上運動">水上運動</option>
+            <option value="技擊武道">技擊武道</option>
+            <option value="球類團隊">球類團隊</option>
+            <option value="球拍與隔網">球拍與隔網</option>
+            <option value="精準與瞄準">精準與瞄準</option>
+            <option value="體操與技巧表現">體操與技巧表現</option>
+            <option value="綜合項目">綜合項目</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid grid-3" style="margin-top:12px;">
+        <div><label>正式項目</label>
+          <select id="ntEvent"></select>
+          <input id="ntSport" placeholder="輸入競技項目" style="display:none;">
+        </div>
+        <div><label>成員稱呼</label>
+          <select id="ntMemberTerm">
+            <option value="選手">選手</option>
+            <option value="運動員">運動員</option>
+            <option value="球員">球員</option>
+            <option value="隊員">隊員</option>
+            <option value="學員">學員</option>
+          </select>
+        </div>
         <div style="display:flex;align-items:flex-end;"><button class="btn btn-primary btn-block" id="btnCreateTeam">＋ 建立團隊</button></div>
       </div>
+      <p class="muted" id="ntTemplateHint" style="font-size:13px;margin:10px 0 0;"></p>
     </div>
     <div class="card">
       <h3 style="margin-top:0;">我的團隊與填寫連結</h3>
@@ -293,7 +328,7 @@
       <h3 style="margin-top:0;">產生成果報告</h3>
       <div class="grid grid-4">
         <div><label>報告類型</label>
-          <select id="rpType"><option value="athlete">個人選手</option><option value="team">團隊整體</option></select>
+          <select id="rpType"><option value="athlete">個人選手報告</option><option value="team">團隊訓練報告</option><option value="parent">家長溝通報告</option></select>
         </div>
         <div id="rpAthleteWrap"><label>選手</label><select id="rpAthlete"></select></div>
         <div id="rpTeamWrap" style="display:none;"><label>團隊</label><select id="rpTeam"></select></div>
@@ -539,7 +574,7 @@
     TP.copy(text);
     return true;
   }
-  function defaultKpiLabels() { return ['技術', '戰術', '體能', '心理', '態度', '生理']; }
+  function defaultKpiLabels() { return ['技術執行', '戰術理解', '體能負荷', '心理狀態', '訓練態度', '生理恢復']; }
   function customKpiLabels() {
     var cfg = planCfg();
     var raw = String(localStorage.getItem(coachLS('custom_kpi')) || '').trim();
@@ -753,7 +788,7 @@
     box.innerHTML = state.teams.map(function (t) {
       var url = shareUrl(t.shareToken);
       return '<div class="row" style="flex-wrap:wrap;">' +
-        '<div><b>' + esc(t.teamName) + '</b> <span class="muted">· ' + esc(t.sport) + '</span></div>' +
+        '<div><b>' + esc(t.teamName) + '</b> <span class="muted">· ' + esc(t.sport) + (t.sportCategory ? ' · ' + esc(t.sportCategory) : '') + '</span></div>' +
         '<div class="link-box" style="flex:1;min-width:280px;">' +
           '<input readonly value="' + esc(url) + '">' +
           '<button class="btn btn-sm" data-copy="' + esc(url) + '">複製</button>' +
@@ -800,13 +835,54 @@
     if (state.teams.some(function (t) { return String(t.teamName).trim() === name; })) {
       toast('已有同名團隊「' + name + '」', true); return;
     }
+    var sport = ($('#ntSystem').value === '全中運項目') ? $('#ntEvent').value : $('#ntSport').value.trim();
+    if (!sport) { toast('請選擇或輸入競技項目', true); return; }
     var btn = this; btn.disabled = true;
-    var r = await TP.callAuth('createTeam', { teamName: name, sport: $('#ntSport').value.trim() });
+    var r = await TP.callAuth('createTeam', {
+      teamName: name, sport: sport,
+      competitionSystem: $('#ntSystem').value, sportCategory: $('#ntCategory').value,
+      memberTerm: $('#ntMemberTerm').value
+    });
     if (r.ok) { $('#ntName').value = ''; toast('團隊已建立'); loadTeams(); }
     else if (r.error === 'plan_limit_reached' || r.error === 'multi_team_locked') { openUpgradeModal({ reason: 'multiTeam', message: r.message || '目前方案不支援多隊伍管理。' }); }
     else { toast(r.error, true); }
     btn.disabled = false;
   };
+
+  /* 建立團隊：競賽體系 / 運動分類 / 正式項目 / 專項模板提示 */
+  var SPORTS_ROC = ['田徑', '游泳', '體操', '桌球', '羽球', '網球', '跆拳道', '柔道', '舉重', '射箭', '軟式網球',
+    '空手道', '射擊', '拳擊', '角力', '擊劍', '輕艇', '划船', '自由車', '木球', '滑輪溜冰', '卡巴迪'];
+  var TEMPLATE_HINTS = {
+    '田徑與體能型': '專項模板：主項、今日成績、秒數／距離、訓練量、配速、恢復狀態。',
+    '水上運動': '專項模板：主項、今日成績、秒數／距離、訓練量、配速、恢復狀態。',
+    '技擊武道': '專項模板：量級、體重、對抗狀態、技術重點、傷勢部位、賽前降重風險。',
+    '球類團隊': '專項模板：位置、出賽時間、團隊配合、戰術執行、攻防表現、傷病風險。',
+    '球拍與隔網': '專項模板：發接球、相持能力、落點控制、節奏、移位、傷病風險。',
+    '精準與瞄準': '專項模板：穩定性、專注狀態、命中率、比賽節奏、心理壓力、動作一致性。',
+    '體操與技巧表現': '專項模板：動作完成度、協調性、柔軟度、爆發力、失誤率、心理穩定。',
+    '綜合項目': '可使用共通 6 大表現指標，並依專項需求自訂題目。'
+  };
+  var TERM_SUGGEST = { '球類團隊': '球員', '技擊武道': '選手', '田徑與體能型': '運動員', '水上運動': '運動員' };
+
+  function syncTeamForm() {
+    var sys = $('#ntSystem'), ev = $('#ntEvent'), sp = $('#ntSport'), cat = $('#ntCategory').value;
+    if (sys.value === '全中運項目') {
+      ev.style.display = ''; sp.style.display = 'none';
+      if (!ev.options.length) ev.innerHTML = SPORTS_ROC.map(function (s) { return '<option>' + s + '</option>'; }).join('');
+    } else {
+      ev.style.display = 'none'; sp.style.display = '';
+      if (!sp.value) sp.value = '跆拳道';
+    }
+    $('#ntTemplateHint').textContent = '🏷️ ' + (TEMPLATE_HINTS[cat] || '');
+  }
+  if ($('#ntSystem')) {
+    $('#ntSystem').onchange = syncTeamForm;
+    $('#ntCategory').onchange = function () {
+      syncTeamForm();
+      var t = TERM_SUGGEST[$('#ntCategory').value]; if (t) $('#ntMemberTerm').value = t;
+    };
+    syncTeamForm();
+  }
 
   /* ---------- 選手 ---------- */
   async function loadAthletes() {
@@ -1067,7 +1143,7 @@
   /* ---------- 成果報告 ---------- */
   $('#rpType').onchange = function () {
     var team = $('#rpType').value === 'team';
-    $('#rpAthleteWrap').style.display = team ? 'none' : '';
+    $('#rpAthleteWrap').style.display = team ? 'none' : '';   // 個人/家長都用選手選單
     $('#rpTeamWrap').style.display = team ? '' : 'none';
   };
   $('#rpRange').onchange = function () {
@@ -1093,8 +1169,8 @@
     return { from: f, to: t, days: days };
   }
 
-  var DIMS = [['technicalAvg', '技術'], ['tacticalAvg', '戰術'], ['physicalAvg', '體能'],
-              ['mentalAvg', '心理'], ['attitudeAvg', '態度'], ['physiologicalAvg', '生理']];
+  var DIMS = [['technicalAvg', '技術執行'], ['tacticalAvg', '戰術理解'], ['physicalAvg', '體能負荷'],
+              ['mentalAvg', '心理狀態'], ['attitudeAvg', '訓練態度'], ['physiologicalAvg', '生理恢復']];
 
   $('#btnGenReport').onclick = async function () {
     var range = dateRange();
@@ -1107,7 +1183,8 @@
       if ($('#rpType').value === 'team') { renderTeamReport('示範・兩隊合計', range, DEMO_DATA.teamReport); if (range.days === 7) markTask('report7', true); }
       else {
         var da = state.athletes.filter(function (a) { return a.athleteId === $('#rpAthlete').value; })[0] || state.athletes[0];
-        renderReport(da, range, demoRecords(range));
+        if ($('#rpType').value === 'parent') renderParentReport(da, range, demoRecords(range));
+        else renderReport(da, range, demoRecords(range));
         if (range.days === 7) markTask('report7', true);
       }
       renderOnboarding();
@@ -1136,8 +1213,47 @@
       .sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); });
     if (range.days === 7) markTask('report7', true);
     renderOnboarding();
-    renderReport(athlete, range, recs);
+    if ($('#rpType').value === 'parent') renderParentReport(athlete, range, recs);
+    else renderReport(athlete, range, recs);
   };
+
+  // 家長溝通報告：溫和摘要，不顯示原始 KPI 分數、心情、壓力、體重、傷勢細節
+  function renderParentReport(athlete, range, recs) {
+    if (!recs.length) {
+      $('#reportArea').innerHTML = '<div class="report-doc"><h2>查無資料</h2><p>' + esc(athlete.name) +
+        ' 在 ' + range.from + ' ~ ' + range.to + ' 期間沒有填寫紀錄。</p></div>';
+      return;
+    }
+    var totals = recs.map(function (r) { return num(r.totalScore); });
+    var avg = mean(totals), filled = recs.length, rate = Math.round(filled / range.days * 100);
+    var lastRec = recs[recs.length - 1];
+    var light = lastRec.status || TP.lightOf(num(lastRec.totalScore));
+    var hasSensitive = light === 'red' || recs.some(function (r) { return r.injuryAreas && r.injuryAreas !== '無受傷'; });
+    var comment = $('#rpComment').value.trim();
+    var rpNo = reportNo(state.coach.name + '|家長|' + athlete.name + '|' + range.from + '|' + range.to);
+
+    $('#reportArea').innerHTML = '<div class="report-doc">' +
+      '<div class="rp-head"><div>' +
+        '<div class="rp-brand"><img src="assets/logo.png" alt="">TeamPro 教練戰情室</div>' +
+        '<h2 style="margin:4px 0;">家長溝通報告</h2></div>' +
+        '<div style="text-align:right;"><div><b>' + esc(athlete.name) + '</b></div>' +
+        '<div class="muted" style="color:#5b6675;">' + range.from + ' ~ ' + range.to + '</div>' +
+        '<div class="rp-no">報告編號 ' + rpNo + '</div></div>' +
+      '</div>' +
+      '<div class="rp-grid">' +
+        '<div class="rp-stat"><div class="n">' + rate + '%</div><div class="l">回報完成率</div></div>' +
+        '<div class="rp-stat"><div class="n">' + filled + '</div><div class="l">回報天數</div></div>' +
+        '<div class="rp-stat"><div class="n"><span class="rp-light ' + light + '">' + TP.lightText(light) + '</span></div><div class="l">最近整體狀態</div></div>' +
+        '<div class="rp-stat"><div class="n">' + avg.toFixed(1) + '</div><div class="l">期間平均（供參考）</div></div>' +
+      '</div>' +
+      '<div class="rp-section"><h3>給家長的話</h3><div class="rp-comment">' +
+        esc(TP.parentSummary({ name: athlete.name, light: light, private: hasSensitive })) + '</div></div>' +
+      (comment ? '<div class="rp-section"><h3>教練的話</h3><div class="rp-comment">' + esc(comment) + '</div></div>' : '') +
+      '<div class="rp-foot"><span class="rp-wm-foot">Generated by TeamPro Coach Warroom</span> · 報告編號：' + rpNo +
+        '<br>教練：' + esc(state.coach.name) + ' · 選手：' + esc(athlete.name) + ' · 產生日期：' + localToday() +
+        '<br>本報告為家長溝通版，僅呈現整體狀態摘要；完整訓練數據由教練保留與說明。</div>' +
+      '</div>';
+  }
 
   function mean(arr) { return arr.length ? arr.reduce(function (s, v) { return s + v; }, 0) / arr.length : 0; }
   function num(v) { return Number(v) || 0; }
@@ -1279,7 +1395,7 @@
     }
     var labels = customKpiLabels();
     var dimKeys = ['technicalAvg', 'tacticalAvg', 'physicalAvg', 'mentalAvg', 'attitudeAvg', 'physiologicalAvg'];
-    var dimDefaults = { technicalAvg: '技術', tacticalAvg: '戰術', physicalAvg: '體能', mentalAvg: '心理', attitudeAvg: '態度', physiologicalAvg: '生理' };
+    var dimDefaults = { technicalAvg: '技術執行', tacticalAvg: '戰術理解', physicalAvg: '體能負荷', mentalAvg: '心理狀態', attitudeAvg: '訓練態度', physiologicalAvg: '生理恢復' };
     var dimMap = {};
     dimKeys.forEach(function (k, i) { dimMap[k] = labels[i] || dimDefaults[k]; });
     var trendVals = (tr.trend || []).map(function (x) { return num(x.avg); });
@@ -1380,7 +1496,7 @@
   function bestDim(r) { return pickDim(r, true); }
   function worstDim(r) { return pickDim(r, false); }
   function pickDim(r, best) {
-    var names = { technical: '技術', tactical: '戰術', physical: '體能', mental: '心理', attitude: '態度', physiological: '生理' };
+    var names = { technical: '技術執行', tactical: '戰術理解', physical: '體能負荷', mental: '心理狀態', attitude: '訓練態度', physiological: '生理恢復' };
     var keys = Object.keys(names), pick = null, val = best ? -1 : 99;
     keys.forEach(function (k) { var v = dimScore(r, k); if (!v) return; if (best ? v > val : v < val) { val = v; pick = names[k]; } });
     return pick;

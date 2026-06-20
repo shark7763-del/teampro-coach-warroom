@@ -92,22 +92,22 @@
   }
 
   var KPI_DIMENSIONS = [
-    { key: 'technical', name: '技術', items: [
+    { key: 'technical', name: '技術執行', items: [
       ['tech_accuracy', '動作準確度'], ['tech_stability', '動作穩定度'], ['tech_speed', '速度與反應'],
       ['tech_power', '力量傳遞'], ['tech_completion', '技術完成度'] ] },
-    { key: 'tactical', name: '戰術', items: [
+    { key: 'tactical', name: '戰術理解', items: [
       ['tac_distance', '空間掌握'], ['tac_timing', '時機掌握'], ['tac_transition', '節奏轉換'],
       ['tac_read', '局勢判讀'], ['tac_execution', '戰術執行'] ] },
-    { key: 'physical', name: '體能', items: [
+    { key: 'physical', name: '體能負荷', items: [
       ['phy_explosive', '爆發力'], ['phy_strength', '肌力'], ['phy_endurance', '肌耐力'],
       ['phy_cardio', '心肺耐力'], ['phy_agility', '敏捷與協調'] ] },
-    { key: 'mental', name: '心理', items: [
+    { key: 'mental', name: '心理狀態', items: [
       ['men_focus', '專注力'], ['men_stress', '壓力穩定'], ['men_confidence', '自信心'],
       ['men_resilience', '挫折恢復'], ['men_motivation', '訓練動機'] ] },
-    { key: 'attitude', name: '態度', items: [
+    { key: 'attitude', name: '訓練態度', items: [
       ['att_discipline', '準時與紀律'], ['att_engagement', '訓練投入'], ['att_initiative', '主動修正'],
       ['att_coachability', '接受指導'], ['att_teamwork', '團隊合作'] ] },
-    { key: 'physiological', name: '生理', items: [
+    { key: 'physiological', name: '生理恢復', items: [
       ['pio_sleep', '睡眠恢復'], ['pio_spirit', '精神恢復'], ['pio_soreness', '肌肉舒適度'],
       ['pio_injury', '傷勢安全度'], ['pio_recovery', '整體恢復感'] ] }
   ];
