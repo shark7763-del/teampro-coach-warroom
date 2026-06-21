@@ -392,10 +392,11 @@
       <h3 style="margin-top:0;">產生成果報告</h3>
       <div class="grid grid-4">
         <div><label>報告類型</label>
-          <select id="rpType"><option value="athlete">個人選手報告</option><option value="team">團隊訓練報告</option><option value="parent">家長溝通報告</option></select>
+          <select id="rpType"><option value="athlete">個人選手報告</option><option value="team">團隊訓練報告</option><option value="parent">家長溝通報告</option><option value="visit">專任教練訪視報告</option></select>
         </div>
         <div id="rpAthleteWrap"><label>選手</label><select id="rpAthlete"></select></div>
         <div id="rpTeamWrap" style="display:none;"><label>團隊</label><select id="rpTeam"></select></div>
+        <div id="rpVisitWrap" style="display:none;"><label>文字版本</label><select id="rpVisitVer"><option value="formal">正式版</option><option value="short">簡短版</option><option value="evidence">佐證版</option></select></div>
         <div><label>期間</label>
           <select id="rpRange">
             <option value="7">近 7 天</option>
@@ -408,7 +409,8 @@
         <div id="rpCustomTo" style="display:none;"><label>迄</label><input id="rpTo" type="date"></div>
         <div style="display:flex;align-items:flex-end;"><button class="btn btn-primary btn-block" id="btnGenReport">產生報告</button></div>
       </div>
-      <label>教練評語（會印在報告上）</label>
+      <div id="rpSchoolWrap" style="display:none;margin-top:6px;"><label>學校名稱（印在訪視報告封面，會跨裝置記住）</label><input id="rpSchool" placeholder="例：新北市立育林國中"></div>
+      <label>教練評語 / 待改善與下月重點（會印在報告上）</label>
       <textarea id="rpComment" placeholder="這段期間的整體表現、亮點與下一步建議…"></textarea>
       <div style="margin-top:10px;display:flex;gap:8px;">
         <button class="btn" id="btnPrint">🖨️ 列印 / 存成 PDF</button>
@@ -728,6 +730,7 @@
     $('#setName').value = state.coach.name || '';
     $('#setEmail').value = state.coach.email || '';
     if (coachSettings().lineUrl) TP.setLineUrl(coachSettings().lineUrl); // 跨裝置同步 LINE 連結
+    $('#rpSchool').value = coachSettings().school || '';
     $('#setUrl').value = TP.getUrl();
     $('#setLineUrl').value = TP.getLineUrl();
     $('#setLineOpen').href = TP.getLineUrl();
@@ -1281,15 +1284,18 @@
 
   /* ---------- 成果報告 ---------- */
   $('#rpType').onchange = function () {
-    var team = $('#rpType').value === 'team';
-    $('#rpAthleteWrap').style.display = team ? 'none' : '';   // 個人/家長都用選手選單
-    $('#rpTeamWrap').style.display = team ? '' : 'none';
+    var v = $('#rpType').value, teamLevel = (v === 'team' || v === 'visit');
+    $('#rpAthleteWrap').style.display = teamLevel ? 'none' : '';   // 個人/家長用選手選單；團隊/訪視用團隊
+    $('#rpTeamWrap').style.display = teamLevel ? '' : 'none';
+    $('#rpVisitWrap').style.display = (v === 'visit') ? '' : 'none';
+    $('#rpSchoolWrap').style.display = (v === 'visit') ? '' : 'none';
   };
   $('#rpRange').onchange = function () {
     var custom = $('#rpRange').value === 'custom';
     $('#rpCustomFrom').style.display = custom ? '' : 'none';
     $('#rpCustomTo').style.display = custom ? '' : 'none';
   };
+  $('#rpVisitVer').onchange = function () { if ($('#rpType').value === 'visit' && $('#reportArea').innerHTML.trim()) $('#btnGenReport').click(); };
   $('#btnPrint').onclick = function () {
     if (!$('#reportArea').innerHTML.trim()) { toast('請先產生報告', true); return; }
     if (!planCfg().pdfExport) { openUpgradeModal({ reason: 'pdfExport', message: '免費版不能匯出 PDF。' }); return; }
@@ -1318,6 +1324,15 @@
       return;
     }
     $('#reportArea').innerHTML = '<div class="report-doc"><p class="muted">產生中…</p></div>';
+    if ($('#rpType').value === 'visit') {
+      var vTeamId = DEMO ? '' : $('#rpTeam').value;
+      var vTeamName = DEMO ? '示範隊' : (vTeamId ? $('#rpTeam').options[$('#rpTeam').selectedIndex].text : '全部團隊');
+      var vs = DEMO ? demoVisitSummary(range) : await TP.callAuth('visitSummary', { teamId: vTeamId, from: range.from, to: range.to });
+      if (!vs.ok) { toast(vs.error || '產生失敗', true); return; }
+      renderVisitReport(vTeamName, range, vs);
+      renderOnboarding();
+      return;
+    }
     if (DEMO) {
       if ($('#rpType').value === 'team') { renderTeamReport('示範・兩隊合計', range, DEMO_DATA.teamReport); if (range.days === 7) markTask('report7', true); }
       else {
@@ -1392,6 +1407,128 @@
         '<br>教練：' + esc(state.coach.name) + ' · 選手：' + esc(athlete.name) + ' · 產生日期：' + localToday() +
         '<br>本報告為家長溝通版，僅呈現整體狀態摘要；完整訓練數據由教練保留與說明。</div>' +
       '</div>';
+  }
+
+  /* ===== 專任教練訪視報告（Phase 1：自動彙整現有資料） ===== */
+  var VISIT_ITEMS = [
+    ['1-1', '建置選手訓練歷程檔案', 'auto'], ['1-2', '擬定運動訓練計畫及執行情形', 'auto'],
+    ['1-3', '指導選手參加競賽之情形', 'need'], ['1-4', '輔導選手撰寫訓練日誌之情形', 'auto'],
+    ['1-5', '協助選手課業情形', 'need'], ['1-6', '輔導選手生活照護情形並落實紀錄', 'auto'],
+    ['1-7', '運動傷害防護與保健情形', 'auto'], ['1-8', '性平與反霸凌教育', 'need'],
+    ['2-1', '每年度參加訓練指導相關知能研習達 18 小時', 'need'], ['2-2', '學生畢業後從事專項運動之銜接輔導情形', 'need'],
+    ['2-3', '專項運動訓練場地、器材維護情形', 'need'], ['2-4', '支援運動賽會情形', 'need'],
+    ['2-5', '協助學校專項運動社團組成與運動情形', 'need'], ['2-6', '協助推動每週 150 分鐘體育課外活動情形', 'need']
+  ];
+  function visitStatus(code, kind, vs) {
+    if (kind === 'need') return '本月尚無紀錄';
+    if (code === '1-2') return vs.trainingDays > 0 ? '已完成' : '資料不足';
+    if (code === '1-4') return vs.notesFilled > 0 ? '已完成' : '資料不足';
+    return vs.reportCount > 0 || vs.trainingDays > 0 ? '已完成' : '資料不足';
+  }
+  function visitStatusLight(s) { return s === '已完成' ? 'green' : (s === '資料不足' ? 'yellow' : 'red'); }
+  function visitText(code, vs, ver) {
+    var P = vs.painParts && vs.painParts.length ? vs.painParts.join('、') : '—';
+    var CS = vs.courses && vs.courses.length ? vs.courses.join('、') : '—';
+    var T = {
+      '1-1': {
+        short: '已為 ' + vs.athleteCount + ' 位選手建置訓練歷程，累積 ' + vs.reportCount + ' 筆每日回報與 KPI 評分。',
+        formal: '本隊已為 ' + vs.athleteCount + ' 位選手建立完整訓練歷程檔案，期間累積 ' + vs.reportCount + ' 筆每日訓練回報，內容涵蓋六大表現指標 KPI 評分、身體狀態與訓練心得，可完整呈現選手訓練軌跡與成長趨勢。',
+        evidence: '佐證：選手名單 ' + vs.athleteCount + ' 人；每日回報 ' + vs.reportCount + ' 筆（含 30 項 KPI、訓練日誌、教練回饋）。'
+      },
+      '1-2': {
+        short: '本期點名 ' + vs.trainingDays + ' 天，涵蓋 ' + (vs.courses.length) + ' 種訓練課程，平均到課率 ' + vs.attendanceRate + '%。',
+        formal: '依訓練計畫執行，本期共完成 ' + vs.trainingDays + ' 天點名，訓練課程包含 ' + CS + '，平均到課率 ' + vs.attendanceRate + '%，訓練計畫與實際執行情形均有紀錄可查。',
+        evidence: '佐證：點名紀錄 ' + vs.trainingDays + ' 天；課程種類：' + CS + '；到課率 ' + vs.attendanceRate + '%。'
+      },
+      '1-4': {
+        short: '選手每日回報率 ' + vs.reportRate + '%，其中 ' + vs.notesFilled + ' 筆填寫訓練心得。',
+        formal: '輔導選手落實每日訓練回報，期間回報率達 ' + vs.reportRate + '%，其中 ' + vs.notesFilled + ' 筆含訓練心得與反思，並有教練回饋 ' + vs.feedbackCount + ' 則，形成完整訓練日誌循環。',
+        evidence: '佐證：回報率 ' + vs.reportRate + '%；訓練心得 ' + vs.notesFilled + ' 筆；教練回饋 ' + vs.feedbackCount + ' 則。'
+      },
+      '1-6': {
+        short: '落實每日出缺勤與生活狀態追蹤（睡眠、水分、出席），異常即關心。',
+        formal: '輔導並落實選手生活照護紀錄，每日掌握出缺勤、睡眠、水分與生活狀態，期間 ' + vs.sleepShort + ' 人次睡眠不足、' + vs.hydrationFlag + ' 人次水分不足均即時關心，必要時通知家長協助。',
+        evidence: '佐證：點名 ' + vs.trainingDays + ' 天；睡眠不足提醒 ' + vs.sleepShort + ' 人次；水分不足提醒 ' + vs.hydrationFlag + ' 人次。'
+      },
+      '1-7': {
+        short: '本期傷勢追蹤 ' + vs.injuryAthletes + ' 人次，均提供處理與防護建議。',
+        formal: '落實運動傷害防護與保健，期間共追蹤 ' + vs.injuryAthletes + ' 人次回報疼痛（疼痛 4 分以上）' + (vs.maxPain ? '，最高疼痛 ' + vs.maxPain + ' 分' : '') + (vs.painParts && vs.painParts.length ? '，部位包含 ' + P : '') + '，均依疼痛分級提供降低訓練強度、防護或就醫建議。',
+        evidence: '佐證：傷勢追蹤 ' + vs.injuryAthletes + ' 人次；最高疼痛 ' + vs.maxPain + ' 分；部位：' + P + '。（個別敏感資料僅呈現摘要）'
+      }
+    };
+    if (!T[code]) return '本期系統內尚無此項紀錄，建議於後續「訪視紀錄」模組補登相關資料與佐證（即將推出）。';
+    return T[code][ver] || T[code].formal;
+  }
+
+  function renderVisitReport(teamName, range, vs) {
+    var ver = $('#rpVisitVer').value || 'formal';
+    var school = $('#rpSchool').value.trim() || (coachSettings().school || '—');
+    if ($('#rpSchool').value.trim()) saveCoachSettings({ school: $('#rpSchool').value.trim() });
+    var comment = $('#rpComment').value.trim();
+    var rpNo = reportNo(state.coach.name + '|訪視|' + teamName + '|' + range.from + '|' + range.to);
+    var lights = vs.lights || { green: 0, yellow: 0, red: 0 };
+
+    var table = VISIT_ITEMS.map(function (it) {
+      var s = visitStatus(it[0], it[2], vs);
+      return '<div class="rp-dim"><span class="name" style="width:42px;">' + it[0] + '</span>' +
+        '<span style="flex:1;">' + esc(it[1]) + '</span>' +
+        '<span class="rp-light ' + visitStatusLight(s) + '">' + s + '</span></div>';
+    }).join('');
+
+    var summaries = VISIT_ITEMS.map(function (it) {
+      var s = visitStatus(it[0], it[2], vs);
+      return '<div class="rp-section" style="margin-top:12px;"><h3 style="font-size:15px;">' + it[0] + '　' + esc(it[1]) +
+        ' <span class="rp-light ' + visitStatusLight(s) + '" style="font-size:11px;">' + s + '</span></h3>' +
+        '<div class="rp-comment" style="white-space:normal;">' + esc(visitText(it[0], vs, ver)) + '</div></div>';
+    }).join('');
+
+    var evidence = ['每日訓練回報 ' + vs.reportCount + ' 筆（含 KPI、訓練日誌）', '點名紀錄 ' + vs.trainingDays + ' 天、課程 ' + (vs.courses.length) + ' 種',
+      '到課率 ' + vs.attendanceRate + '%、選手回報率 ' + vs.reportRate + '%', '教練回饋 ' + vs.feedbackCount + ' 則',
+      '傷勢追蹤 ' + vs.injuryAthletes + ' 人次、睡眠/水分提醒 ' + (vs.sleepShort + vs.hydrationFlag) + ' 人次'];
+
+    var todo = [];
+    if (vs.reportRate < 70) todo.push('每日回報率偏低（' + vs.reportRate + '%），建議加強提醒選手完成回報。');
+    VISIT_ITEMS.forEach(function (it) { if (it[2] === 'need') todo.push(it[0] + ' ' + it[1] + '：建議於「訪視紀錄」補登資料與佐證。'); });
+
+    $('#reportArea').innerHTML = '<div class="report-doc">' +
+      '<div class="rp-head"><div>' +
+        '<div class="rp-brand"><img src="assets/logo.png" alt="">TeamPro 教練戰情室</div>' +
+        '<h2 style="margin:4px 0;">專任運動教練訪視報告</h2></div>' +
+        '<div style="text-align:right;"><div><b>' + esc(school) + '</b></div>' +
+        '<div class="muted" style="color:#5b6675;">' + esc(teamName) + '　教練：' + esc(state.coach.name) + '</div>' +
+        '<div class="muted" style="color:#5b6675;">' + range.from + ' ~ ' + range.to + '</div>' +
+        '<div class="rp-no">報告編號 ' + rpNo + '</div></div>' +
+      '</div>' +
+
+      '<div class="rp-section"><h3>一頁總覽</h3><div class="rp-grid">' +
+        '<div class="rp-stat"><div class="n">' + vs.trainingDays + '</div><div class="l">本期訓練天數</div></div>' +
+        '<div class="rp-stat"><div class="n">' + vs.attendanceRate + '%</div><div class="l">點名到課率</div></div>' +
+        '<div class="rp-stat"><div class="n">' + vs.reportRate + '%</div><div class="l">選手回報率</div></div>' +
+        '<div class="rp-stat"><div class="n">' + vs.injuryAthletes + '</div><div class="l">傷勢追蹤人次</div></div>' +
+      '</div><div class="rp-grid">' +
+        '<div class="rp-stat"><div class="n">' + vs.athleteCount + '</div><div class="l">選手人數</div></div>' +
+        '<div class="rp-stat"><div class="n">' + vs.reportCount + '</div><div class="l">回報筆數</div></div>' +
+        '<div class="rp-stat"><div class="n">' + vs.feedbackCount + '</div><div class="l">教練回饋</div></div>' +
+        '<div class="rp-stat"><div class="n" style="font-size:18px;"><span class="rp-light green">' + (lights.green || 0) + '</span> <span class="rp-light yellow">' + (lights.yellow || 0) + '</span> <span class="rp-light red">' + (lights.red || 0) + '</span></div><div class="l">狀態燈號分布</div></div>' +
+      '</div></div>' +
+
+      '<div class="rp-section"><h3>訪視項目總表（1-1 ～ 2-6）</h3>' + table + '</div>' +
+      '<div class="rp-section"><h3>各項目摘要（' + (ver === 'short' ? '簡短版' : ver === 'evidence' ? '佐證版' : '正式版') + '）</h3>' + summaries + '</div>' +
+      '<div class="rp-section"><h3>佐證資料清單</h3><ul style="margin:6px 0;padding-left:18px;color:#1a2230;">' +
+        evidence.map(function (e) { return '<li>' + esc(e) + '</li>'; }).join('') + '</ul></div>' +
+      '<div class="rp-section"><h3>待改善事項與下月重點</h3><div class="rp-comment" style="white-space:pre-wrap;">' +
+        (comment ? esc(comment) + '\n\n' : '') + esc(todo.join('\n')) + '</div></div>' +
+
+      '<div class="rp-foot"><span class="rp-wm-foot">Generated by TeamPro Coach Warroom</span> · 報告編號：' + rpNo +
+        '<br>學校：' + esc(school) + ' · 教練：' + esc(state.coach.name) + ' · 產生日期：' + localToday() +
+        '<br>本訪視報告由系統自動彙整每日訓練資料生成；敏感個資（傷勢/心理/體重）僅呈現整體摘要，不揭露個別原始內容。</div>' +
+      '</div>';
+  }
+
+  function demoVisitSummary(range) {
+    return { ok: true, athleteCount: 12, days: range.days, trainingDays: Math.min(range.days, 20), courses: ['晨操', '專長訓練', '體能訓練', '技術訓練'],
+      attendanceRate: 91, reportCount: 180, reportRate: 84, notesFilled: 150, feedbackCount: 36,
+      injuryAthletes: 4, maxPain: 6, painParts: ['膝蓋', '腳踝'], sleepShort: 9, hydrationFlag: 5, lights: { green: 120, yellow: 45, red: 15 } };
   }
 
   function mean(arr) { return arr.length ? arr.reduce(function (s, v) { return s + v; }, 0) / arr.length : 0; }

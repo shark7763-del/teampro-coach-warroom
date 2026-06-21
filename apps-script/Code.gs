@@ -212,6 +212,7 @@ function handle(action, d) {
     case 'warroom':         return jsonOut(withCoach(d, warroom));
     case 'athleteRecords':  return jsonOut(withCoach(d, athleteRecords));
     case 'teamReport':      return jsonOut(withCoach(d, teamReport));
+    case 'visitSummary':    return jsonOut(withCoach(d, visitSummary));
     case 'trialSummary':    return jsonOut(withCoach(d, trialSummary));
     case 'coachFeedback':   return jsonOut(withCoach(d, coachFeedback));
 
@@ -780,6 +781,52 @@ function deleteAthlete(c, d) {
     audit(c.email, 'deleteAthlete', d.athleteId, a.name + ' (紀錄' + recN + ')');
     return { ok: true, deletedRecords: recN, activeCount: countActiveAthletes(c.coachId) };
   } finally { lock.releaseLock(); }
+}
+
+/* 專任教練訪視報告：一次彙總期間資料（點名/回報/傷勢…）供前端組報告 */
+function visitSummary(c, d) {
+  var teamId = String(d.teamId || ''), from = String(d.from || ''), to = String(d.to || '');
+  var athletes = readAll(SHEETS.athletes).filter(function (a) {
+    return String(a.coachId) === String(c.coachId) && (!teamId || String(a.teamId) === String(teamId)) &&
+      String(a.active) !== 'false' && a.active !== false;
+  });
+  var aCount = athletes.length;
+  var inRange = function (dt) { return (!from || String(dt) >= from) && (!to || String(dt) <= to); };
+  var recs = readAll(SHEETS.records).filter(function (r) {
+    return String(r.coachId) === String(c.coachId) && (!teamId || String(r.teamId) === String(teamId)) && inRange(r.date);
+  });
+  var att = readAll(SHEETS.attendance).filter(function (a) {
+    return String(a.coachId) === String(c.coachId) && (!teamId || String(a.teamId) === String(teamId)) && inRange(a.date);
+  });
+
+  var present = 0, slots = 0, courses = {};
+  att.forEach(function (row) {
+    var marks = {}; try { marks = JSON.parse(row.marks || '{}'); } catch (e) {}
+    if (row.course) courses[row.course] = true;
+    athletes.forEach(function (a) { var m = marks[a.athleteId]; if (m) { slots++; if (m.s !== 'absent' && m.s !== 'leave') present++; } });
+  });
+  var days = Math.max(1, Math.round((new Date(to) - new Date(from)) / 86400000) + 1);
+
+  var injSet = {}, maxPain = 0, painParts = {}, sleepShort = 0, hydrFlag = 0, notesFilled = 0, fbCount = 0, lights = { green: 0, yellow: 0, red: 0 };
+  recs.forEach(function (r) {
+    var p = Number(r.painScore) || 0;
+    if (p >= 4) { injSet[r.athleteId] = true; if (p > maxPain) maxPain = p; if (r.painAreas) String(r.painAreas).split(',').forEach(function (x) { if (x && x !== '無受傷') painParts[x] = true; }); }
+    if (Number(r.sleepDurationMinutes) > 0 && Number(r.sleepDurationMinutes) < 300) sleepShort++;
+    if (r.hydrationRisk === 'red') hydrFlag++;
+    if (String(r.trainingNotes || '').replace(/\s/g, '').length >= 4) notesFilled++;
+    if (String(r.coachComment || '').trim()) fbCount++;
+    var l = r.status || lightOf(r.totalScore); lights[l] = (lights[l] || 0) + 1;
+  });
+
+  return {
+    ok: true, athleteCount: aCount, days: days,
+    trainingDays: att.length, courses: Object.keys(courses),
+    attendanceRate: slots ? Math.round(present / slots * 100) : 0,
+    reportCount: recs.length, reportRate: (aCount && days) ? Math.min(100, Math.round(recs.length / (aCount * days) * 100)) : 0,
+    notesFilled: notesFilled, feedbackCount: fbCount,
+    injuryAthletes: Object.keys(injSet).length, maxPain: maxPain, painParts: Object.keys(painParts),
+    sleepShort: sleepShort, hydrationFlag: hydrFlag, lights: lights
+  };
 }
 
 /* ============================================================
