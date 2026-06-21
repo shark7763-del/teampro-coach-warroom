@@ -1576,6 +1576,9 @@ function scoreSimilarity(scores, record) {
 function qualityMetrics(d, scores, total, dimAvg, previousRecords, pain, sleep) {
   var score = 100, reasons = [];
   if (String(d.trainingNotes || '').replace(/\s/g, '').length < 4) { score -= 15; reasons.push('心得過短'); }
+  // 日報輕量回報異常：高疼痛但回報影響輕微、睡眠過少但品質填良好（矛盾，請教練確認）
+  if (pain && Number(pain.score) >= 7 && (d.painImpact === 'none' || d.painImpact === 'high_intensity')) { score -= 25; reasons.push('高疼痛但回報影響輕微'); }
+  if (sleep && sleep.minutes !== '' && Number(sleep.minutes) > 0 && Number(sleep.minutes) < 240 && String(d.sleepQuality) === 'good') { score -= 20; reasons.push('睡眠過少但品質填良好'); }
   var prev = previousRecords[0];
   if (prev && scoreSimilarity(scores, prev) >= 0.9) { score -= 25; reasons.push('KPI 與前次高度相同'); }
   if (pain.score >= 7 && (Number(total) >= 4 || Number(dimAvg.physical) >= 4 || Number(dimAvg.physiological) >= 4)) {

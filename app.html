@@ -229,7 +229,7 @@
       <button class="btn btn-sm" data-risk-filter="red">今日紅燈</button>
       <button class="btn btn-sm" data-risk-filter="pain">疼痛 ≥ 4</button>
       <button class="btn btn-sm" data-risk-filter="sleep">睡眠 &lt; 6 小時</button>
-      <button class="btn btn-sm" data-risk-filter="quality">疑似敷衍</button>
+      <button class="btn btn-sm" data-risk-filter="quality">輕量回報異常</button>
       <button class="btn btn-sm" data-risk-filter="missing">尚未回報</button>
       <button class="btn btn-sm" data-risk-filter="hydration_red">水分紅燈</button>
       <button class="btn btn-sm" data-risk-filter="urine_dark">尿液深黃色以上</button>
@@ -1290,7 +1290,7 @@
     if (filter === 'red') return s.status === 'red';
     if (filter === 'pain') return Number(s.painScore) >= 4;
     if (filter === 'sleep') return Number(s.sleepDurationMinutes) > 0 && Number(s.sleepDurationMinutes) < 360;
-    if (filter === 'quality') return s.reportQualityLabel === '疑似敷衍';
+    if (filter === 'quality') return !!s.reportQualityLabel && s.reportQualityLabel !== '正常';
     if (filter === 'hydration_red') return s.hydrationRisk === 'red';
     if (filter === 'urine_dark') return s.urineColor === 'dark' || s.urineColor === 'abnormal';
     if (filter === 'sweat_water') return hasHydrationFlag(s, 'high_sweat_low_water');
