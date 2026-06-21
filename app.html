@@ -295,6 +295,7 @@
         <button class="btn btn-sm" id="atFilterAbnormal">只顯示異常</button>
         <button class="btn btn-sm hidden" id="atFilterAll">顯示全部</button>
         <select id="atBatch" class="btn btn-sm" style="width:auto;"><option value="">批次設為…</option></select>
+        <button class="btn btn-sm" id="atViewToggle">🔲 棋盤</button>
       </div>
       <div id="atList"><p class="muted">請先選擇隊伍。</p></div>
       <button class="btn btn-primary btn-block" id="atSave" style="margin-top:6px;">💾 儲存點名</button>
@@ -2082,7 +2083,7 @@
   var ATT_LIST = [['present', '出席'], ['late', '遲到'], ['leave', '請假'], ['absent', '缺席'], ['early_leave', '早退'], ['injured_watch', '受傷旁觀'], ['adjust_training', '調整訓練']];
   var ATT_S7 = { present: '✅', late: '🟡', leave: '📝', absent: '❌', injured_watch: '🩹', early_leave: '↩️', adjust_training: '🔧' };
   var ATT_DEFAULT_COURSES = ['晨操', '專長訓練', '體能訓練', '重量訓練', '技術訓練', '戰術訓練', '模擬比賽', '恢復訓練', '晚自習', '集訓', '比賽', '自主訓練', '其他'];
-  var atState = { teamId: '', date: '', course: '', marks: {}, roster: [], wById: {}, missingSet: {}, history: [], filter: 'all', touched: {}, lineText: '' };
+  var atState = { teamId: '', date: '', course: '', marks: {}, roster: [], wById: {}, missingSet: {}, history: [], filter: 'all', touched: {}, lineText: '', view: localStorage.getItem('teampro_att_view') || 'list' };
 
   function attLabel(s) { for (var i = 0; i < ATT_LIST.length; i++) if (ATT_LIST[i][0] === s) return ATT_LIST[i][1]; return '出席'; }
   function attCoursesKey() { return 'teampro_attendance_courses_' + ((state.coach && state.coach.coachId) || 'x'); }
@@ -2178,6 +2179,8 @@
   }
 
   function renderAttList() {
+    $('#atList').className = atState.view === 'grid' ? 'att-grid' : '';
+    $('#atViewToggle').textContent = atState.view === 'grid' ? '☰ 清單' : '🔲 棋盤';
     if (!atState.roster.length) { $('#atList').innerHTML = '<p class="muted">此隊伍沒有啟用中的選手。</p>'; return; }
     var list = atState.roster.filter(function (a) {
       if (atState.filter === 'unmarked') return !atState.touched[a.athleteId];
@@ -2304,6 +2307,7 @@
   $('#atFilterUnmarked').onclick = function () { atState.filter = 'unmarked'; renderAttList(); };
   $('#atFilterAbnormal').onclick = function () { atState.filter = 'abnormal'; renderAttList(); };
   $('#atFilterAll').onclick = function () { atState.filter = 'all'; renderAttList(); };
+  $('#atViewToggle').onclick = function () { atState.view = atState.view === 'grid' ? 'list' : 'grid'; localStorage.setItem('teampro_att_view', atState.view); renderAttList(); };
   $('#atBatch').onchange = function () {
     var s = this.value; this.value = ''; if (!s) return;
     var visible = atState.roster.filter(function (a) { if (atState.filter === 'unmarked') return !atState.touched[a.athleteId]; if (atState.filter === 'abnormal') { var L = attLight(a); return L === '🟠' || L === '🔴' || L === '⚫'; } return true; });

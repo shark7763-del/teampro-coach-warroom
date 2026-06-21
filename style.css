@@ -158,6 +158,10 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 28p
 .att-detail.open { display: block; }
 .att-summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 12px 0; }
 @media (max-width: 560px) { .att-summary-grid { grid-template-columns: repeat(2, 1fr); } }
+/* 棋盤式名單：桌機多欄、手機自動單欄 */
+.att-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(248px, 1fr)); gap: 10px; }
+.att-grid .att-row { margin-bottom: 0; }
+.att-grid .att-top { flex-wrap: wrap; }
 
 /* 共用頁尾 + 智慧財產權聲明（各頁共用） */
 footer { padding: 40px 0; border-top: 1px solid var(--line); color: var(--muted); text-align: center; font-size: 14px; }
