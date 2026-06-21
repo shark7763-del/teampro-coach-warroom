@@ -28,7 +28,8 @@ var SHEETS = {
   audit:    'audit',
   contacts: 'contacts',
   privacyRequests: 'privacyRequests',
-  attendance: 'attendance'
+  attendance: 'attendance',
+  competitions: 'competitions'
 };
 
 /* ---------- 表頭 ---------- */
@@ -41,7 +42,9 @@ var H = {
   contacts: ['time', 'topic', 'name', 'email', 'message'],
   privacyRequests: ['requestId', 'coachId', 'athleteId', 'athleteName', 'requestType', 'scope', 'note', 'status', 'createdAt', 'handledAt', 'resolutionNote'],
   // 快速點名：一筆=某教練某隊某日一次點名；marks 為 JSON { athleteId: {s:狀態, n:備註} }
-  attendance: ['attId', 'coachId', 'teamId', 'date', 'course', 'marks', 'updatedAt']
+  attendance: ['attId', 'coachId', 'teamId', 'date', 'course', 'marks', 'updatedAt'],
+  // 比賽：選手回報時第一個建立、其他人用選的（同隊+日期+名稱歸戶）
+  competitions: ['compId', 'coachId', 'teamId', 'date', 'name', 'location', 'createdAt']
 };
 
 /* ============================================================
@@ -120,7 +123,9 @@ var RECORD_HEADERS = ['recordId', 'coachId', 'teamId', 'athleteId', 'name', 'dat
     'sleepBedTime', 'wakeTime', 'sleepQuality', 'sleepDurationMinutes', 'sleepDurationText', 'sleepRisk',
     'painStatus', 'painAreas', 'painScore', 'painImpact', 'painNote', 'painRisk',
     'waterAmount', 'sweatAmount', 'urineColor', 'hydrationRisk', 'hydrationAdvice', 'hydrationFlags',
-    'reportQualityScore', 'reportQualityLabel', 'reportQualityReasons', 'coachSuggestion'
+    'reportQualityScore', 'reportQualityLabel', 'reportQualityReasons', 'coachSuggestion',
+    // 比賽紀錄（選手回報時填，比賽日才有）
+    'compName', 'compDate', 'compLocation', 'compResult', 'compDetail', 'compReflection', 'compAward', 'compAwardLink'
   ]);
 
 /* ---------- 方案設定（寫死，不進 Sheet） ---------- */
@@ -229,6 +234,7 @@ function handle(action, d) {
     case 'myRecords':       return jsonOut(myRecords(d));
     case 'perfPinStatus':   return jsonOut(perfPinStatus(d));
     case 'setPerfPin':      return jsonOut(setPerfPin(d));
+    case 'teamCompetitions':return jsonOut(teamCompetitions(d));
 
     /* ---- 管理者 ---- */
     case 'adminListCoaches':return jsonOut(withAdmin(d, adminListCoaches));
@@ -808,6 +814,7 @@ function visitSummary(c, d) {
   var days = Math.max(1, Math.round((new Date(to) - new Date(from)) / 86400000) + 1);
 
   var injSet = {}, maxPain = 0, painParts = {}, sleepShort = 0, hydrFlag = 0, notesFilled = 0, fbCount = 0, lights = { green: 0, yellow: 0, red: 0 };
+  var comps = {}, medals = { gold: 0, silver: 0, bronze: 0 }, compParts = 0;
   recs.forEach(function (r) {
     var p = Number(r.painScore) || 0;
     if (p >= 4) { injSet[r.athleteId] = true; if (p > maxPain) maxPain = p; if (r.painAreas) String(r.painAreas).split(',').forEach(function (x) { if (x && x !== '無受傷') painParts[x] = true; }); }
@@ -816,7 +823,15 @@ function visitSummary(c, d) {
     if (String(r.trainingNotes || '').replace(/\s/g, '').length >= 4) notesFilled++;
     if (String(r.coachComment || '').trim()) fbCount++;
     var l = r.status || lightOf(r.totalScore); lights[l] = (lights[l] || 0) + 1;
+    if (r.compName) {
+      var k = String(r.compDate) + '|' + String(r.compName).trim();
+      if (!comps[k]) comps[k] = { name: String(r.compName).trim(), date: String(r.compDate), location: r.compLocation || '', parts: [] };
+      comps[k].parts.push({ name: r.name, result: r.compResult });
+      compParts++;
+      if (r.compResult === 'gold') medals.gold++; else if (r.compResult === 'silver') medals.silver++; else if (r.compResult === 'bronze') medals.bronze++;
+    }
   });
+  var compList = Object.keys(comps).map(function (k) { return comps[k]; }).sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
 
   return {
     ok: true, athleteCount: aCount, days: days,
@@ -825,7 +840,8 @@ function visitSummary(c, d) {
     reportCount: recs.length, reportRate: (aCount && days) ? Math.min(100, Math.round(recs.length / (aCount * days) * 100)) : 0,
     notesFilled: notesFilled, feedbackCount: fbCount,
     injuryAthletes: Object.keys(injSet).length, maxPain: maxPain, painParts: Object.keys(painParts),
-    sleepShort: sleepShort, hydrationFlag: hydrFlag, lights: lights
+    sleepShort: sleepShort, hydrationFlag: hydrFlag, lights: lights,
+    competitions: compList, compCount: compList.length, compParticipants: compParts, medals: medals
   };
 }
 
@@ -1122,6 +1138,31 @@ function contactSubmit(d) {
   return { ok: true };
 }
 
+/* 選手挑比賽用：回傳該隊近 60 天的比賽（隊友已建立的） */
+function teamCompetitions(d) {
+  var t = teamFromShareToken(d.t || d.shareToken);
+  if (!t) return { ok: false, error: '連結無效' };
+  var since = new Date(Date.now() - 60 * 86400000).toISOString().slice(0, 10);
+  var comps = readAll(SHEETS.competitions).filter(function (x) {
+    return String(x.teamId) === String(t.teamId) && String(x.date) >= since;
+  }).map(function (x) { return { name: x.name, date: x.date, location: x.location }; })
+    .sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
+  return { ok: true, competitions: comps };
+}
+
+/* 比賽歸戶：同隊+日期+名稱已存在就用既有，否則建立（選手回報時呼叫） */
+function findOrCreateCompetition(teamId, coachId, date, name, location) {
+  name = String(name || '').trim(); if (!name) return '';
+  date = String(date || '');
+  var exist = readAll(SHEETS.competitions).filter(function (x) {
+    return String(x.teamId) === String(teamId) && String(x.date) === date && String(x.name).trim().toLowerCase() === name.toLowerCase();
+  })[0];
+  if (exist) return exist.compId;
+  var compId = uid('cp_');
+  appendObj(SHEETS.competitions, { compId: compId, coachId: coachId, teamId: teamId, date: date, name: name, location: String(location || ''), createdAt: now() });
+  return compId;
+}
+
 function joinInfo(d) {
   var t = teamFromShareToken(d.t || d.shareToken);
   if (!t) return { ok: false, error: '連結無效或已被重設，請向教練索取新連結' };
@@ -1386,10 +1427,16 @@ function submitRecord(d) {
     privacyVersion: String(d.privacyVersion || ''),
     consentText: String(d.consentText || ''),
     deviceInfo: String(d.deviceInfo || ''),
+    // 比賽紀錄（比賽日才有）
+    compName: String(d.compName || '').trim(), compDate: String(d.compName ? (d.compDate || date) : ''),
+    compLocation: String(d.compLocation || ''), compResult: String(d.compResult || ''),
+    compDetail: String(d.compDetail || ''), compReflection: String(d.compReflection || ''),
+    compAward: d.compAward ? true : false, compAwardLink: String(d.compAwardLink || ''),
     rawJson: JSON.stringify(scores)
   };
   rec.coachSuggestion = coachSuggestionFor(rec);
   KPI_ITEMS.forEach(function (k) { rec[k] = Number(scores[k]) || ''; });
+  if (rec.compName) findOrCreateCompetition(t.teamId, t.coachId, rec.compDate, rec.compName, rec.compLocation);
 
   // upsert：同團隊同選手同日只留一筆
   var existing = readAll(SHEETS.records);

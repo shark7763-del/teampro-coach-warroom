@@ -186,6 +186,27 @@
       <label>想對教練說的話（選填）</label><textarea id="reflection"></textarea>
     </div>
     <div class="card">
+      <h2 style="margin-top:0;">🏆 比賽紀錄</h2>
+      <div class="choice-grid" id="hasCompChoices"></div>
+      <div id="compBlock" class="hidden">
+        <label>比賽名稱（沒看到就輸入新的，隊友下次就能直接選）</label>
+        <select id="compSelect"></select>
+        <input id="compNew" class="hidden" placeholder="輸入新比賽名稱" style="margin-top:8px;">
+        <div class="grid grid-2">
+          <div><label>比賽日期</label><input id="compDate" type="date"></div>
+          <div><label>地點（選填）</label><input id="compLocation" placeholder="例：林口體育館"></div>
+        </div>
+        <label>成績</label>
+        <div class="choice-grid" id="compResultChoices"></div>
+        <label>細節（選填，例：秒數 / 比分 / 對手）</label><input id="compDetail">
+        <label>比賽心得（點選 + 選填）</label>
+        <div class="nutri-chips" id="compReflChips"></div>
+        <input id="compReflNote" placeholder="選填，一句話">
+        <label class="consent" for="compAward" style="margin-top:10px;"><input type="checkbox" id="compAward"><span>🏅 已拍獎狀照（之後交教練或上傳，這版先記錄有拍）</span></label>
+        <input id="compAwardLink" placeholder="獎狀 / 相簿連結（選填）" style="margin-top:6px;">
+      </div>
+    </div>
+    <div class="card">
       <div class="risk-note yellow">這份回報會影響教練今天的訓練安排，請依照真實狀況填寫。</div>
       <div id="painSubmitWarn" class="risk-note yellow hidden">你填寫的疼痛狀況會提醒教練調整訓練內容，請確認是否符合真實感受。</div>
       <div id="sleepSubmitWarn" class="risk-note red hidden">你今天睡眠時間偏少，系統會提醒教練注意你的疲勞狀態。</div>
@@ -308,7 +329,12 @@
   var INJURY = ['頭頸', '肩', '手肘', '手腕', '背', '腰', '髖', '膝', '腳踝', '腳掌', '其他'];
   var nutriSel = { breakfast: [], lunch: [], dinner: [] };
   var injurySel = [];
-  var formState = { painStatus: 'none', painImpact: 'none', waterAmount: 'normal', sweatAmount: 'normal', urineColor: 'pale_yellow' };
+  var formState = { painStatus: 'none', painImpact: 'none', waterAmount: 'normal', sweatAmount: 'normal', urineColor: 'pale_yellow', hasComp: 'no', compResult: '' };
+  var HAS_COMP = [['no', '沒有'], ['yes', '有比賽']];
+  var COMP_RESULTS = [['gold', '🥇 金牌'], ['silver', '🥈 銀牌'], ['bronze', '🥉 銅牌'], ['top8', '第 4–8 名'], ['advance', '晉級'], ['out', '止步'], ['exp', '參賽經驗']];
+  var COMP_REFL = ['發揮正常', '緊張失常', '有進步', '帶傷出賽', '裁判判決', '超常發揮'];
+  var compReflSel = [];
+  var compsLoaded = false;
   var PAIN_STATUS = [['none','無疼痛'],['old','舊傷不適'],['new','新出現疼痛'],['acute','急性受傷']];
   var PAIN_IMPACT = [['none','不影響訓練'],['high_intensity','高強度時會痛'],['power_down','動作出力下降'],['cannot_sport','無法完成專項動作'],['daily_affected','日常活動也受影響']];
   var WATER = [['very_little','很少'],['normal','普通'],['enough','足夠'],['a_lot','很多']];
@@ -393,6 +419,12 @@
     buildSingleChoices('urineChoices', URINE, 'urineColor', function (v) { $('#urineHint').textContent = URINE_HINTS[v]; });
     $('#urineHint').textContent = URINE_HINTS[formState.urineColor];
 
+    // 比賽紀錄
+    buildSingleChoices('hasCompChoices', HAS_COMP, 'hasComp', updateCompUi);
+    buildSingleChoices('compResultChoices', COMP_RESULTS, 'compResult');
+    buildChipRow('compReflChips', COMP_REFL, compReflSel, {});
+    $('#compSelect').onchange = function () { $('#compNew').classList.toggle('hidden', this.value !== '__new__'); };
+
     $('#painScore').addEventListener('input', updatePainUi); updatePainUi();
     ['sleepBedTime', 'wakeTime'].forEach(function (id) { $('#' + id).addEventListener('input', updateSleepUi); });
 
@@ -456,6 +488,25 @@
     $('#painSubmitWarn').classList.toggle('hidden', score < 4);
   }
 
+  async function updateCompUi(v) {
+    var on = (v || formState.hasComp) === 'yes';
+    $('#compBlock').classList.toggle('hidden', !on);
+    if (!on) return;
+    if (!$('#compDate').value) $('#compDate').value = localToday();
+    if (compsLoaded) return;
+    compsLoaded = true;
+    var r = await TP.call('teamCompetitions', { t: shareToken });
+    var comps = (r.ok && r.competitions) || [];
+    $('#compSelect').innerHTML = comps.map(function (c) {
+      return '<option value="' + esc(c.name) + '" data-loc="' + esc(c.location || '') + '" data-date="' + esc(c.date || '') + '">' + esc(c.name) + '（' + esc(String(c.date).slice(5)) + '）</option>';
+    }).join('') + '<option value="__new__">＋ 輸入新比賽</option>';
+    if (!comps.length) { $('#compSelect').value = '__new__'; $('#compNew').classList.remove('hidden'); }
+    else { // 帶入第一場的地點/日期
+      var o = $('#compSelect').options[$('#compSelect').selectedIndex];
+      if (o && o.dataset.loc && !$('#compLocation').value) $('#compLocation').value = o.dataset.loc;
+    }
+  }
+
   // 本地（非 UTC）日期 YYYY-MM-DD，修正晨操時段被算到前一天的時區問題
   function localToday() {
     var d = new Date();
@@ -480,8 +531,22 @@
       painImpact: formState.painImpact, painNote: $('#injuryNote').value.trim(),
       waterAmount: formState.waterAmount, sweatAmount: formState.sweatAmount, urineColor: formState.urineColor,
       fatigue: $('#fatigue').value,
-      encourageName: $('#encourageName').value, encourageMsg: $('#encourageMsg').value.trim()
+      encourageName: $('#encourageName').value, encourageMsg: $('#encourageMsg').value.trim(),
+      // 比賽紀錄（有比賽才帶）
+      compName: collectCompName(),
+      compDate: formState.hasComp === 'yes' ? ($('#compDate').value || localToday()) : '',
+      compLocation: formState.hasComp === 'yes' ? $('#compLocation').value.trim() : '',
+      compResult: formState.hasComp === 'yes' ? formState.compResult : '',
+      compDetail: formState.hasComp === 'yes' ? $('#compDetail').value.trim() : '',
+      compReflection: formState.hasComp === 'yes' ? compReflSel.concat($('#compReflNote').value.trim() ? [$('#compReflNote').value.trim()] : []).join('、') : '',
+      compAward: formState.hasComp === 'yes' && $('#compAward').checked,
+      compAwardLink: formState.hasComp === 'yes' ? $('#compAwardLink').value.trim() : ''
     };
+  }
+  function collectCompName() {
+    if (formState.hasComp !== 'yes') return '';
+    var sel = $('#compSelect').value;
+    return (sel === '__new__' || !sel) ? $('#compNew').value.trim() : sel;
   }
 
   /* ---------- 選身分 ---------- */

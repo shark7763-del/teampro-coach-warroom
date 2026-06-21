@@ -1412,7 +1412,7 @@
   /* ===== 專任教練訪視報告（Phase 1：自動彙整現有資料） ===== */
   var VISIT_ITEMS = [
     ['1-1', '建置選手訓練歷程檔案', 'auto'], ['1-2', '擬定運動訓練計畫及執行情形', 'auto'],
-    ['1-3', '指導選手參加競賽之情形', 'need'], ['1-4', '輔導選手撰寫訓練日誌之情形', 'auto'],
+    ['1-3', '指導選手參加競賽之情形', 'comp'], ['1-4', '輔導選手撰寫訓練日誌之情形', 'auto'],
     ['1-5', '協助選手課業情形', 'need'], ['1-6', '輔導選手生活照護情形並落實紀錄', 'auto'],
     ['1-7', '運動傷害防護與保健情形', 'auto'], ['1-8', '性平與反霸凌教育', 'need'],
     ['2-1', '每年度參加訓練指導相關知能研習達 18 小時', 'need'], ['2-2', '學生畢業後從事專項運動之銜接輔導情形', 'need'],
@@ -1420,6 +1420,7 @@
     ['2-5', '協助學校專項運動社團組成與運動情形', 'need'], ['2-6', '協助推動每週 150 分鐘體育課外活動情形', 'need']
   ];
   function visitStatus(code, kind, vs) {
+    if (kind === 'comp') return (vs.compCount > 0) ? '已完成' : '本月尚無紀錄';
     if (kind === 'need') return '本月尚無紀錄';
     if (code === '1-2') return vs.trainingDays > 0 ? '已完成' : '資料不足';
     if (code === '1-4') return vs.notesFilled > 0 ? '已完成' : '資料不足';
@@ -1429,6 +1430,15 @@
   function visitText(code, vs, ver) {
     var P = vs.painParts && vs.painParts.length ? vs.painParts.join('、') : '—';
     var CS = vs.courses && vs.courses.length ? vs.courses.join('、') : '—';
+    if (code === '1-3' && !(vs.compCount > 0)) return '本期系統內尚無比賽紀錄。選手可在每日回報的「🏆 比賽紀錄」自行登錄比賽日、成績與心得，即會自動彙整於此。';
+    if (code === '1-3') {
+      var cs = vs.competitions || [], m = vs.medals || { gold: 0, silver: 0, bronze: 0 };
+      var names = cs.map(function (c) { return c.name; }).join('、') || '—';
+      var medal = (m.gold + m.silver + m.bronze) > 0 ? '，獲 🥇' + m.gold + ' 🥈' + m.silver + ' 🥉' + m.bronze : '';
+      if (ver === 'short') return '本期參加 ' + vs.compCount + ' 場比賽、' + vs.compParticipants + ' 人次參賽' + medal + '。';
+      if (ver === 'evidence') return '佐證：比賽 ' + vs.compCount + ' 場（' + cs.map(function (c) { return c.name + ' ' + c.date; }).join('；') + '）；參賽 ' + vs.compParticipants + ' 人次；獎牌 🥇' + m.gold + '/🥈' + m.silver + '/🥉' + m.bronze + '。';
+      return '指導選手參加 ' + vs.compCount + ' 場競賽（' + names + '），共 ' + vs.compParticipants + ' 人次參賽' + medal + '。各場成績與賽後心得由選手於每日回報即時登錄。';
+    }
     var T = {
       '1-1': {
         short: '已為 ' + vs.athleteCount + ' 位選手建置訓練歷程，累積 ' + vs.reportCount + ' 筆每日回報與 KPI 評分。',
@@ -1507,7 +1517,7 @@
         '<div class="rp-stat"><div class="n">' + vs.injuryAthletes + '</div><div class="l">傷勢追蹤人次</div></div>' +
       '</div><div class="rp-grid">' +
         '<div class="rp-stat"><div class="n">' + vs.athleteCount + '</div><div class="l">選手人數</div></div>' +
-        '<div class="rp-stat"><div class="n">' + vs.reportCount + '</div><div class="l">回報筆數</div></div>' +
+        '<div class="rp-stat"><div class="n">' + (vs.compCount || 0) + '</div><div class="l">比賽場次</div></div>' +
         '<div class="rp-stat"><div class="n">' + vs.feedbackCount + '</div><div class="l">教練回饋</div></div>' +
         '<div class="rp-stat"><div class="n" style="font-size:18px;"><span class="rp-light green">' + (lights.green || 0) + '</span> <span class="rp-light yellow">' + (lights.yellow || 0) + '</span> <span class="rp-light red">' + (lights.red || 0) + '</span></div><div class="l">狀態燈號分布</div></div>' +
       '</div></div>' +
@@ -1528,7 +1538,8 @@
   function demoVisitSummary(range) {
     return { ok: true, athleteCount: 12, days: range.days, trainingDays: Math.min(range.days, 20), courses: ['晨操', '專長訓練', '體能訓練', '技術訓練'],
       attendanceRate: 91, reportCount: 180, reportRate: 84, notesFilled: 150, feedbackCount: 36,
-      injuryAthletes: 4, maxPain: 6, painParts: ['膝蓋', '腳踝'], sleepShort: 9, hydrationFlag: 5, lights: { green: 120, yellow: 45, red: 15 } };
+      injuryAthletes: 4, maxPain: 6, painParts: ['膝蓋', '腳踝'], sleepShort: 9, hydrationFlag: 5, lights: { green: 120, yellow: 45, red: 15 },
+      competitions: [{ name: '全中運跆拳道', date: range.to, location: '林口體育館' }, { name: '北區錦標賽', date: range.from }], compCount: 2, compParticipants: 6, medals: { gold: 2, silver: 1, bronze: 1 } };
   }
 
   function mean(arr) { return arr.length ? arr.reduce(function (s, v) { return s + v; }, 0) / arr.length : 0; }
