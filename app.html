@@ -1635,6 +1635,12 @@
       '<div class="rp-section"><h3>各項目摘要（' + (ver === 'short' ? '簡短版' : ver === 'evidence' ? '佐證版' : '正式版') + '）</h3>' + summaries + '</div>' +
       '<div class="rp-section"><h3>佐證資料清單</h3><ul style="margin:6px 0;padding-left:18px;color:#1a2230;">' +
         evidence.map(function (e) { return '<li>' + esc(e) + '</li>'; }).join('') + '</ul></div>' +
+      ((vs.awardPhotos && vs.awardPhotos.length) ? '<div class="rp-section"><h3>比賽佐證照片</h3>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:10px;">' + vs.awardPhotos.map(function (p) {
+          return '<div style="text-align:center;font-size:11px;color:#5b6675;">' +
+            '<a href="' + esc(p.url) + '" target="_blank" rel="noopener"><img src="' + esc(p.url) + '" style="width:120px;height:120px;object-fit:cover;border-radius:8px;border:1px solid #d6dce4;"></a>' +
+            '<div>' + esc(p.name) + '・' + esc(p.comp) + '</div></div>';
+        }).join('') + '</div></div>' : '') +
       '<div class="rp-section"><h3>待改善事項與下月重點</h3><div class="rp-comment" style="white-space:pre-wrap;">' +
         (comment ? esc(comment) + '\n\n' : '') + esc(todo.join('\n')) + '</div></div>' +
 

@@ -203,8 +203,15 @@
         <label>比賽心得（點選 + 選填）</label>
         <div class="nutri-chips" id="compReflChips"></div>
         <input id="compReflNote" placeholder="選填，一句話">
-        <label class="consent" for="compAward" style="margin-top:10px;"><input type="checkbox" id="compAward"><span>🏅 已拍獎狀照（之後交教練或上傳，這版先記錄有拍）</span></label>
-        <input id="compAwardLink" placeholder="獎狀 / 相簿連結（選填）" style="margin-top:6px;">
+        <label>🏅 獎狀照片</label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <input id="compPhotoFile" type="file" accept="image/*" capture="environment" style="display:none;">
+          <button type="button" class="btn btn-sm" id="compPhotoBtn">📷 上傳獎狀照</button>
+          <span id="compPhotoStatus" class="muted" style="font-size:13px;"></span>
+        </div>
+        <img id="compPhotoPreview" class="hidden" style="max-width:160px;border-radius:10px;margin-top:8px;" alt="獎狀預覽">
+        <label class="consent" for="compAward" style="margin-top:10px;"><input type="checkbox" id="compAward"><span>🏅 已拍獎狀照（先記錄有拍，未上傳也可）</span></label>
+        <input id="compAwardLink" placeholder="或貼獎狀 / 相簿連結（選填）" style="margin-top:6px;">
       </div>
     </div>
     <div class="card">
@@ -252,7 +259,7 @@
   var $ = TP.$, esc = TP.esc, toast = TP.toast;
   var params = new URLSearchParams(location.search);
   var shareToken = params.get('t') || '';
-  var ctx = { team: null, athletes: [], athleteId: '', name: '', last: null, result: null, kpiState: null, pin: '' };
+  var ctx = { team: null, athletes: [], athleteId: '', name: '', last: null, result: null, kpiState: null, pin: '', compPhotoUrl: '' };
 
   /* ---------- 啟動 ---------- */
   async function boot() {
@@ -426,6 +433,19 @@
     buildSingleChoices('compResultChoices', COMP_RESULTS, 'compResult');
     buildChipRow('compReflChips', COMP_REFL, compReflSel, {});
     $('#compSelect').onchange = function () { $('#compNew').classList.toggle('hidden', this.value !== '__new__'); };
+    $('#compPhotoBtn').onclick = function () { $('#compPhotoFile').click(); };
+    $('#compPhotoFile').onchange = async function () {
+      var f = this.files && this.files[0]; if (!f) return;
+      $('#compPhotoStatus').textContent = '壓縮上傳中…';
+      try {
+        var dataUrl = await compressImage(f, 1200, 0.7);
+        var r = await TP.call('uploadAwardPhoto', { t: shareToken, athleteId: ctx.athleteId, compName: collectCompName(), dataUrl: dataUrl });
+        if (r.ok) {
+          ctx.compPhotoUrl = r.url; $('#compPhotoPreview').src = r.url; $('#compPhotoPreview').classList.remove('hidden');
+          $('#compPhotoStatus').textContent = '✅ 已上傳'; $('#compAward').checked = true;
+        } else { $('#compPhotoStatus').textContent = r.error || '上傳失敗'; }
+      } catch (e) { $('#compPhotoStatus').textContent = '圖片處理失敗，請換一張'; }
+    };
 
     $('#painScore').addEventListener('input', updatePainUi); updatePainUi();
     ['sleepBedTime', 'wakeTime'].forEach(function (id) { $('#' + id).addEventListener('input', updateSleepUi); });
@@ -515,6 +535,25 @@
     return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   }
 
+  // 前端壓縮圖片：最長邊縮到 maxSide、轉 JPEG，避免 base64 過大撐爆 GAS 上傳
+  function compressImage(file, maxSide, quality) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        var img = new Image();
+        img.onload = function () {
+          var s = Math.min(1, maxSide / Math.max(img.width, img.height));
+          var cw = Math.round(img.width * s), ch = Math.round(img.height * s);
+          var c = document.createElement('canvas'); c.width = cw; c.height = ch;
+          c.getContext('2d').drawImage(img, 0, 0, cw, ch);
+          resolve(c.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = reject; img.src = reader.result;
+      };
+      reader.onerror = reject; reader.readAsDataURL(file);
+    });
+  }
+
   function slotVal(id) {
     var btn = $('[data-for="' + id + '"]');
     if (btn && btn.classList.contains('sel')) return '無訓練';
@@ -541,8 +580,8 @@
       compResult: formState.hasComp === 'yes' ? formState.compResult : '',
       compDetail: formState.hasComp === 'yes' ? $('#compDetail').value.trim() : '',
       compReflection: formState.hasComp === 'yes' ? compReflSel.concat($('#compReflNote').value.trim() ? [$('#compReflNote').value.trim()] : []).join('、') : '',
-      compAward: formState.hasComp === 'yes' && $('#compAward').checked,
-      compAwardLink: formState.hasComp === 'yes' ? $('#compAwardLink').value.trim() : ''
+      compAward: formState.hasComp === 'yes' && ($('#compAward').checked || !!ctx.compPhotoUrl),
+      compAwardLink: formState.hasComp === 'yes' ? (ctx.compPhotoUrl || $('#compAwardLink').value.trim()) : ''
     };
   }
   function collectCompName() {

@@ -246,6 +246,7 @@ function handle(action, d) {
     case 'perfPinStatus':   return jsonOut(perfPinStatus(d));
     case 'setPerfPin':      return jsonOut(setPerfPin(d));
     case 'teamCompetitions':return jsonOut(teamCompetitions(d));
+    case 'uploadAwardPhoto':return jsonOut(uploadAwardPhoto(d));
 
     /* ---- 管理者 ---- */
     case 'adminListCoaches':return jsonOut(withAdmin(d, adminListCoaches));
@@ -935,8 +936,9 @@ function visitSummary(c, d) {
   var days = Math.max(1, Math.round((new Date(to) - new Date(from)) / 86400000) + 1);
 
   var injSet = {}, maxPain = 0, painParts = {}, sleepShort = 0, hydrFlag = 0, notesFilled = 0, fbCount = 0, lights = { green: 0, yellow: 0, red: 0 };
-  var comps = {}, medals = { gold: 0, silver: 0, bronze: 0 }, compParts = 0;
+  var comps = {}, medals = { gold: 0, silver: 0, bronze: 0 }, compParts = 0, awardPhotos = [];
   recs.forEach(function (r) {
+    if (r.compName && /^https?:\/\//.test(String(r.compAwardLink || ''))) awardPhotos.push({ name: r.name, comp: r.compName, url: r.compAwardLink });
     var p = Number(r.painScore) || 0;
     if (p >= 4) { injSet[r.athleteId] = true; if (p > maxPain) maxPain = p; if (r.painAreas) String(r.painAreas).split(',').forEach(function (x) { if (x && x !== '無受傷') painParts[x] = true; }); }
     if (Number(r.sleepDurationMinutes) > 0 && Number(r.sleepDurationMinutes) < 300) sleepShort++;
@@ -963,7 +965,8 @@ function visitSummary(c, d) {
     notesFilled: notesFilled, feedbackCount: fbCount,
     injuryAthletes: Object.keys(injSet).length, maxPain: maxPain, painParts: Object.keys(painParts),
     sleepShort: sleepShort, hydrationFlag: hydrFlag, lights: lights,
-    competitions: compList, compCount: compList.length, compParticipants: compParts, medals: medals
+    competitions: compList, compCount: compList.length, compParticipants: compParts, medals: medals,
+    awardPhotos: awardPhotos
   };
 }
 
@@ -1291,6 +1294,30 @@ function teamCompetitions(d) {
   }).map(function (x) { return { name: x.name, date: x.date, location: x.location }; })
     .sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
   return { ok: true, competitions: comps };
+}
+
+/* 獎狀照片上傳：base64 → Drive（知道連結可看），回傳可嵌入的縮圖網址 */
+function awardFolder() {
+  var name = 'TeamPro 獎狀照';
+  var it = DriveApp.getFoldersByName(name);
+  return it.hasNext() ? it.next() : DriveApp.createFolder(name);
+}
+function uploadAwardPhoto(d) {
+  var t = teamFromShareToken(d.t || d.shareToken);
+  if (!t) return { ok: false, error: '連結無效' };
+  var dataUrl = String(d.dataUrl || '');
+  var m = dataUrl.match(/^data:(image\/\w+);base64,(.+)$/);
+  if (!m) return { ok: false, error: '圖片格式不支援' };
+  var bytes = Utilities.base64Decode(m[2]);
+  if (bytes.length > 4 * 1024 * 1024) return { ok: false, error: '圖片過大，請重拍或再壓縮' };
+  try {
+    var fname = 'award_' + String(d.athleteId || '') + '_' + todayStr() + '_' + uid('').slice(0, 6) + '.jpg';
+    var file = awardFolder().createFile(Utilities.newBlob(bytes, m[1], fname));
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    var id = file.getId();
+    return { ok: true, url: 'https://drive.google.com/thumbnail?id=' + id + '&sz=w1000',
+             viewLink: 'https://drive.google.com/file/d/' + id + '/view', fileId: id };
+  } catch (e) { return { ok: false, error: '上傳失敗（請確認已授權 Drive）：' + e.message }; }
 }
 
 /* 比賽歸戶：同隊+日期+名稱已存在就用既有，否則建立（選手回報時呼叫） */
