@@ -213,6 +213,7 @@ function handle(action, d) {
     case 'setAthleteActive':return jsonOut(withCoach(d, setAthleteActive));
     case 'updateAthlete':   return jsonOut(withCoach(d, updateAthlete));
     case 'setKpiTracking':  return jsonOut(withCoach(d, setKpiTracking));
+    case 'setKpiTrackingBulk': return jsonOut(withCoach(d, setKpiTrackingBulk));
     case 'deleteAthlete':   return jsonOut(withCoach(d, deleteAthlete));
 
     /* ---- 快速點名（跨裝置同步，存後端） ---- */
@@ -744,6 +745,46 @@ function setKpiTracking(c, d) {
     s.getRange(row, H.athletes.indexOf('kpiEnabledAt') + 1).setValue(want ? (a.kpiEnabledAt || now()) : '');
     audit(c.email, 'setKpiTracking', a.athleteId, String(want));
     return { ok: true, enabled: want, kpiUsed: countKpiEnabled(c.coachId), kpiLimit: PLANS[effectivePlan(c)].kpiAthletes };
+  } finally { lock.releaseLock(); }
+}
+
+function setKpiTrackingBulk(c, d) {
+  var ids = Array.isArray(d.athleteIds) ? d.athleteIds.map(String) : [];
+  var unique = {}; ids.forEach(function (id) { if (id) unique[id] = true; });
+  ids = Object.keys(unique).slice(0, 200);
+  if (!ids.length) return { ok: false, error: '請先勾選選手' };
+
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var all = readAll(SHEETS.athletes), targets = all.filter(function (a) {
+      return String(a.coachId) === String(c.coachId) && !!unique[String(a.athleteId)];
+    });
+    if (targets.length !== ids.length) return { ok: false, error: '部分選手不存在或無權限' };
+    var want = !!d.enabled;
+    if (want && targets.some(function (a) { return String(a.active) === 'false' || a.active === false; }))
+      return { ok: false, error: '停用中的選手不能開啟 KPI 追蹤' };
+
+    var plan = effectivePlan(c), limit = PLANS[plan].kpiAthletes;
+    if (want) {
+      var after = all.filter(function (a) {
+        return String(a.coachId) === String(c.coachId) && String(a.active) !== 'false' && a.active !== false &&
+          (boolCell(a.kpiEnabled) || !!unique[String(a.athleteId)]);
+      }).length;
+      if (after > limit) return { ok: false, error: 'kpi_limit_reached', limit: limit, plan: plan,
+        message: '這次會變成 ' + after + ' 位，超過' + PLANS[plan].name + ' ' + limit + ' 位 KPI 上限。請減少勾選人數。' };
+    }
+
+    var s = sheet(SHEETS.athletes), changed = 0, at = now();
+    targets.forEach(function (a) {
+      if (boolCell(a.kpiEnabled) === want) return;
+      var row = findRow(SHEETS.athletes, 'athleteId', a.athleteId);
+      s.getRange(row, H.athletes.indexOf('kpiEnabled') + 1).setValue(want);
+      s.getRange(row, H.athletes.indexOf('kpiEnabledAt') + 1).setValue(want ? (a.kpiEnabledAt || at) : '');
+      changed++;
+    });
+    audit(c.email, 'setKpiTrackingBulk', ids.join(','), String(want) + ' / changed=' + changed);
+    return { ok: true, enabled: want, changed: changed, selected: ids.length,
+      kpiUsed: countKpiEnabled(c.coachId), kpiLimit: limit };
   } finally { lock.releaseLock(); }
 }
 

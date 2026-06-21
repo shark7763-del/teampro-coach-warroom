@@ -337,7 +337,15 @@
       </div>
     </div>
     <div class="card">
-      <h3 style="margin-top:0;">選手名單</h3>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+        <h3 style="margin:0;">選手名單</h3>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="btn btn-sm" id="kpiSelectAll">全選啟用中</button>
+          <button class="btn btn-sm" id="kpiSelectNone">清除勾選</button>
+          <button class="btn btn-sm btn-primary" id="kpiBulkEnable">批量開啟 KPI</button>
+          <button class="btn btn-sm" id="kpiBulkDisable">批量停止 KPI</button>
+        </div>
+      </div>
       <div id="athleteList"></div>
     </div>
   </section>
@@ -1071,9 +1079,10 @@
         (a.kpiWeekStatus === 'due' ? '<span class="pill yellow">上週待評估</span>' :
         (a.kpiWeekStatus === 'suspended' ? '<span class="pill red">超額暫停</span>' : '<span class="muted" style="font-size:11px;">未追蹤 KPI</span>'));
       return '<div class="row" data-arow="' + a.athleteId + '">' +
+        '<div style="display:flex;align-items:flex-start;gap:10px;"><input type="checkbox" data-kpi-select="' + a.athleteId + '"' + (!active ? ' disabled' : '') + ' style="width:18px;height:18px;margin-top:3px;">' +
         '<div><b>' + esc(a.name) + '</b> <span class="muted">· ' + esc(teamName[a.teamId] || '未分隊') +
           (a.gradeClass ? ' · ' + esc(a.gradeClass) : '') + '</span>' + visBadge +
-          (active ? '' : ' <span class="pill red">已停用</span>') + '<div style="margin-top:5px;">' + ks + '</div></div>' +
+          (active ? '' : ' <span class="pill red">已停用</span>') + '<div style="margin-top:5px;">' + ks + '</div></div></div>' +
         '<div style="display:flex;gap:6px;">' +
           '<button class="btn btn-sm' + (a.kpiEnabled ? ' btn-primary' : '') + '" data-kpi="' + a.athleteId + '" data-enabled="' + (!!a.kpiEnabled) + '"' + (!active ? ' disabled' : '') + '>' +
             (a.kpiEnabled ? '停止 KPI' : '開啟 KPI') + '</button>' +
@@ -1145,6 +1154,46 @@
       };
     });
   }
+
+  function selectedKpiAthleteIds() {
+    return TP.$all('[data-kpi-select]:checked', $('#athleteList')).map(function (x) { return x.dataset.kpiSelect; });
+  }
+  $('#kpiSelectAll').onclick = function () {
+    TP.$all('[data-kpi-select]:not(:disabled)', $('#athleteList')).forEach(function (x) { x.checked = true; });
+  };
+  $('#kpiSelectNone').onclick = function () {
+    TP.$all('[data-kpi-select]', $('#athleteList')).forEach(function (x) { x.checked = false; });
+  };
+  async function bulkSetKpi(enabled) {
+    if (DEMO) { demoBlock(); return; }
+    var ids = selectedKpiAthleteIds();
+    if (!ids.length) { toast('請先勾選選手', true); return; }
+    if (!enabled && !confirm('確定停止這 ' + ids.length + ' 位選手的 KPI 追蹤？\n歷史 KPI 不會被刪除。')) return;
+    if (enabled) {
+      var addCount = state.athletes.filter(function (a) { return ids.indexOf(String(a.athleteId)) !== -1 && !a.kpiEnabled; }).length;
+      if (Number(state.kpiMeta.kpiUsed || 0) + addCount > Number(state.kpiMeta.kpiLimit || planCfg().kpiAthletes)) {
+        toast('這次會超過 KPI 追蹤上限，請減少勾選人數。', true); return;
+      }
+    }
+    var r = await TP.callAuth('setKpiTrackingBulk', { athleteIds: ids, enabled: enabled });
+    // 後端尚未重新部署時，暫以現有單筆 API 相容。
+    if (!r.ok && String(r.error || '').indexOf('未知 action') !== -1) {
+      var changed = 0, failed = '';
+      for (var i = 0; i < ids.length; i++) {
+        var one = await TP.callAuth('setKpiTracking', { athleteId: ids[i], enabled: enabled });
+        if (!one.ok) { failed = one.message || one.error; break; }
+        changed++;
+      }
+      r = failed ? { ok: false, error: failed } : { ok: true, changed: changed };
+    }
+    if (r.ok) {
+      toast((enabled ? '已批量開啟 ' : '已批量停止 ') + r.changed + ' 位選手 KPI');
+      await loadAthletes(); loadWarroom();
+    } else if (r.error === 'kpi_limit_reached') openUpgradeModal({ reason: 'kpi', toPlan: 'coach', message: r.message });
+    else toast(r.message || r.error, true);
+  }
+  $('#kpiBulkEnable').onclick = function () { bulkSetKpi(true); };
+  $('#kpiBulkDisable').onclick = function () { bulkSetKpi(false); };
 
   $('#btnAddAthlete').onclick = async function () {
     if (DEMO) { demoBlock(); return; }
