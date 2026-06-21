@@ -131,22 +131,22 @@ var RECORD_HEADERS = ['recordId', 'coachId', 'teamId', 'athleteId', 'name', 'dat
 /* ---------- 方案設定（寫死，不進 Sheet） ---------- */
 var PLANS = {
   free: {
-    name: '免費版', maxAthletes: 5, price: 0,
+    name: '免費版', maxAthletes: 10, kpiAthletes: 5, maxTeams: 1, price: 0,
     lineNotifyPerDay: 1, report7Days: true, report30Days: false, pdfExport: false, multiTeam: false, customKpi: false, assistantAccounts: false,
     upgradePlan: 'coach'
   },
   coach: {
-    name: '教練版', maxAthletes: 15, price: 299,
-    lineNotifyPerDay: 'unlimited', report7Days: true, report30Days: true, pdfExport: true, multiTeam: false, customKpi: false, assistantAccounts: false,
+    name: '教練版', maxAthletes: 30, kpiAthletes: 15, maxTeams: 2, price: 299,
+    lineNotifyPerDay: 'unlimited', report7Days: true, report30Days: true, pdfExport: false, multiTeam: false, customKpi: false, assistantAccounts: false,
     upgradePlan: 'team'
   },
   team: {
-    name: '團隊版', maxAthletes: 40, price: 699,
-    lineNotifyPerDay: 'unlimited', report7Days: true, report30Days: true, pdfExport: true, multiTeam: true, customKpi: true, assistantAccounts: false,
+    name: '團隊版', maxAthletes: 80, kpiAthletes: 40, maxTeams: 99, price: 699,
+    lineNotifyPerDay: 'unlimited', report7Days: true, report30Days: true, pdfExport: true, multiTeam: true, customKpi: false, assistantAccounts: false,
     upgradePlan: 'pro'
   },
   pro: {
-    name: '專業版', maxAthletes: 100, price: 1299,
+    name: '專業版', maxAthletes: 200, kpiAthletes: 100, maxTeams: 99, price: 1299,
     lineNotifyPerDay: 'unlimited', report7Days: true, report30Days: true, pdfExport: true, multiTeam: true, customKpi: true, assistantAccounts: true,
     upgradePlan: 'pro'
   }
@@ -586,13 +586,12 @@ function createTeam(c, d) {
   try {
     var plan = effectivePlan(c);
     var limit = PLANS[plan] || PLANS.free;
-    if (!limit.multiTeam) {
-      var existingTeamCount = readAll(SHEETS.teams).filter(function (t) {
-        return String(t.coachId) === String(c.coachId) && String(t.status || 'active') !== 'disabled';
-      }).length;
-      if (existingTeamCount >= 1)
-        return { ok: false, error: 'multi_team_locked', message: '目前方案僅支援 1 個隊伍，請升級後再新增。' };
-    }
+    var maxTeams = limit.maxTeams || 1;
+    var existingTeamCount = readAll(SHEETS.teams).filter(function (t) {
+      return String(t.coachId) === String(c.coachId) && String(t.status || 'active') !== 'disabled';
+    }).length;
+    if (existingTeamCount >= maxTeams)
+      return { ok: false, error: 'multi_team_locked', message: '目前方案最多可建立 ' + maxTeams + ' 個隊伍，升級後可管理更多隊伍。' };
     // 防呆：同教練底下不可有同名團隊（防重複建立 / 連點兩下）
     var dup = readAll(SHEETS.teams).some(function (t) {
       return String(t.coachId) === String(c.coachId) && String(t.teamName).trim() === teamName;
@@ -691,7 +690,7 @@ function addAthlete(c, d) {
     var max = PLANS[plan].maxAthletes;
     if (countActiveAthletes(c.coachId) >= max) {
       var limitMessage = plan === 'free'
-        ? '你已達免費版 5 位選手上限。升級教練版，每月 299 元，可管理 15 位選手並開啟家長通知、歷史趨勢與成果報告。'
+        ? '免費版可管理 10 位選手點名。你的隊伍已經超過免費人數，升級教練版即可管理 30 位選手。'
         : '已達 ' + PLANS[plan].name + ' 上限（' + max + ' 人），請升級方案';
       return { ok: false, error: 'plan_limit_reached', limit: max, plan: plan,
                message: limitMessage };
@@ -1171,8 +1170,8 @@ function joinInfo(d) {
   }).map(function (a) { return { athleteId: a.athleteId, name: a.name }; });
   // 教練是否專業版 → 選手端「7 日趨勢圖」賣點解鎖判斷
   var crow = findRow(SHEETS.coaches, 'coachId', t.coachId);
-  var pro = crow !== -1 && effectivePlan(readAll(SHEETS.coaches)[crow - 2]) === 'pro';
-  return { ok: true, team: { teamId: t.teamId, teamName: t.teamName, sport: t.sport }, athletes: athletes, items: KPI_ITEMS, pro: pro };
+  var cplan = crow !== -1 ? effectivePlan(readAll(SHEETS.coaches)[crow - 2]) : 'free';
+  return { ok: true, team: { teamId: t.teamId, teamName: t.teamName, sport: t.sport }, athletes: athletes, items: KPI_ITEMS, pro: cplan === 'pro', free: cplan === 'free' };
 }
 
 /* ---- 選手 PIN：保護「近期表現／帶入上次」只給本人看 ---- */

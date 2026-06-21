@@ -166,7 +166,7 @@
   <div class="plan-banner">
     <div>
       <b id="planLabel">免費版</b>
-      <span class="muted" id="planQuota"> · 選手 0 / 5</span>
+      <span class="muted" id="planQuota"> · 點名 0 / 10 · KPI 追蹤 5</span>
       <div class="quota-bar"><i id="quotaFill" style="width:0%"></i></div>
     </div>
     <div id="planExpiryNote" class="muted" style="font-size:13px;"></div>
@@ -550,6 +550,10 @@
   function planKey() { return (state.coach && state.coach.effectivePlan) || 'free'; }
   function planCfg() { return (TP.planLimits && TP.planLimits[planKey()]) || (TP.getPlanLimits ? TP.getPlanLimits(planKey()) : null) || TP.planLimits.free; }
 
+  // 免費版曝光：LINE 分享文字底部浮水印 / 報告角落浮水印
+  function lineWatermark() { return planKey() === 'free' ? '\n\n本紀錄由 TeamPro 教練戰情室產生\n免費管理你的隊伍，從點名開始。' : ''; }
+  function freeReportBadge() { return planKey() === 'free' ? '<div style="position:absolute;right:14px;bottom:10px;font-size:11px;color:#94a3b8;font-weight:700;">TeamPro 教練戰情室｜免費版</div>' : ''; }
+
   /* 教練跨裝置設定（自訂課程清單、LINE 連結…）：存後端 coaches.settings */
   function coachSettings() { return (state.coach && state.coach.settings) || {}; }
   async function saveCoachSettings(patch) {
@@ -560,6 +564,7 @@
   }
   function unlockedFeatures(cfg) {
     return [
+      '點名 ' + cfg.maxAthletes + ' 位・KPI ' + cfg.kpiAthletes + ' 位',
       cfg.report7Days ? '7 日報告' : '',
       cfg.report30Days ? '30 日報告' : '',
       cfg.pdfExport ? 'PDF 匯出' : '',
@@ -589,7 +594,7 @@
   function openUpgradeModal(opts) {
     opts = opts || {};
     var cfg = planCfg();
-    var target = currentUpgradeTarget(opts.reason || '');
+    var target = opts.toPlan || currentUpgradeTarget(opts.reason || '');
     var targetCfg = TP.planLimits[target] || TP.planLimits.coach;
     var titleMap = {
       athletes: '已達選手上限',
@@ -745,13 +750,13 @@
     var c = state.coach;
     var cfg = planCfg();
     $('#planLabel').textContent = c.planName + (c.expired ? '（已到期，暫以免費版限制）' : '');
-    $('#planQuota').textContent = ' · 選手 ' + c.activeAthletes + ' / ' + cfg.maxAthletes;
+    $('#planQuota').textContent = ' · 點名 ' + c.activeAthletes + ' / ' + cfg.maxAthletes + ' · KPI 追蹤 ' + cfg.kpiAthletes;
     var pct = Math.min(100, Math.round(c.activeAthletes / cfg.maxAthletes * 100));
     var fill = $('#quotaFill'); fill.style.width = pct + '%';
     fill.className = pct >= 100 ? 'full' : (pct >= 80 ? 'warn' : '');
     $('#planExpiryNote').textContent = c.planExpiry ? ('到期日：' + String(c.planExpiry).slice(0, 10)) : '';
     $('#planNamePretty').textContent = cfg.name;
-    $('#planUsagePretty').textContent = c.activeAthletes + ' / ' + cfg.maxAthletes + ' 位選手';
+    $('#planUsagePretty').textContent = '點名 ' + c.activeAthletes + ' / ' + cfg.maxAthletes + '　KPI ' + cfg.kpiAthletes;
     $('#planUpgradePretty').textContent = cfg.multiTeam
       ? '已開啟多隊伍與自訂 KPI，適合多隊並行管理。'
       : '先把第一個隊伍與第一位選手建立起來，升級後可解鎖更多功能。';
@@ -917,8 +922,11 @@
 
   $('#btnCreateTeam').onclick = async function () {
     if (DEMO) { demoBlock(); return; }
-    if (!planCfg().multiTeam && state.teams.length >= 1) {
-      openUpgradeModal({ reason: 'multiTeam', message: '目前方案只允許 1 個隊伍；升級後可以管理多隊伍。' });
+    if (state.teams.length >= (planCfg().maxTeams || 1)) {
+      openUpgradeModal({ reason: 'multiTeam', toPlan: 'team',
+        message: planKey() === 'free'
+          ? '免費版可建立 1 個隊伍。升級團隊版後，可以管理多隊伍，適合校隊、社團與道館使用。'
+          : '目前方案最多 ' + (planCfg().maxTeams || 1) + ' 個隊伍，升級團隊版後可管理更多隊伍。' });
       return;
     }
     var name = $('#ntName').value.trim();
@@ -1008,9 +1016,11 @@
     var box = $('#quotaWarn');
     if (c.activeAthletes >= cfg.maxAthletes) {
       box.innerHTML = '<div class="upgrade">' + (c.effectivePlan === 'free'
-        ? '你已達免費版 5 位選手上限。升級教練版，每月 299 元，可管理 15 位選手並開啟家長通知、歷史趨勢與成果報告。'
-        : '你已達' + esc(c.planName) + ' ' + cfg.maxAthletes + ' 位選手上限，請升級方案後再新增。') +
+        ? '免費版可管理 ' + cfg.maxAthletes + ' 位選手點名。你的隊伍已超過免費人數，升級教練版即可管理 30 位選手。'
+        : '你已達' + esc(c.planName) + ' ' + cfg.maxAthletes + ' 位選手點名上限，請升級方案後再新增。') +
         ' <a href="https://docs.google.com/forms/d/e/1FAIpQLSc2WhGQP1BQhWMgTJFtnR_gznolKA-KDqYVqXzBEfuxZI7OHA/viewform" target="_blank" rel="noopener">填寫升級申請表</a></div>';
+    } else if (c.effectivePlan === 'free' && c.activeAthletes >= cfg.kpiAthletes) {
+      box.innerHTML = '<div class="upgrade">免費版可追蹤 ' + cfg.kpiAthletes + ' 位選手 KPI（點名仍可到 ' + cfg.maxAthletes + ' 位）。升級教練版可追蹤 15 位 KPI，並查看歷史趨勢與 30 日報告。</div>';
     } else { box.innerHTML = ''; }
     $('#btnAddAthlete').disabled = c.activeAthletes >= cfg.maxAthletes;
   }
@@ -1109,7 +1119,17 @@
 
   $('#btnAddAthlete').onclick = async function () {
     if (DEMO) { demoBlock(); return; }
-    if (state.coach.activeAthletes >= planCfg().maxAthletes) { renderQuotaWarn(); toast('已達方案選手上限', true); return; }
+    var cfg = planCfg(), cur = state.coach.activeAthletes;
+    // 情境1：點名人數硬上限（擋）
+    if (cur >= cfg.maxAthletes) {
+      renderQuotaWarn();
+      openUpgradeModal({ reason: 'roster', toPlan: 'coach', message: '免費版可管理 ' + cfg.maxAthletes + ' 位選手點名。你的隊伍已經超過免費人數，升級教練版即可管理 30 位選手。' });
+      return;
+    }
+    // 情境2：KPI 追蹤人數軟提示（不擋，提醒升級）
+    if (planKey() === 'free' && cur >= cfg.kpiAthletes && cur < cfg.maxAthletes) {
+      openUpgradeModal({ reason: 'kpi', toPlan: 'coach', message: '免費版可追蹤 ' + cfg.kpiAthletes + ' 位選手 KPI。升級教練版後，可追蹤 15 位選手狀態，並查看歷史趨勢與 30 日報告。（仍可繼續新增點名選手）' });
+    }
     var name = $('#naName').value.trim();
     if (!name) { toast('請輸入選手姓名', true); return; }
     var teamId = $('#naTeam').value;
@@ -1239,7 +1259,7 @@
   $('#btnRemind').onclick = function () {
     if (!lastWar || !lastWar.missing.length) { toast('目前沒有未繳的選手'); return; }
     var names = lastWar.missing.map(function (m) { return m.name; }).join('、');
-    var text = '以下選手今日尚未完成回報：' + names + '，請今天訓練前完成填寫，謝謝。';
+    var text = '以下選手今日尚未完成回報：' + names + '，請今天訓練前完成填寫，謝謝。' + lineWatermark();
     copyLineText(text, 'lineNotify');
   };
 
@@ -1257,7 +1277,7 @@
   // 家長通知文字：走共用家長摘要規則（不含原始分數/燈號/敏感原文）
   function parentMessage(s) {
     var light = s.status || TP.lightOf(s.totalScore);
-    return s.name + '家長您好，' + TP.parentSummary({ name: s.name, light: light });
+    return s.name + '家長您好，' + TP.parentSummary({ name: s.name, light: light }) + lineWatermark();
   }
 
   async function loadTrialSummary() {
@@ -1298,7 +1318,7 @@
   $('#rpVisitVer').onchange = function () { if ($('#rpType').value === 'visit' && $('#reportArea').innerHTML.trim()) $('#btnGenReport').click(); };
   $('#btnPrint').onclick = function () {
     if (!$('#reportArea').innerHTML.trim()) { toast('請先產生報告', true); return; }
-    if (!planCfg().pdfExport) { openUpgradeModal({ reason: 'pdfExport', message: '免費版不能匯出 PDF。' }); return; }
+    if (!planCfg().pdfExport) { openUpgradeModal({ reason: 'pdfExport', toPlan: 'team', message: 'PDF 成果報告為團隊版功能。升級團隊版後，可匯出月報、週報與家長溝通報告。' }); return; }
     window.print();
   };
 
@@ -1406,6 +1426,7 @@
       '<div class="rp-foot"><span class="rp-wm-foot">Generated by TeamPro Coach Warroom</span> · 報告編號：' + rpNo +
         '<br>教練：' + esc(state.coach.name) + ' · 選手：' + esc(athlete.name) + ' · 產生日期：' + localToday() +
         '<br>本報告為家長溝通版，僅呈現整體狀態摘要；完整訓練數據由教練保留與說明。</div>' +
+      freeReportBadge() +
       '</div>';
   }
 
@@ -1532,6 +1553,7 @@
       '<div class="rp-foot"><span class="rp-wm-foot">Generated by TeamPro Coach Warroom</span> · 報告編號：' + rpNo +
         '<br>學校：' + esc(school) + ' · 教練：' + esc(state.coach.name) + ' · 產生日期：' + localToday() +
         '<br>本訪視報告由系統自動彙整每日訓練資料生成；敏感個資（傷勢/心理/體重）僅呈現整體摘要，不揭露個別原始內容。</div>' +
+      freeReportBadge() +
       '</div>';
   }
 
@@ -1670,6 +1692,7 @@
         ' · 報告編號：' + rpNo +
         '<br>教練：' + esc(state.coach.name) + ' · 選手：' + esc(athlete.name) + ' · 產生日期：' + localToday() +
         '<br>評分制：六大面向各 1–5 分（5 為最佳），總分為六面向等權平均。</div>' +
+      freeReportBadge() +
       '</div>';
 
     $('#reportArea').innerHTML = html;
@@ -1748,6 +1771,7 @@
         ' · 報告編號：' + rpNo +
         '<br>教練：' + esc(state.coach.name) + ' · 團隊：' + esc(teamName) + ' · 產生日期：' + localToday() +
         '<br>評分制：六大面向各 1–5 分（5 為最佳），總分為六面向等權平均；填寫率＝實際回報筆數 ÷（人數×天數）。</div>' +
+      freeReportBadge() +
       '</div>';
 
     $('#reportArea').innerHTML = html;
@@ -2224,7 +2248,7 @@
     atState.lineText = '【TeamPro 今日點名回報】\n\n隊伍：' + team + '\n課程 / 訓練項目：' + atState.course + '\n日期：' + atState.date +
       '\n\n應到：' + expected + ' 人\n實到：' + actual + ' 人\n遲到：' + c.late + ' 人\n請假：' + c.leave + ' 人\n缺席：' + c.absent +
       ' 人\n早退：' + c.early_leave + ' 人\n受傷旁觀：' + c.injured_watch + ' 人\n調整訓練：' + c.adjust_training + ' 人\n\n今日需關注：\n' +
-      (na.length ? na.map(function (x, i) { return (i + 1) + '. ' + x.name + '｜' + x.reason; }).join('\n') : '（無）') + '\n\n教練備註：';
+      (na.length ? na.map(function (x, i) { return (i + 1) + '. ' + x.name + '｜' + x.reason; }).join('\n') : '（無）') + '\n\n教練備註：' + lineWatermark();
     renderAttParentNotify();
   }
 

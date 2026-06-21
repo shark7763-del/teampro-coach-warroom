@@ -18,11 +18,12 @@
      （Apps Script / Code.gs）在每個寫入動作時重新檢查 plan 與
      playerLimit，前端配額僅供 UX 提示之用。
      ============================================================ */
+  // maxAthletes = 點名人數上限（硬限制）；kpiAthletes = KPI 追蹤人數（軟提示，超過建議升級）；maxTeams = 可建隊伍數
   var PLAN_LIMITS = {
-    free:  { name: '免費版',  maxAthletes: 5,   lineNotifyPerDay: 1,         report7Days: true, report30Days: false, pdfExport: false, multiTeam: false, customKpi: false, assistantAccounts: false, upgradePlan: 'coach' },
-    coach: { name: '教練版',  maxAthletes: 15,  lineNotifyPerDay: 'unlimited', report7Days: true, report30Days: true,  pdfExport: true,  multiTeam: false, customKpi: false, assistantAccounts: false, upgradePlan: 'team' },
-    team:  { name: '團隊版',  maxAthletes: 40,  lineNotifyPerDay: 'unlimited', report7Days: true, report30Days: true,  pdfExport: true,  multiTeam: true,  customKpi: true,  assistantAccounts: false, upgradePlan: 'pro' },
-    pro:   { name: '專業版',  maxAthletes: 100, lineNotifyPerDay: 'unlimited', report7Days: true, report30Days: true,  pdfExport: true,  multiTeam: true,  customKpi: true,  assistantAccounts: true,  upgradePlan: 'pro' }
+    free:  { name: '免費版',  maxAthletes: 10,  kpiAthletes: 5,   maxTeams: 1,  lineNotifyPerDay: 1,          report7Days: true, report30Days: false, pdfExport: false, multiTeam: false, customKpi: false, assistantAccounts: false, upgradePlan: 'coach' },
+    coach: { name: '教練版',  maxAthletes: 30,  kpiAthletes: 15,  maxTeams: 2,  lineNotifyPerDay: 'unlimited', report7Days: true, report30Days: true,  pdfExport: false, multiTeam: false, customKpi: false, assistantAccounts: false, upgradePlan: 'team' },
+    team:  { name: '團隊版',  maxAthletes: 80,  kpiAthletes: 40,  maxTeams: 99, lineNotifyPerDay: 'unlimited', report7Days: true, report30Days: true,  pdfExport: true,  multiTeam: true,  customKpi: false, assistantAccounts: false, upgradePlan: 'pro' },
+    pro:   { name: '專業版',  maxAthletes: 200, kpiAthletes: 100, maxTeams: 99, lineNotifyPerDay: 'unlimited', report7Days: true, report30Days: true,  pdfExport: true,  multiTeam: true,  customKpi: true,  assistantAccounts: true,  upgradePlan: 'pro' }
   };
 
   // 若你已部署好固定後端，可在這裡填預設 /exec 網址，使用者就不必自己貼。

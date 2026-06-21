@@ -263,7 +263,7 @@
     var r = await TP.call('joinInfo', { t: shareToken });
     $('#loading').classList.add('hidden');
     if (!r.ok) return showError(r.error);
-    ctx.team = r.team; ctx.athletes = r.athletes; ctx.pro = !!r.pro;
+    ctx.team = r.team; ctx.athletes = r.athletes; ctx.pro = !!r.pro; ctx.free = !!r.free;
     $('#teamName').textContent = r.team.teamName;
     $('#whoSelect').innerHTML = r.athletes.length
       ? r.athletes.map(function (a) { return '<option value="' + a.athleteId + '">' + esc(a.name) + '</option>'; }).join('')
@@ -907,7 +907,8 @@
     // 家長版只給「整理後摘要」：不含原始分數、燈號標籤、受傷/睡眠等敏感原文
     var hasSensitive = (light === 'red') || (payload.injuryAreas && payload.injuryAreas !== '無受傷');
     var parentText = '家長您好：\n' + TP.parentSummary({ name: ctx.name, light: light, private: hasSensitive }) +
-      '\n\n感謝您的陪伴與支持 🙏';
+      '\n\n感謝您的陪伴與支持 🙏' +
+      (ctx.free ? '\n\n本紀錄由 TeamPro 教練戰情室產生\n免費管理你的隊伍，從點名開始。' : '');
 
     $('#btnCopyStudent').onclick = function () { TP.copy(studentText); };
     $('#btnCopyParent').onclick = function () { TP.copy(parentText); };

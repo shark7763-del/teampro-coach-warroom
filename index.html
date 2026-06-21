@@ -37,6 +37,9 @@
   .feat h3 { margin: 10px 0 6px; font-size: 17px; }
   .price-card { display: flex; flex-direction: column; }
   .price-card.featured { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand) inset; }
+  .price-card.recommended { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; position: relative; }
+  .price-card .corner { position: absolute; top: -11px; right: 14px; background: var(--accent); color: #04210f;
+    font-size: 12px; font-weight: 800; padding: 3px 12px; border-radius: 999px; }
   .price-card .amt { font-size: 38px; font-weight: 800; margin: 8px 0 2px; }
   .price-card ul { list-style: none; padding: 0; margin: 14px 0; color: var(--muted); }
   .price-card li { padding: 6px 0; border-bottom: 1px dashed var(--line); }
@@ -87,9 +90,10 @@
       <div class="muted" style="font-size:13px;">掃碼加入 TeamPro 官方 LINE</div>
     </div>
     <div class="badge-strip">
-      <span>✅ 免費版可用 5 位選手</span>
+      <span>✅ 10 位選手免費點名</span>
+      <span>✅ 5 位選手免費 KPI 追蹤</span>
       <span>✅ 免安裝・手機即用</span>
-      <span>✅ 30 項運科 KPI</span>
+      <span>✅ 適合校隊、社團、道館、俱樂部</span>
     </div>
   </div>
 </section>
@@ -293,32 +297,36 @@
 <section class="section" id="pricing">
   <div class="container">
     <div class="eyebrow center">訂閱方案</div>
-    <h2>從免費開始，隨隊伍成長</h2>
-    <p class="lead">先用免費版帶 5 位選手，覺得好用再升級。第一階段為手動開通，升級請與我們聯絡。</p>
+    <h2>從免費點名開始，慢慢升級成完整戰情室</h2>
+    <p class="lead">免費版可管理 10 位選手點名、5 位選手 KPI。先讓教練每天用起來，再依照隊伍人數、報告需求與家長溝通需求升級。</p>
     <div class="grid grid-4">
       <div class="card price-card">
         <div class="tag">入門</div><h3>免費版</h3>
         <div class="amt">$0</div><div class="muted">永久免費</div>
-        <ul><li>最多 5 位選手</li><li>每日 KPI 回報</li><li>今日戰情室</li><li>未繳追蹤</li></ul>
+        <ul><li>10 位選手免費點名</li><li>5 位選手 KPI 追蹤</li><li>今日戰情室</li><li>未繳回報追蹤</li><li>7 日簡易報告</li><li>LINE 文字每日 1 次</li><li>保留 TeamPro 浮水印</li></ul>
         <a class="btn btn-primary btn-block" href="app.html?signup=1">免費開始</a>
       </div>
       <div class="card price-card featured">
         <div class="tag">最熱門</div><h3>教練版</h3>
         <div class="amt">$299<span style="font-size:15px;color:var(--muted)">/月</span></div>
-        <ul><li>最多 15 位選手</li><li>免費版全部功能</li><li>LINE / 家長通知</li><li>選手歷史趨勢</li></ul>
-        <a class="btn btn-primary btn-block" href="https://docs.google.com/forms/d/e/1FAIpQLSc2WhGQP1BQhWMgTJFtnR_gznolKA-KDqYVqXzBEfuxZI7OHA/viewform" target="_blank" rel="noopener">申請升級</a>
+        <div class="muted" style="font-size:13px;">個人教練最適合</div>
+        <ul><li>30 位選手點名</li><li>15 位選手 KPI 追蹤</li><li>免費版全部功能</li><li>LINE／家長通知不限次數</li><li>選手歷史趨勢</li><li>30 日訓練報告</li><li>移除部分浮水印</li></ul>
+        <a class="btn btn-primary btn-block" href="https://docs.google.com/forms/d/e/1FAIpQLSc2WhGQP1BQhWMgTJFtnR_gznolKA-KDqYVqXzBEfuxZI7OHA/viewform" target="_blank" rel="noopener">升級教練版</a>
       </div>
-      <div class="card price-card">
-        <div class="tag">一隊適用</div><h3>團隊版</h3>
+      <div class="card price-card recommended">
+        <span class="corner">最推薦</span>
+        <div class="tag" style="color:var(--accent);">校隊・社團・道館首選</div><h3>團隊版</h3>
         <div class="amt">$699<span style="font-size:15px;color:var(--muted)">/月</span></div>
-        <ul><li>最多 40 位選手</li><li>多團隊管理</li><li>成果報告匯出</li><li>優先客服</li></ul>
-        <a class="btn btn-block" href="https://docs.google.com/forms/d/e/1FAIpQLSc2WhGQP1BQhWMgTJFtnR_gznolKA-KDqYVqXzBEfuxZI7OHA/viewform" target="_blank" rel="noopener">申請升級</a>
+        <div class="muted" style="font-size:13px;">校隊、社團、道館首選</div>
+        <ul><li>80 位選手點名</li><li>40 位選手 KPI 追蹤</li><li>多隊伍管理</li><li>週報／月報</li><li>成果報告 PDF 匯出</li><li>教練備註</li><li>家長溝通文字</li><li>優先客服</li></ul>
+        <a class="btn btn-primary btn-block" href="https://docs.google.com/forms/d/e/1FAIpQLSc2WhGQP1BQhWMgTJFtnR_gznolKA-KDqYVqXzBEfuxZI7OHA/viewform" target="_blank" rel="noopener">升級團隊版</a>
       </div>
       <div class="card price-card">
         <div class="tag">學校 / 大隊</div><h3>專業版</h3>
         <div class="amt">$1299<span style="font-size:15px;color:var(--muted)">/月</span></div>
-        <ul><li>最多 100 位選手</li><li>全部功能</li><li>白手套導入</li><li>專屬支援</li></ul>
-        <a class="btn btn-block" href="https://docs.google.com/forms/d/e/1FAIpQLSc2WhGQP1BQhWMgTJFtnR_gznolKA-KDqYVqXzBEfuxZI7OHA/viewform" target="_blank" rel="noopener">申請升級</a>
+        <div class="muted" style="font-size:13px;">體育班與大型團隊專用</div>
+        <ul><li>200 位選手點名</li><li>100 位選手 KPI 追蹤</li><li>多教練帳號</li><li>多隊伍／多班級管理</li><li>訪視成果報告</li><li>專項指標自訂</li><li>可放隊伍 Logo</li><li>白手套導入</li><li>專屬支援</li></ul>
+        <a class="btn btn-block" href="https://docs.google.com/forms/d/e/1FAIpQLSc2WhGQP1BQhWMgTJFtnR_gznolKA-KDqYVqXzBEfuxZI7OHA/viewform" target="_blank" rel="noopener">預約導入</a>
       </div>
     </div>
   </div>
@@ -334,7 +342,7 @@
     <div class="q">選手要怎麼填寫？</div>
     <div class="a">教練建立團隊後會得到一條專屬連結，分享給選手；選手開啟後選自己的名字即可填當日回報。</div>
     <div class="q">免費版有什麼限制？</div>
-    <div class="a">最多 5 位選手，其餘核心功能都能用。超過人數時系統會提示升級。</div>
+    <div class="a">免費版可管理 10 位選手點名、5 位選手 KPI 追蹤，今日戰情室、未繳追蹤、7 日簡易報告都能用。超過人數或想要歷史趨勢、PDF 報告、家長通知時，系統會提示升級。</div>
     <div class="q">資料安全嗎？</div>
     <div class="a">每位教練只能看到自己名下的選手與回報資料，其他教練無法存取。系統只將資料用於團隊管理，不會出售選手資料。</div>
     <div class="q">未成年選手資料如何處理？</div>
@@ -352,7 +360,7 @@
 <section class="section center">
   <div class="container">
     <h2>準備好讓帶隊變輕鬆了嗎？</h2>
-    <p class="lead">免費開始，5 位選手，今天就能用起來。</p>
+    <p class="lead">免費開始，10 位選手點名、5 位 KPI 追蹤，今天就能用起來。</p>
     <a class="btn btn-primary" href="app.html?signup=1">免費開始使用 →</a>
   </div>
 </section>
