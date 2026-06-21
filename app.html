@@ -194,6 +194,7 @@
 
   <div class="tabs">
     <button class="tab-btn active" data-tab="warroom">今日戰情室</button>
+    <button class="tab-btn" data-tab="attendance">📋 快速點名</button>
     <button class="tab-btn" data-tab="athletes">選手管理</button>
     <button class="tab-btn" data-tab="teams">團隊與連結</button>
     <button class="tab-btn" data-tab="report">成果報告</button>
@@ -271,6 +272,49 @@
       <div class="trial-stats" id="trialStats"></div>
       <div class="upgrade" id="trialUpgrade"></div>
     </div>
+  </section>
+
+  <!-- 快速點名中心 -->
+  <section id="tab-attendance" class="hidden">
+    <div class="card">
+      <h3 style="margin-top:0;">📋 快速點名中心</h3>
+      <div class="att-setup">
+        <div><label>隊伍</label><select id="atTeam"></select></div>
+        <div><label>日期</label><input id="atDate" type="date"></div>
+        <div><label>課程 / 訓練項目</label><select id="atCourse"></select></div>
+      </div>
+      <div class="att-setup">
+        <div style="flex:2;"><label>＋新增課程 / 訓練項目</label><input id="atNewCourse" placeholder="例：踢靶課、品勢課、籃球分組對抗"></div>
+        <div style="flex:0 0 auto;"><button class="btn" id="atAddCourse">＋新增</button></div>
+      </div>
+      <div class="att-quickbar">
+        <button class="btn btn-sm btn-primary" id="atAllPresent">✅ 全員出席</button>
+        <button class="btn btn-sm" id="atAllAbsent">全員缺席</button>
+        <button class="btn btn-sm" id="atCopyLast">↺ 複製上次點名</button>
+        <button class="btn btn-sm" id="atFilterUnmarked">只顯示未點名</button>
+        <button class="btn btn-sm" id="atFilterAbnormal">只顯示異常</button>
+        <button class="btn btn-sm hidden" id="atFilterAll">顯示全部</button>
+        <select id="atBatch" class="btn btn-sm" style="width:auto;"><option value="">批次設為…</option></select>
+      </div>
+      <div id="atList"><p class="muted">請先選擇隊伍。</p></div>
+      <button class="btn btn-primary btn-block" id="atSave" style="margin-top:6px;">💾 儲存點名</button>
+    </div>
+    <div class="card hidden" id="atSummaryCard">
+      <h3 style="margin-top:0;">今日點名摘要</h3>
+      <div id="atSummary"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+        <button class="btn" id="atCopyLine">📱 複製 LINE 回報</button>
+      </div>
+      <div id="atParentNotify" style="margin-top:12px;"></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <h3 style="margin:0;">📅 月出席統計</h3>
+        <button class="btn btn-sm" id="atMonthBtn">產生本月統計</button>
+      </div>
+      <div id="atMonth" class="muted" style="margin-top:10px;">點「產生本月統計」查看每位選手本月出席率（升級可解鎖 PDF 月報與批次家長通知）。</div>
+    </div>
+    <p class="muted" style="font-size:12px;margin-top:10px;">免費版可使用基本點名與最近 7 天紀錄；月出席統計、PDF 月報、批次家長通知、多教練、多班別為升級功能。</p>
   </section>
 
   <!-- 選手管理 -->
@@ -761,10 +805,11 @@
     TP.$all('.tab-btn').forEach(function (x) { x.classList.remove('active'); });
     var btn = TP.$('.tab-btn[data-tab="' + tab + '"]');
     if (btn) btn.classList.add('active');
-    ['warroom', 'athletes', 'teams', 'report', 'settings'].forEach(function (t) {
+    ['warroom', 'attendance', 'athletes', 'teams', 'report', 'settings'].forEach(function (t) {
       $('#tab-' + t).classList.toggle('hidden', t !== tab);
     });
     if (tab === 'settings' && !DEMO) loadPrivacyRequests();
+    if (tab === 'attendance') loadAttendance();
   }
 
   function copyFirstTeamLink() {
@@ -1848,6 +1893,246 @@
     renderWarroom(DEMO_DATA.warroom);
     renderTrialSummary(DEMO_DATA.trialSummary);
   }
+
+  /* ========================================================
+     📋 快速點名中心（點名存後端同步；課程清單存本機；與戰情室互通）
+     ======================================================== */
+  var ATT_LIST = [['present', '出席'], ['late', '遲到'], ['leave', '請假'], ['absent', '缺席'], ['early_leave', '早退'], ['injured_watch', '受傷旁觀'], ['adjust_training', '調整訓練']];
+  var ATT_S7 = { present: '✅', late: '🟡', leave: '📝', absent: '❌', injured_watch: '🩹', early_leave: '↩️', adjust_training: '🔧' };
+  var ATT_DEFAULT_COURSES = ['晨操', '專長訓練', '體能訓練', '重量訓練', '技術訓練', '戰術訓練', '模擬比賽', '恢復訓練', '晚自習', '集訓', '比賽', '自主訓練', '其他'];
+  var atState = { teamId: '', date: '', course: '', marks: {}, roster: [], wById: {}, missingSet: {}, history: [], filter: 'all', touched: {}, lineText: '' };
+
+  function attLabel(s) { for (var i = 0; i < ATT_LIST.length; i++) if (ATT_LIST[i][0] === s) return ATT_LIST[i][1]; return '出席'; }
+  function attCoursesKey() { return 'teampro_attendance_courses_' + ((state.coach && state.coach.coachId) || 'x'); }
+  function attGetCourses() { try { return JSON.parse(localStorage.getItem(attCoursesKey()) || 'null') || ATT_DEFAULT_COURSES.slice(); } catch (e) { return ATT_DEFAULT_COURSES.slice(); } }
+  function attSetCourses(a) { localStorage.setItem(attCoursesKey(), JSON.stringify(a)); }
+  function attDaysAgo(n) { var d = new Date(); d.setDate(d.getDate() - n); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
+  function attMin(m) { m = Number(m) || 0; return Math.floor(m / 60) + ' 小時 ' + (m % 60) + ' 分'; }
+
+  function attConsecutiveAbsent(aid) {
+    var n = 0;
+    for (var i = 0; i <= 6; i++) {
+      var dt = attDaysAgo(i);
+      var m = dt === atState.date ? atState.marks[aid] : (atState.history.filter(function (r) { return String(r.date) === dt; })[0] || { marks: {} }).marks[aid];
+      if (m && m.s === 'absent') n++; else if (m) break; else break;
+    }
+    return n;
+  }
+
+  function attFlags(a) {
+    var w = atState.wById[a.athleteId], f = [];
+    if (atState.missingSet[a.athleteId] && !w) f.push({ icon: '⚠️', why: '今日未回報' });
+    if (w) {
+      if (Number(w.sleepDurationMinutes) > 0 && Number(w.sleepDurationMinutes) < 300) f.push({ icon: '💤', why: '睡眠 ' + attMin(w.sleepDurationMinutes) });
+      if (Number(w.painScore) >= 4) f.push({ icon: '🩹', why: '疼痛 ' + w.painScore + ' 分' + (w.painAreas ? '（' + w.painAreas + '）' : '') });
+      if (w.hydrationRisk === 'red' || w.waterAmount === 'very_little') f.push({ icon: '💧', why: '飲水不足' });
+      if (w.urineColor === 'dark' || w.urineColor === 'abnormal') f.push({ icon: '🟡', why: '尿液偏深' });
+      if (Number(w.moodIndex) > 0 && Number(w.moodIndex) <= 2) f.push({ icon: '😔', why: '心理低落' });
+    }
+    if (attConsecutiveAbsent(a.athleteId) >= 2) f.push({ icon: '🚫', why: '連續缺席' });
+    return f;
+  }
+
+  function attLight(a) {
+    if (((atState.marks[a.athleteId] || {}).s) === 'absent') return '⚫';
+    var w = atState.wById[a.athleteId];
+    var health = attFlags(a).filter(function (x) { return x.icon !== '🚫'; });
+    if (w && (Number(w.painScore) >= 7 || w.painImpact === 'cannot_sport' || w.painImpact === 'daily_affected')) return '🔴';
+    if (w && w.status === 'red' && health.length >= 2) return '🔴';
+    if (health.length >= 2 || (w && w.status === 'red')) return '🟠';
+    if (health.length >= 1 || (w && w.status === 'yellow')) return '🟡';
+    if (!w) return '🟡';
+    return '🟢';
+  }
+
+  function att7day(a) {
+    var out = '';
+    for (var i = 6; i >= 0; i--) {
+      var dt = attDaysAgo(i);
+      var m = dt === atState.date ? atState.marks[a.athleteId] : (atState.history.filter(function (r) { return String(r.date) === dt; })[0] || { marks: {} }).marks[a.athleteId];
+      out += m ? (ATT_S7[m.s] || '·') : '·';
+    }
+    return out;
+  }
+
+  async function loadAttendance() {
+    var teamSel = $('#atTeam');
+    teamSel.innerHTML = (state.teams || []).map(function (t) { return '<option value="' + t.teamId + '">' + esc(t.teamName) + '</option>'; }).join('') || '<option value="">（尚無團隊）</option>';
+    if (!atState.teamId) atState.teamId = teamSel.value; else teamSel.value = atState.teamId;
+    if (!atState.date) atState.date = localToday();
+    $('#atDate').value = atState.date;
+    renderAttCourses();
+    $('#atBatch').innerHTML = '<option value="">批次設為…</option>' + ATT_LIST.map(function (s) { return '<option value="' + s[0] + '">' + s[1] + '</option>'; }).join('');
+    await loadAttDay();
+  }
+
+  function renderAttCourses() {
+    var cs = attGetCourses(), cur = atState.course || cs[0];
+    $('#atCourse').innerHTML = cs.map(function (c) { return '<option' + (c === cur ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('');
+    atState.course = $('#atCourse').value;
+  }
+
+  async function loadAttDay() {
+    $('#atList').innerHTML = '<p class="muted">載入中…</p>';
+    $('#atSummaryCard').classList.add('hidden');
+    atState.roster = (state.athletes || []).filter(function (a) { return String(a.teamId) === String(atState.teamId) && String(a.active) !== 'false' && a.active !== false; });
+    atState.wById = {}; atState.missingSet = {}; atState.marks = {}; atState.touched = {}; atState.history = [];
+    if (DEMO) {
+      ((DEMO_DATA.warroom && DEMO_DATA.warroom.submitted) || []).forEach(function (s) { atState.wById[s.athleteId] = s; });
+    } else {
+      var w = await TP.callAuth('warroom', { teamId: atState.teamId, date: atState.date });
+      if (w.ok) { (w.submitted || []).forEach(function (s) { atState.wById[s.athleteId] = s; }); (w.missing || []).forEach(function (m) { atState.missingSet[m.athleteId] = true; }); }
+      var g = await TP.callAuth('getAttendance', { teamId: atState.teamId, date: atState.date });
+      if (g.ok && g.found) { Object.keys(g.marks || {}).forEach(function (id) { atState.marks[id] = { s: g.marks[id].s, n: g.marks[id].n || '' }; atState.touched[id] = true; }); if (g.course) { atState.course = g.course; $('#atCourse').value = g.course; } }
+      var h = await TP.callAuth('attendanceRange', { teamId: atState.teamId, from: attDaysAgo(6), to: atState.date });
+      if (h.ok) atState.history = h.records || [];
+    }
+    atState.roster.forEach(function (a) { if (!atState.marks[a.athleteId]) atState.marks[a.athleteId] = { s: 'present', n: '' }; });
+    renderAttList();
+  }
+
+  function renderAttList() {
+    if (!atState.roster.length) { $('#atList').innerHTML = '<p class="muted">此隊伍沒有啟用中的選手。</p>'; return; }
+    var list = atState.roster.filter(function (a) {
+      if (atState.filter === 'unmarked') return !atState.touched[a.athleteId];
+      if (atState.filter === 'abnormal') { var L = attLight(a); return L === '🟠' || L === '🔴' || L === '⚫'; }
+      return true;
+    });
+    $('#atFilterAll').classList.toggle('hidden', atState.filter === 'all');
+    if (!list.length) { $('#atList').innerHTML = '<p class="muted">此篩選目前沒有選手。</p>'; return; }
+    $('#atList').innerHTML = list.map(function (a) {
+      var m = atState.marks[a.athleteId] || { s: 'present', n: '' };
+      var icons = attFlags(a).map(function (x) { return x.icon; }).join('');
+      var picker = ATT_LIST.map(function (s) { return '<button data-set="' + s[0] + '"' + (s[0] === m.s ? ' class="sel"' : '') + '>' + s[1] + '</button>'; }).join('');
+      return '<div class="att-row" data-aid="' + a.athleteId + '">' +
+        '<div class="att-top"><div class="att-name">' + attLight(a) + ' ' + esc(a.name) + ' <span class="att-icons">' + icons + '</span></div>' +
+        '<button class="att-chip ' + m.s + '" data-chip="' + a.athleteId + '">' + attLabel(m.s) + ' ▾</button></div>' +
+        '<div class="att-7day">最近7天 ' + att7day(a) + '</div>' +
+        '<div class="att-picker" data-picker="' + a.athleteId + '">' + picker + '</div>' +
+        '<input class="att-note" data-note="' + a.athleteId + '" placeholder="備註（選填）" value="' + esc(m.n || '') + '">' +
+        '</div>';
+    }).join('');
+    var box = $('#atList');
+    TP.$all('[data-chip]', box).forEach(function (b) {
+      b.onclick = function () {
+        var p = box.querySelector('[data-picker="' + b.dataset.chip + '"]'), open = p.classList.contains('open');
+        TP.$all('.att-picker', box).forEach(function (x) { x.classList.remove('open'); });
+        if (!open) p.classList.add('open');
+      };
+    });
+    TP.$all('[data-picker]', box).forEach(function (p) {
+      TP.$all('button', p).forEach(function (b) {
+        b.onclick = function () { var aid = p.dataset.picker; atState.marks[aid] = atState.marks[aid] || { s: 'present', n: '' }; atState.marks[aid].s = b.dataset.set; atState.touched[aid] = true; renderAttList(); };
+      });
+    });
+    TP.$all('[data-note]', box).forEach(function (inp) {
+      inp.oninput = function () { var aid = inp.dataset.note; atState.marks[aid] = atState.marks[aid] || { s: 'present', n: '' }; atState.marks[aid].n = inp.value; atState.touched[aid] = true; };
+    });
+  }
+
+  function attSetAll(s, needConfirm) {
+    if (needConfirm && !confirm('確定將全員設為「' + attLabel(s) + '」？')) return;
+    atState.roster.forEach(function (a) { atState.marks[a.athleteId] = { s: s, n: (atState.marks[a.athleteId] || {}).n || '' }; atState.touched[a.athleteId] = true; });
+    renderAttList();
+  }
+
+  function attCounts() {
+    var c = { present: 0, late: 0, leave: 0, absent: 0, early_leave: 0, injured_watch: 0, adjust_training: 0 };
+    atState.roster.forEach(function (a) { var s = (atState.marks[a.athleteId] || {}).s || 'present'; c[s] = (c[s] || 0) + 1; });
+    return c;
+  }
+  function attStat(l, n) { return '<div class="stat"><div class="num">' + n + '</div><div class="lbl">' + l + '</div></div>'; }
+  function attNeedAttention() {
+    return atState.roster.filter(function (a) { var L = attLight(a); return L === '🟠' || L === '🔴'; }).map(function (a) {
+      var fl = attFlags(a);
+      return { name: a.name, reason: fl.length ? fl.map(function (x) { return x.why; }).join('、') : '狀態需關注' };
+    });
+  }
+
+  function renderAttSummary() {
+    var c = attCounts(), team = (state.teams.filter(function (t) { return t.teamId === atState.teamId; })[0] || {}).teamName || '';
+    var expected = atState.roster.length, actual = expected - c.leave - c.absent, na = attNeedAttention();
+    $('#atSummaryCard').classList.remove('hidden');
+    $('#atSummary').innerHTML =
+      '<div class="muted" style="font-size:13px;">隊伍：' + esc(team) + '　課程：' + esc(atState.course) + '　日期：' + atState.date + '</div>' +
+      '<div class="att-summary-grid">' + attStat('應到', expected) + attStat('實到', actual) + attStat('遲到', c.late) + attStat('請假', c.leave) +
+        attStat('缺席', c.absent) + attStat('早退', c.early_leave) + attStat('受傷旁觀', c.injured_watch) + attStat('調整訓練', c.adjust_training) + '</div>' +
+      '<h4 style="margin:10px 0 6px;">今日需關注</h4>' +
+      (na.length ? na.map(function (x) { return '<div class="row"><span>' + esc(x.name) + '</span><span class="muted">' + esc(x.reason) + '</span></div>'; }).join('') : '<p class="muted">今天沒有需要特別關注的選手 👍</p>');
+    atState.lineText = '【TeamPro 今日點名回報】\n\n隊伍：' + team + '\n課程 / 訓練項目：' + atState.course + '\n日期：' + atState.date +
+      '\n\n應到：' + expected + ' 人\n實到：' + actual + ' 人\n遲到：' + c.late + ' 人\n請假：' + c.leave + ' 人\n缺席：' + c.absent +
+      ' 人\n早退：' + c.early_leave + ' 人\n受傷旁觀：' + c.injured_watch + ' 人\n調整訓練：' + c.adjust_training + ' 人\n\n今日需關注：\n' +
+      (na.length ? na.map(function (x, i) { return (i + 1) + '. ' + x.name + '｜' + x.reason; }).join('\n') : '（無）') + '\n\n教練備註：';
+    renderAttParentNotify();
+  }
+
+  function renderAttParentNotify() {
+    var rows = [];
+    atState.roster.forEach(function (a) {
+      var s = (atState.marks[a.athleteId] || {}).s, w = atState.wById[a.athleteId], msg = '';
+      if (s === 'absent') msg = '您好，今天 ' + a.name + ' 未出席訓練，麻煩協助確認原因，謝謝。';
+      else if (s === 'late') msg = '您好，今天 ' + a.name + ' 訓練遲到，提醒孩子下次提早準備，謝謝。';
+      else if (s === 'injured_watch' || (w && Number(w.painScore) >= 4)) msg = '您好，今天 ' + a.name + ' 回報身體不適或疼痛，教練會協助調整訓練，也請家中協助觀察恢復狀況。';
+      else if (atState.missingSet[a.athleteId] && !w) msg = '您好，' + a.name + ' 最近未完成訓練回報，麻煩協助提醒孩子完成每日回報，方便教練掌握狀態。';
+      if (msg) rows.push({ name: a.name, msg: msg });
+    });
+    if (!rows.length) { $('#atParentNotify').innerHTML = ''; return; }
+    $('#atParentNotify').innerHTML = '<h4 style="margin:6px 0;">家長通知（點即複製）</h4>' +
+      rows.map(function (r) { return '<div class="row"><span>' + esc(r.name) + '</span><button class="btn btn-sm" data-pmsg="' + esc(r.msg) + '">複製</button></div>'; }).join('') +
+      '<button class="btn btn-sm" id="atBatchParent" style="margin-top:8px;">批次複製全部家長通知（升級）</button>';
+    TP.$all('[data-pmsg]', $('#atParentNotify')).forEach(function (b) { b.onclick = function () { TP.copy(b.dataset.pmsg); }; });
+    $('#atBatchParent').onclick = function () { if (!planCfg().pdfExport) { openUpgradeModal({ reason: 'pdfExport', message: '批次家長通知為升級功能。' }); return; } TP.copy(rows.map(function (r) { return r.msg; }).join('\n\n')); };
+  }
+
+  async function renderAttMonth() {
+    if (DEMO) { demoBlock(); return; }
+    if (!planCfg().report30Days) { openUpgradeModal({ reason: 'report30Days', message: '月出席統計為升級功能，升級後可看每位選手本月出席率與 PDF 月報。' }); return; }
+    $('#atMonth').innerHTML = '<p class="muted">統計中…</p>';
+    var from = atState.date.slice(0, 7) + '-01';
+    var h = await TP.callAuth('attendanceRange', { teamId: atState.teamId, from: from, to: atState.date });
+    var recs = (h.ok && h.records) || [];
+    if (!recs.length) { $('#atMonth').innerHTML = '<p class="muted">本月尚無點名紀錄。</p>'; return; }
+    $('#atMonth').innerHTML = atState.roster.map(function (a) {
+      var cnt = { present: 0, late: 0, leave: 0, absent: 0, early_leave: 0, injured_watch: 0, adjust_training: 0 }, days = 0;
+      recs.forEach(function (r) { var m = r.marks[a.athleteId]; if (m) { cnt[m.s] = (cnt[m.s] || 0) + 1; days++; } });
+      var present = days ? Math.round((days - cnt.leave - cnt.absent) / days * 100) : 0;
+      return '<div class="row" style="flex-wrap:wrap;"><b>' + esc(a.name) + '</b>' +
+        '<span class="muted" style="font-size:13px;">出席率 ' + present + '%｜遲到 ' + cnt.late + '｜請假 ' + cnt.leave + '｜缺席 ' + cnt.absent +
+        '｜早退 ' + cnt.early_leave + '｜受傷旁觀 ' + cnt.injured_watch + '｜調整 ' + cnt.adjust_training + '</span></div>';
+    }).join('') + '<p class="muted" style="font-size:12px;margin-top:8px;">PDF 月報（含睡眠/飲水/疲勞/心理趨勢與 AI 總評）規劃中。</p>';
+  }
+
+  $('#atTeam').onchange = function () { atState.teamId = this.value; atState.filter = 'all'; loadAttDay(); };
+  $('#atDate').onchange = function () { atState.date = this.value; atState.filter = 'all'; loadAttDay(); };
+  $('#atCourse').onchange = function () { atState.course = this.value; };
+  $('#atAddCourse').onclick = function () { var v = $('#atNewCourse').value.trim(); if (!v) return; var cs = attGetCourses(); if (cs.indexOf(v) === -1) { cs.push(v); attSetCourses(cs); } atState.course = v; renderAttCourses(); $('#atCourse').value = v; $('#atNewCourse').value = ''; toast('已新增課程「' + v + '」'); };
+  $('#atAllPresent').onclick = function () { attSetAll('present', false); };
+  $('#atAllAbsent').onclick = function () { attSetAll('absent', true); };
+  $('#atCopyLast').onclick = function () {
+    var past = atState.history.filter(function (r) { return String(r.date) < atState.date; });
+    if (!past.length) { toast('沒有更早的點名可複製'); return; }
+    var last = past[past.length - 1];
+    atState.roster.forEach(function (a) { var m = last.marks[a.athleteId]; if (m) { atState.marks[a.athleteId] = { s: m.s, n: m.n || '' }; atState.touched[a.athleteId] = true; } });
+    renderAttList(); toast('已複製 ' + last.date + ' 的點名');
+  };
+  $('#atFilterUnmarked').onclick = function () { atState.filter = 'unmarked'; renderAttList(); };
+  $('#atFilterAbnormal').onclick = function () { atState.filter = 'abnormal'; renderAttList(); };
+  $('#atFilterAll').onclick = function () { atState.filter = 'all'; renderAttList(); };
+  $('#atBatch').onchange = function () {
+    var s = this.value; this.value = ''; if (!s) return;
+    var visible = atState.roster.filter(function (a) { if (atState.filter === 'unmarked') return !atState.touched[a.athleteId]; if (atState.filter === 'abnormal') { var L = attLight(a); return L === '🟠' || L === '🔴' || L === '⚫'; } return true; });
+    visible.forEach(function (a) { atState.marks[a.athleteId] = { s: s, n: (atState.marks[a.athleteId] || {}).n || '' }; atState.touched[a.athleteId] = true; });
+    renderAttList();
+  };
+  $('#atSave').onclick = async function () {
+    if (DEMO) { demoBlock(); return; }
+    var btn = this; btn.disabled = true; btn.textContent = '儲存中…';
+    var r = await TP.callAuth('saveAttendance', { teamId: atState.teamId, date: atState.date, course: atState.course, marks: atState.marks });
+    btn.disabled = false; btn.textContent = '💾 儲存點名';
+    if (r.ok) { toast('點名已儲存'); renderAttSummary(); } else { toast(r.error || '儲存失敗', true); }
+  };
+  $('#atCopyLine').onclick = function () { if (atState.lineText) TP.copy(atState.lineText); else toast('請先儲存點名'); };
+  $('#atMonthBtn').onclick = renderAttMonth;
 
   boot();
 })();

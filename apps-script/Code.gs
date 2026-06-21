@@ -27,7 +27,8 @@ var SHEETS = {
   records:  'records',
   audit:    'audit',
   contacts: 'contacts',
-  privacyRequests: 'privacyRequests'
+  privacyRequests: 'privacyRequests',
+  attendance: 'attendance'
 };
 
 /* ---------- 表頭 ---------- */
@@ -38,7 +39,9 @@ var H = {
   athletes: ['athleteId', 'coachId', 'teamId', 'name', 'gradeClass', 'grp', 'active', 'createdAt', 'lastPerformanceVisibility', 'perfPinHash', 'perfPinSalt'],
   audit:    ['time', 'actor', 'action', 'target', 'detail'],
   contacts: ['time', 'topic', 'name', 'email', 'message'],
-  privacyRequests: ['requestId', 'coachId', 'athleteId', 'athleteName', 'requestType', 'scope', 'note', 'status', 'createdAt', 'handledAt', 'resolutionNote']
+  privacyRequests: ['requestId', 'coachId', 'athleteId', 'athleteName', 'requestType', 'scope', 'note', 'status', 'createdAt', 'handledAt', 'resolutionNote'],
+  // 快速點名：一筆=某教練某隊某日一次點名；marks 為 JSON { athleteId: {s:狀態, n:備註} }
+  attendance: ['attId', 'coachId', 'teamId', 'date', 'course', 'marks', 'updatedAt']
 };
 
 /* ============================================================
@@ -198,6 +201,11 @@ function handle(action, d) {
     case 'setAthleteActive':return jsonOut(withCoach(d, setAthleteActive));
     case 'updateAthlete':   return jsonOut(withCoach(d, updateAthlete));
     case 'deleteAthlete':   return jsonOut(withCoach(d, deleteAthlete));
+
+    /* ---- 快速點名（跨裝置同步，存後端） ---- */
+    case 'saveAttendance':  return jsonOut(withCoach(d, saveAttendance));
+    case 'getAttendance':   return jsonOut(withCoach(d, getAttendance));
+    case 'attendanceRange': return jsonOut(withCoach(d, attendanceRange));
 
     /* ---- 戰情室 / 報告 ---- */
     case 'warroom':         return jsonOut(withCoach(d, warroom));
@@ -754,6 +762,73 @@ function deleteAthlete(c, d) {
     audit(c.email, 'deleteAthlete', d.athleteId, a.name + ' (紀錄' + recN + ')');
     return { ok: true, deletedRecords: recN, activeCount: countActiveAthletes(c.coachId) };
   } finally { lock.releaseLock(); }
+}
+
+/* ============================================================
+   快速點名（跨裝置同步，存後端 attendance 表）
+   marks JSON：{ athleteId: { s: 狀態, n: 備註 } }
+   ============================================================ */
+var ATT_STATUSES = ['present', 'late', 'leave', 'absent', 'early_leave', 'injured_watch', 'adjust_training'];
+
+function attRowOf(coachId, teamId, date) {
+  var all = readAll(SHEETS.attendance);
+  for (var i = 0; i < all.length; i++) {
+    if (String(all[i].coachId) === String(coachId) && String(all[i].teamId) === String(teamId) && String(all[i].date) === String(date))
+      return { row: i + 2, obj: all[i] };
+  }
+  return null;
+}
+
+function saveAttendance(c, d) {
+  var teamId = String(d.teamId || '');
+  var date = String(d.date || todayStr());
+  if (!teamId) return { ok: false, error: '請選擇隊伍' };
+  var trow = findRow(SHEETS.teams, 'teamId', teamId);
+  if (trow === -1 || String(readAll(SHEETS.teams)[trow - 2].coachId) !== String(c.coachId))
+    return { ok: false, error: '找不到團隊或無權限' };
+  var marksIn = d.marks || {}, marks = {};
+  Object.keys(marksIn).forEach(function (aid) {
+    var m = marksIn[aid] || {};
+    var st = ATT_STATUSES.indexOf(String(m.s || m.status)) !== -1 ? String(m.s || m.status) : 'present';
+    marks[String(aid)] = { s: st, n: String(m.n || m.note || '').slice(0, 200) };
+  });
+  var course = String(d.course || '').slice(0, 60);
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var hit = attRowOf(c.coachId, teamId, date);
+    var s = sheet(SHEETS.attendance);
+    if (hit) {
+      s.getRange(hit.row, H.attendance.indexOf('course') + 1).setValue(course);
+      s.getRange(hit.row, H.attendance.indexOf('marks') + 1).setValue(JSON.stringify(marks));
+      s.getRange(hit.row, H.attendance.indexOf('updatedAt') + 1).setValue(now());
+    } else {
+      appendObj(SHEETS.attendance, { attId: uid('at_'), coachId: c.coachId, teamId: teamId, date: date,
+        course: course, marks: JSON.stringify(marks), updatedAt: now() });
+    }
+    audit(c.email, 'saveAttendance', teamId, date + ' ' + course);
+    return { ok: true };
+  } finally { lock.releaseLock(); }
+}
+
+function getAttendance(c, d) {
+  var hit = attRowOf(c.coachId, String(d.teamId || ''), String(d.date || todayStr()));
+  if (!hit) return { ok: true, found: false, course: '', marks: {} };
+  var marks = {};
+  try { marks = JSON.parse(hit.obj.marks || '{}'); } catch (e) { marks = {}; }
+  return { ok: true, found: true, course: hit.obj.course || '', marks: marks };
+}
+
+function attendanceRange(c, d) {
+  var teamId = String(d.teamId || ''), from = String(d.from || ''), to = String(d.to || '');
+  var rows = readAll(SHEETS.attendance).filter(function (a) {
+    return String(a.coachId) === String(c.coachId) &&
+      (!teamId || String(a.teamId) === String(teamId)) &&
+      (!from || String(a.date) >= from) && (!to || String(a.date) <= to);
+  }).map(function (a) {
+    var marks = {}; try { marks = JSON.parse(a.marks || '{}'); } catch (e) {}
+    return { date: a.date, teamId: a.teamId, course: a.course, marks: marks };
+  }).sort(function (x, y) { return String(x.date).localeCompare(String(y.date)); });
+  return { ok: true, records: rows };
 }
 
 /* ============================================================
