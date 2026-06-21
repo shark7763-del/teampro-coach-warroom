@@ -116,6 +116,13 @@
     .report-doc { box-shadow:none; max-width:none; }
     .no-print { display:none !important; }
   }
+  /* 選手名單列：按鈕多，手機讓按鈕群換到下一行避免爆版 */
+  #athleteList .row { flex-wrap: wrap; }
+  #athleteList .row > div:last-child { flex-wrap: wrap; justify-content: flex-end; }
+  @media (max-width: 560px) {
+    #athleteList .row > div:last-child { width: 100%; justify-content: flex-start; margin-top: 8px; }
+    #athleteList .row > div:last-child .btn-sm { flex: 1 1 auto; }
+  }
 </style>
 </head>
 <body>
@@ -1908,7 +1915,7 @@
     if (!rec) { $('#fbMeta').textContent = '查無紀錄'; return; }
     fbCtx.record = rec; fbCtx.recordId = rec.recordId || recordId;
     var light = rec.status || TP.lightOf(rec.totalScore);
-    $('#fbMeta').innerHTML = esc(rec.date) + '　總分 <b>' + (Number(rec.totalScore) || 0).toFixed(1) + '</b> <span class="pill ' + light + '">' + TP.lightText(light) + '</span>';
+    $('#fbMeta').innerHTML = esc(rec.date) + (Number(rec.totalScore) > 0 ? '　最近 KPI <b>' + Number(rec.totalScore).toFixed(1) + '</b>' : '　今日輕量回報') + ' <span class="pill ' + light + '">' + TP.lightText(light) + '</span>';
     var bits = [];
     if (rec.fatigue) bits.push('疲勞 ' + rec.fatigue + '/10');
     if (rec.sleepDurationText || rec.sleepHours) bits.push('睡眠 ' + (rec.sleepDurationText || rec.sleepHours + 'h'));
