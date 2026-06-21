@@ -91,22 +91,11 @@
     </div>
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;">
-        <h2 style="margin:0;">今日狀態評分</h2>
-        <button class="btn btn-sm" id="btnPrefill">↺ 帶入上次</button>
+        <h2 style="margin:0;">上週 KPI 評估</h2>
+        <button class="btn btn-sm hidden" id="btnPrefill">↺ 帶入上次</button>
       </div>
-      <p class="muted" style="margin:6px 0 0;">每項 1–5 分，5 分代表最好。可先「帶入上次」再微調。</p>
+      <p class="muted" id="kpiPeriod" style="margin:6px 0 0;">每項 1–5 分，5 分代表最好。請回顧整個上週的實際表現。</p>
       <p class="muted" style="font-size:12px;margin:6px 0 0;">🔒 你填寫的訓練資料會用於教練追蹤訓練狀態，系統會依照權限保護你的個人紀錄。</p>
-      <label style="margin-top:10px;">訓練日期（預設今天；漏填可往回補填，同一天會覆蓋更新）</label>
-      <input id="recordDate" type="date">
-      <label style="margin-top:10px;">這天是？</label>
-      <select id="sessionType">
-        <option value="training">訓練日（填全部）</option>
-        <option value="rest">非訓練日（只填身體/心情/生理）</option>
-      </select>
-      <label>今日訓練課表（分時段，沒練可點「無訓練」）</label>
-      <div class="train-slot"><span class="slot-name">上午</span><input id="train_am" placeholder="例：晨操、跑步 30 分"><button type="button" class="notrain" data-for="train_am">無訓練</button></div>
-      <div class="train-slot"><span class="slot-name">下午</span><input id="train_pm" placeholder="例：踢靶 6 組、核心訓練"><button type="button" class="notrain" data-for="train_pm">無訓練</button></div>
-      <div class="train-slot"><span class="slot-name">晚上</span><input id="train_eve" placeholder="例：實戰 3 回合、收操伸展"><button type="button" class="notrain" data-for="train_eve">無訓練</button></div>
     </div>
     <div id="kpiBlocks"></div>
   </div>
@@ -114,7 +103,19 @@
   <!-- Step 2：身體 / 飲食 / 心情 -->
   <div id="step-body" class="step">
     <div class="card">
-      <h2 style="margin-top:0;">身體與飲食</h2>
+      <h2 style="margin-top:0;">今日輕量回報</h2>
+      <p class="muted">先完成今天的安全與恢復狀態；每週 KPI 會另外提示，不會擋住日報。</p>
+      <label>回報日期</label><input id="recordDate" type="date">
+      <label style="margin-top:10px;">這天是？</label>
+      <select id="sessionType"><option value="training">訓練日</option><option value="rest">非訓練日</option></select>
+      <details style="margin-top:12px;"><summary style="cursor:pointer;font-weight:700;">選填：今日訓練課表</summary>
+        <div class="train-slot"><span class="slot-name">上午</span><input id="train_am" placeholder="例：晨操、跑步 30 分"><button type="button" class="notrain" data-for="train_am">無訓練</button></div>
+        <div class="train-slot"><span class="slot-name">下午</span><input id="train_pm" placeholder="例：踢靶 6 組、核心訓練"><button type="button" class="notrain" data-for="train_pm">無訓練</button></div>
+        <div class="train-slot"><span class="slot-name">晚上</span><input id="train_eve" placeholder="例：實戰 3 回合、收操伸展"><button type="button" class="notrain" data-for="train_eve">無訓練</button></div>
+      </details>
+    </div>
+    <details class="card">
+      <summary style="cursor:pointer;font-weight:800;font-size:18px;">選填：飲食與體重記錄</summary>
       <div class="grid grid-3">
         <div><label>身高 cm</label><input id="heightCm" type="number" inputmode="decimal"></div>
         <div><label>體重 kg</label><input id="weightKg" type="number" inputmode="decimal"></div>
@@ -131,7 +132,7 @@
         <div><label>零食/飲料</label><input id="snacksDrinks"></div>
         <div><label>宵夜</label><input id="lateNightSnack"></div>
       </div>
-    </div>
+    </details>
     <div class="card">
       <h2 style="margin-top:0;">水分狀態</h2>
       <label>今日喝水量</label><div class="choice-grid" id="waterChoices"></div>
@@ -232,6 +233,7 @@
       <button class="btn btn-block" id="btnCopyStudent" style="margin-bottom:8px;">📋 複製給自己的摘要</button>
       <button class="btn btn-block" id="btnCopyParent">👨‍👩‍👧 複製家長版</button>
     </div>
+    <button class="btn btn-primary btn-block hidden" id="btnWeeklyKpi" style="margin-top:12px;">繼續填寫上週 KPI（約 3–5 分鐘）</button>
     <button class="btn btn-primary btn-block" id="btnAgain" style="margin-top:12px;">完成</button>
   </div>
 </div>
@@ -250,7 +252,7 @@
   var $ = TP.$, esc = TP.esc, toast = TP.toast;
   var params = new URLSearchParams(location.search);
   var shareToken = params.get('t') || '';
-  var ctx = { team: null, athletes: [], athleteId: '', name: '', last: null, result: null };
+  var ctx = { team: null, athletes: [], athleteId: '', name: '', last: null, result: null, kpiState: null, pin: '' };
 
   /* ---------- 啟動 ---------- */
   async function boot() {
@@ -560,15 +562,9 @@
     $('#encourageName').innerHTML = '<option value="">—</option>' + ctx.athletes
       .filter(function (a) { return a.athleteId !== id; })
       .map(function (a) { return '<option value="' + esc(a.name) + '">' + esc(a.name) + '</option>'; }).join('');
-    // 預抓上次紀錄供「帶入上次」（有設 PIN 時不自動帶入，避免他人選你名字偷看；按「帶入上次」時再驗證）
-    var r = await TP.call('lastRecord', { t: shareToken, athleteId: id, pin: ctx.pin });
-    if (r.pinRequired) { ctx.last = null; ctx.prefillPinNeeded = true; }
-    else {
-      ctx.last = (r.ok && r.record) || null; ctx.prefillPinNeeded = false;
-      if (ctx.last) { toast('已找到上次紀錄，可按「帶入上次」'); prefill(); }
-    }
-    show('kpi');
-    renderLastPerfOnFill();
+    ctx.kpiState = await TP.call('kpiFormState', { t: shareToken, athleteId: id, date: localToday(), pin: ctx.pin });
+    cur = 'body';
+    show('body');
   };
 
   // 填表頁上方卡片：專業版→近 7 日折線趨勢圖（PIN 保護）；非專業版→升級解鎖賣點
@@ -771,15 +767,15 @@
   }
 
   /* ---------- 導覽 ---------- */
-  var stepOrder = ['kpi', 'body'];
-  var cur = 'kpi';
+  var stepOrder = ['body', 'kpi'];
+  var cur = 'body';
   $('#navNext').onclick = function () {
-    if (cur === 'kpi') { cur = 'body'; show('body'); }
-    else if (cur === 'body') { submit(); }
+    if (cur === 'body') submit();
+    else if (cur === 'kpi') submitWeekly();
   };
   $('#navPrev').onclick = function () {
-    if (cur === 'body') { cur = 'kpi'; show('kpi'); }
-    else if (cur === 'kpi') { show('who'); }
+    if (cur === 'body') show('who');
+    else if (cur === 'kpi') { cur = 'body'; show('result'); }
   };
 
   // 心情
@@ -803,14 +799,7 @@
 
   function buildAdvice(scores, payload) {
     var tips = [];
-    var phys = ['pio_sleep', 'pio_spirit', 'pio_soreness', 'pio_injury', 'pio_recovery'];
-    var recovery = phys.reduce(function (a, k) { return a + Number(scores[k] || 0); }, 0) / phys.length;
-    if (recovery <= 2.5) tips.push('恢復偏低：今晚提早就寢、補充蛋白質與水分，明日訓練量先降一階。');
-    else if (recovery <= 3.5) tips.push('恢復普通：訓練後 30 分鐘內補碳水＋蛋白，做足收操伸展。');
-    else tips.push('恢復良好：維持目前作息，訓練後正常補給即可。');
-
-    if (Number(scores.pio_injury) <= 2) tips.push('⚠️ 傷勢安全度偏低，請主動告知教練、必要時就醫評估，勿硬撐。');
-    if (Number(scores.pio_soreness) <= 2) tips.push('肌肉痠痛明顯：加強滾筒放鬆與輕度活動，避免連續高強度。');
+    tips.push('已完成今日狀態回報，請依疼痛、睡眠與水分狀態調整訓練。');
     if (!payload.breakfast) tips.push('今天沒記錄早餐：訓練選手務必吃早餐，建議優質碳水＋蛋白質。');
     if (payload.lateNightSnack) tips.push('有吃宵夜：盡量避免高油高糖宵夜，影響睡眠與體重控制。');
 
@@ -858,10 +847,10 @@
     if (!$('#sleepBedTime').value || !$('#wakeTime').value) { toast('請填寫昨晚就寢與今天起床時間。', true); return; }
     if (formState.painStatus !== 'none' && !injurySel.length) { toast('請至少選擇一個疼痛部位。', true); return; }
     if (formState.painStatus !== 'none' && Number($('#painScore').value) < 1) { toast('有疼痛時，疼痛分數請選擇 1–10 分。', true); return; }
-    var scores = collectScores();
+    var scores = {};
     var payload = {
       t: shareToken, athleteId: ctx.athleteId, date: ($('#recordDate').value || localToday()),
-      sessionType: $('#sessionType').value, scores: scores,
+      sessionType: $('#sessionType').value,
       heightCm: $('#heightCm').value, weightKg: $('#weightKg').value, targetWeightKg: $('#targetWeightKg').value,
       breakfast: $('#breakfast').value, lunch: $('#lunch').value, dinner: $('#dinner').value,
       snacksDrinks: $('#snacksDrinks').value,
@@ -885,25 +874,21 @@
     if (!r.ok) { toast(r.error || '送出失敗', true); return; }
 
     ctx.result = r;
+    ctx.kpiState = await TP.call('kpiFormState', { t: shareToken, athleteId: ctx.athleteId, date: localToday(), pin: ctx.pin });
     showResult(r, payload, tips);
     show('result');
   }
 
   function showResult(r, payload, tips) {
-    var total = Number(r.totalScore) || 0;
-    var light = r.status || TP.lightOf(total);
-    $('#resScore').textContent = total.toFixed(1);
+    var light = r.status || 'green';
+    $('#resScore').textContent = '✓';
     $('#resScore').style.color = light === 'green' ? 'var(--green)' : (light === 'yellow' ? 'var(--yellow)' : 'var(--red)');
     $('#resLight').innerHTML = '<span class="pill ' + light + '">' + TP.lightText(light) + '</span>';
-    $('#resDims').innerHTML = TP.KPI_DIMENSIONS.map(function (d) {
-      return esc(d.name) + ' ' + (Number(r.dimAvg[d.key]) || 0).toFixed(1);
-    }).join('　');
+    $('#resDims').textContent = '今日輕量回報已儲存';
     $('#resAdvice').innerHTML = tips.map(function (t) { return '• ' + esc(t); }).join('<br>');
-    if (r.quality) $('#resAdvice').innerHTML += '<br><br>回報可信度：<b>' + esc(r.quality.score) + '（' + esc(r.quality.label) + '）</b>';
+    if (r.quality) $('#resAdvice').innerHTML += '<br><br>資料品質：<b>' + esc(r.quality.score) + '（' + esc(r.quality.label) + '）</b>';
 
-    var studentText = '【' + ctx.name + ' 今日回報】\n總分 ' + total.toFixed(1) + '（' + TP.lightText(light) + '）\n' +
-      TP.KPI_DIMENSIONS.map(function (d) { return d.name + ' ' + (Number(r.dimAvg[d.key]) || 0).toFixed(1); }).join('・') +
-      '\n建議：' + tips[0];
+    var studentText = '【' + ctx.name + ' 今日回報】\n狀態：' + TP.lightText(light) + '\n建議：' + tips[0];
     // 家長版只給「整理後摘要」：不含原始分數、燈號標籤、受傷/睡眠等敏感原文
     var hasSensitive = (light === 'red') || (payload.injuryAreas && payload.injuryAreas !== '無受傷');
     var parentText = '家長您好：\n' + TP.parentSummary({ name: ctx.name, light: light, private: hasSensitive }) +
@@ -912,7 +897,42 @@
 
     $('#btnCopyStudent').onclick = function () { TP.copy(studentText); };
     $('#btnCopyParent').onclick = function () { TP.copy(parentText); };
+    $('#btnWeeklyKpi').classList.toggle('hidden', !(ctx.kpiState && ctx.kpiState.kpiDue));
   }
+
+  async function kpiPin() {
+    var creating = ctx.kpiState && !ctx.kpiState.hasPin;
+    var pin = (window.prompt(creating ? '請設定 4 位數 PIN，保護你的每週 KPI' : '請輸入 4 位數 PIN 送出每週 KPI') || '').trim();
+    if (!/^\d{4}$/.test(pin)) { toast('請輸入 4 位數字 PIN', true); return ''; }
+    if (creating) {
+      var sr = await TP.call('setPerfPin', { t: shareToken, athleteId: ctx.athleteId, pin: pin });
+      if (!sr.ok) { toast(sr.error || 'PIN 設定失敗', true); return ''; }
+      ctx.kpiState.hasPin = true;
+    }
+    return pin;
+  }
+
+  async function submitWeekly() {
+    var pin = ctx.pin || await kpiPin();
+    if (!pin) return;
+    $('#navNext').textContent = '送出中…'; $('#navNext').disabled = true;
+    var r = await TP.call('submitWeeklyKpi', { t: shareToken, athleteId: ctx.athleteId,
+      weekStart: ctx.kpiState.weekStart, pin: pin, scores: collectScores() });
+    $('#navNext').textContent = '送出上週 KPI'; $('#navNext').disabled = false;
+    if (!r.ok) { ctx.pin = ''; toast(r.message || r.error || '送出失敗', true); return; }
+    ctx.pin = pin; ctx.kpiState.kpiDue = false; ctx.kpiState.completed = true;
+    $('#resScore').textContent = Number(r.totalScore).toFixed(1);
+    $('#resLight').innerHTML = '<span class="pill ' + r.status + '">上週 KPI · ' + TP.lightText(r.status) + '</span>';
+    $('#resDims').innerHTML = TP.KPI_DIMENSIONS.map(function (d) { return esc(d.name) + ' ' + Number(r.dimAvg[d.key]).toFixed(1); }).join('　');
+    $('#btnWeeklyKpi').classList.add('hidden');
+    cur = 'body'; show('result'); toast('上週 KPI 已完成');
+  }
+
+  $('#btnWeeklyKpi').onclick = function () {
+    if (!ctx.kpiState || !ctx.kpiState.kpiDue) return;
+    $('#kpiPeriod').textContent = '評估期間：' + ctx.kpiState.weekStart + ' ～ ' + ctx.kpiState.weekEnd + '。請回顧整週實際表現，不要直接複製上次答案。';
+    cur = 'kpi'; $('#navNext').textContent = '送出上週 KPI'; show('kpi');
+  };
 
   $('#btnAgain').onclick = function () { location.reload(); };
 

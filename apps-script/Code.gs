@@ -29,7 +29,8 @@ var SHEETS = {
   contacts: 'contacts',
   privacyRequests: 'privacyRequests',
   attendance: 'attendance',
-  competitions: 'competitions'
+  competitions: 'competitions',
+  weeklyKpi: 'weeklyKpi'
 };
 
 /* ---------- 表頭 ---------- */
@@ -37,7 +38,7 @@ var H = {
   coaches:  ['coachId', 'email', 'passwordHash', 'salt', 'name', 'plan', 'planExpiry', 'status', 'createdAt', 'lastLogin', 'paymentNote', 'settings'],
   sessions: ['token', 'coachId', 'expiresAt'],
   teams:    ['teamId', 'coachId', 'teamName', 'sport', 'shareToken', 'status', 'createdAt', 'competitionSystem', 'sportCategory', 'memberTerm'],
-  athletes: ['athleteId', 'coachId', 'teamId', 'name', 'gradeClass', 'grp', 'active', 'createdAt', 'lastPerformanceVisibility', 'perfPinHash', 'perfPinSalt'],
+  athletes: ['athleteId', 'coachId', 'teamId', 'name', 'gradeClass', 'grp', 'active', 'createdAt', 'lastPerformanceVisibility', 'perfPinHash', 'perfPinSalt', 'kpiEnabled', 'kpiEnabledAt'],
   audit:    ['time', 'actor', 'action', 'target', 'detail'],
   contacts: ['time', 'topic', 'name', 'email', 'message'],
   privacyRequests: ['requestId', 'coachId', 'athleteId', 'athleteName', 'requestType', 'scope', 'note', 'status', 'createdAt', 'handledAt', 'resolutionNote'],
@@ -94,6 +95,11 @@ var KPI_ITEMS = [
   // 生理 physiological
   'pio_sleep', 'pio_spirit', 'pio_soreness', 'pio_injury', 'pio_recovery'
 ];
+var WEEKLY_KPI_HEADERS = ['weeklyKpiId', 'coachId', 'teamId', 'athleteId', 'name', 'weekStart', 'weekEnd', 'submittedAt', 'updatedAt']
+  .concat(KPI_ITEMS)
+  .concat(['technicalAvg', 'tacticalAvg', 'physicalAvg', 'mentalAvg', 'attitudeAvg', 'physiologicalAvg',
+    'totalScore', 'status', 'qualityScore', 'qualityLabel', 'qualityReasons', 'rawJson']);
+H.weeklyKpi = WEEKLY_KPI_HEADERS;
 
 var RECORD_HEADERS = ['recordId', 'coachId', 'teamId', 'athleteId', 'name', 'date', 'timestamp', 'sessionType']
   .concat(KPI_ITEMS)
@@ -206,6 +212,7 @@ function handle(action, d) {
     case 'addAthlete':      return jsonOut(withCoach(d, addAthlete));
     case 'setAthleteActive':return jsonOut(withCoach(d, setAthleteActive));
     case 'updateAthlete':   return jsonOut(withCoach(d, updateAthlete));
+    case 'setKpiTracking':  return jsonOut(withCoach(d, setKpiTracking));
     case 'deleteAthlete':   return jsonOut(withCoach(d, deleteAthlete));
 
     /* ---- 快速點名（跨裝置同步，存後端） ---- */
@@ -217,6 +224,7 @@ function handle(action, d) {
     case 'warroom':         return jsonOut(withCoach(d, warroom));
     case 'athleteRecords':  return jsonOut(withCoach(d, athleteRecords));
     case 'teamReport':      return jsonOut(withCoach(d, teamReport));
+    case 'athleteWeeklyKpis': return jsonOut(withCoach(d, athleteWeeklyKpis));
     case 'visitSummary':    return jsonOut(withCoach(d, visitSummary));
     case 'trialSummary':    return jsonOut(withCoach(d, trialSummary));
     case 'coachFeedback':   return jsonOut(withCoach(d, coachFeedback));
@@ -230,6 +238,8 @@ function handle(action, d) {
     case 'contact':         return jsonOut(contactSubmit(d));
     case 'joinInfo':        return jsonOut(joinInfo(d));
     case 'submitRecord':    return jsonOut(submitRecord(d));
+    case 'kpiFormState':    return jsonOut(kpiFormState(d));
+    case 'submitWeeklyKpi': return jsonOut(submitWeeklyKpi(d));
     case 'lastRecord':      return jsonOut(lastRecord(d));
     case 'myRecords':       return jsonOut(myRecords(d));
     case 'perfPinStatus':   return jsonOut(perfPinStatus(d));
@@ -257,6 +267,20 @@ function todayStr() {
   var tz = Session.getScriptTimeZone() || 'Asia/Taipei';
   return Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
 }
+function weekStartOf(date) {
+  var p = String(date || '').split('-');
+  if (p.length !== 3) return '';
+  var dt = new Date(Date.UTC(Number(p[0]), Number(p[1]) - 1, Number(p[2]), 12));
+  if (isNaN(dt.getTime())) return '';
+  var day = dt.getUTCDay();
+  dt.setUTCDate(dt.getUTCDate() - (day === 0 ? 6 : day - 1));
+  return Utilities.formatDate(dt, 'UTC', 'yyyy-MM-dd');
+}
+function addDateDays(date, days) {
+  var p = String(date || '').split('-');
+  var dt = new Date(Date.UTC(Number(p[0]), Number(p[1]) - 1, Number(p[2]) + Number(days || 0), 12));
+  return Utilities.formatDate(dt, 'UTC', 'yyyy-MM-dd');
+}
 /* Sheets 會把 "2026-06-19" 自動轉成 Date 物件，讀回需正規化回 yyyy-MM-dd 字串 */
 function formatDateCell(v) {
   if (v instanceof Date) {
@@ -272,11 +296,12 @@ function getProp(k) { return PropertiesService.getScriptProperties().getProperty
 function setProp(k, v) { PropertiesService.getScriptProperties().setProperty(k, v == null ? '' : String(v)); }
 
 function ss() { return SpreadsheetApp.getActiveSpreadsheet(); }
+function headersFor(name) { return name === SHEETS.records ? RECORD_HEADERS : H[name]; }
 
 /* 取得（或建立）指定分頁，並確保表頭 */
 function sheet(name) {
   var s = ss().getSheetByName(name);
-  var headers = H[name] || (name === SHEETS.records ? RECORD_HEADERS : null);
+  var headers = headersFor(name);
   if (!s) {
     s = ss().insertSheet(name);
     if (headers) { s.getRange(1, 1, 1, headers.length).setValues([headers]); s.setFrozenRows(1); }
@@ -296,15 +321,17 @@ function sheet(name) {
 /* 讀整個分頁為物件陣列 */
 function readAll(name) {
   var s = sheet(name);
-  var headers = (name === SHEETS.records) ? RECORD_HEADERS : H[name];
+  var headers = headersFor(name);
   var last = s.getLastRow();
   if (last < 2) return [];
   var vals = s.getRange(2, 1, last - 1, headers.length).getValues();
-  var isRecords = (name === SHEETS.records);
+  var isRecords = (name === SHEETS.records || name === SHEETS.weeklyKpi);
   return vals.map(function (row) {
     var o = {};
     for (var i = 0; i < headers.length; i++) o[headers[i]] = row[i];
-    if (isRecords && o.date) o.date = formatDateCell(o.date); // 防 Sheets 日期型別位移
+    if (name === SHEETS.records && o.date) o.date = formatDateCell(o.date); // 防 Sheets 日期型別位移
+    if (name === SHEETS.weeklyKpi && o.weekStart) o.weekStart = formatDateCell(o.weekStart);
+    if (name === SHEETS.weeklyKpi && o.weekEnd) o.weekEnd = formatDateCell(o.weekEnd);
     return o;
   });
 }
@@ -312,7 +339,7 @@ function readAll(name) {
 /* 依某欄找列號（1-based sheet row），找不到回 -1 */
 function findRow(name, colKey, value) {
   var s = sheet(name);
-  var headers = (name === SHEETS.records) ? RECORD_HEADERS : H[name];
+  var headers = headersFor(name);
   var col = headers.indexOf(colKey);
   if (col === -1) return -1;
   var last = s.getLastRow();
@@ -324,7 +351,7 @@ function findRow(name, colKey, value) {
 
 /* 物件 → 依表頭順序的列陣列 */
 function toRow(name, obj) {
-  var headers = (name === SHEETS.records) ? RECORD_HEADERS : H[name];
+  var headers = headersFor(name);
   return headers.map(function (k) { var v = obj[k]; return (v === undefined || v === null) ? '' : v; });
 }
 function appendObj(name, obj) { sheet(name).appendRow(toRow(name, obj)); }
@@ -630,18 +657,19 @@ function deleteTeam(c, d) {
     var t = readAll(SHEETS.teams)[row - 2];
     if (String(t.coachId) !== String(c.coachId)) return { ok: false, error: 'forbidden' };
     var recN = deleteRowsByValue(SHEETS.records, 'teamId', d.teamId);
+    var wkN = deleteRowsByValue(SHEETS.weeklyKpi, 'teamId', d.teamId);
     var athN = deleteRowsByValue(SHEETS.athletes, 'teamId', d.teamId);
     var trow = findRow(SHEETS.teams, 'teamId', d.teamId);
     if (trow !== -1) sheet(SHEETS.teams).deleteRow(trow);
-    audit(c.email, 'deleteTeam', d.teamId, t.teamName + ' (選手' + athN + '/紀錄' + recN + ')');
-    return { ok: true, deletedAthletes: athN, deletedRecords: recN };
+    audit(c.email, 'deleteTeam', d.teamId, t.teamName + ' (選手' + athN + '/日報' + recN + '/週KPI' + wkN + ')');
+    return { ok: true, deletedAthletes: athN, deletedRecords: recN, deletedWeeklyKpis: wkN };
   } finally { lock.releaseLock(); }
 }
 
 /* 刪除某欄位等於指定值的所有列（由下往上刪避免位移） */
 function deleteRowsByValue(name, colKey, value) {
   var s = sheet(name);
-  var headers = (name === SHEETS.records) ? RECORD_HEADERS : H[name];
+  var headers = headersFor(name);
   var col = headers.indexOf(colKey);
   var last = s.getLastRow();
   if (col === -1 || last < 2) return 0;
@@ -657,15 +685,66 @@ function deleteRowsByValue(name, colKey, value) {
    選手（含配額鎖）
    ============================================================ */
 function listAthletes(c, d) {
+  var kpiLimit = PLANS[effectivePlan(c)].kpiAthletes;
+  var effectiveIds = effectiveKpiIds(c.coachId, kpiLimit);
+  var reviewWeek = addDateDays(weekStartOf(todayStr()), -7);
+  var completed = {};
+  weeklyKpisCompat(c.coachId, '', '', reviewWeek, reviewWeek).forEach(function (x) { completed[String(x.athleteId)] = true; });
   var list = readAll(SHEETS.athletes).filter(function (a) {
     return String(a.coachId) === String(c.coachId) && (!d.teamId || String(a.teamId) === String(d.teamId));
   }).map(function (a) {
     // 不外洩 PIN 雜湊/鹽，只回是否已設定
     a.hasPerfPin = athleteHasPin(a);
+    a.kpiEnabled = boolCell(a.kpiEnabled);
+    a.kpiEffective = !!effectiveIds[String(a.athleteId)];
+    a.kpiWeekStatus = !a.kpiEnabled ? 'disabled' : (a.kpiEffective ? (completed[String(a.athleteId)] ? 'completed' : 'due') : 'suspended');
     delete a.perfPinHash; delete a.perfPinSalt;
     return a;
   });
-  return { ok: true, athletes: list, activeCount: countActiveAthletes(c.coachId), max: PLANS[effectivePlan(c)].maxAthletes };
+  return { ok: true, athletes: list, activeCount: countActiveAthletes(c.coachId), max: PLANS[effectivePlan(c)].maxAthletes,
+    kpiUsed: Object.keys(effectiveIds).length, kpiEnabledCount: countKpiEnabled(c.coachId), kpiLimit: kpiLimit,
+    kpiReviewWeekStart: reviewWeek, kpiReviewWeekEnd: addDateDays(reviewWeek, 6) };
+}
+
+function boolCell(v) { return v === true || String(v).toLowerCase() === 'true' || String(v) === '1'; }
+function countKpiEnabled(coachId) {
+  return readAll(SHEETS.athletes).filter(function (a) {
+    return String(a.coachId) === String(coachId) && String(a.active) !== 'false' && a.active !== false && boolCell(a.kpiEnabled);
+  }).length;
+}
+function effectiveKpiIds(coachId, limit) {
+  var rows = readAll(SHEETS.athletes).filter(function (a) {
+    return String(a.coachId) === String(coachId) && String(a.active) !== 'false' && a.active !== false && boolCell(a.kpiEnabled);
+  }).sort(function (a, b) {
+    return String(a.kpiEnabledAt || a.createdAt || '').localeCompare(String(b.kpiEnabledAt || b.createdAt || '')) ||
+      String(a.athleteId).localeCompare(String(b.athleteId));
+  });
+  var ids = {};
+  rows.slice(0, Number(limit || 0)).forEach(function (a) { ids[String(a.athleteId)] = true; });
+  return ids;
+}
+
+function setKpiTracking(c, d) {
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var row = findRow(SHEETS.athletes, 'athleteId', d.athleteId || '');
+    if (row === -1) return { ok: false, error: '找不到選手' };
+    var a = readAll(SHEETS.athletes)[row - 2];
+    if (String(a.coachId) !== String(c.coachId)) return { ok: false, error: 'forbidden' };
+    var want = !!d.enabled;
+    if (want && !boolCell(a.kpiEnabled)) {
+      if (String(a.active) === 'false' || a.active === false) return { ok: false, error: '停用中的選手不能開啟 KPI 追蹤' };
+      var plan = effectivePlan(c), limit = PLANS[plan].kpiAthletes;
+      if (countKpiEnabled(c.coachId) >= limit)
+        return { ok: false, error: 'kpi_limit_reached', limit: limit, plan: plan,
+          message: PLANS[plan].name + '最多可追蹤 ' + limit + ' 位選手 KPI。' };
+    }
+    var s = sheet(SHEETS.athletes);
+    s.getRange(row, H.athletes.indexOf('kpiEnabled') + 1).setValue(want);
+    s.getRange(row, H.athletes.indexOf('kpiEnabledAt') + 1).setValue(want ? (a.kpiEnabledAt || now()) : '');
+    audit(c.email, 'setKpiTracking', a.athleteId, String(want));
+    return { ok: true, enabled: want, kpiUsed: countKpiEnabled(c.coachId), kpiLimit: PLANS[effectivePlan(c)].kpiAthletes };
+  } finally { lock.releaseLock(); }
 }
 
 function addAthlete(c, d) {
@@ -698,7 +777,7 @@ function addAthlete(c, d) {
     var a = {
       athleteId: uid('a_'), coachId: c.coachId, teamId: teamId, name: name,
       gradeClass: String(d.gradeClass || ''), grp: String(d.grp || ''), active: true, createdAt: now(),
-      lastPerformanceVisibility: normVisibility(d.lastPerformanceVisibility)
+      lastPerformanceVisibility: normVisibility(d.lastPerformanceVisibility), kpiEnabled: false, kpiEnabledAt: ''
     };
     appendObj(SHEETS.athletes, a);
     audit(c.email, 'addAthlete', a.athleteId, name);
@@ -781,10 +860,11 @@ function deleteAthlete(c, d) {
     var a = readAll(SHEETS.athletes)[row - 2];
     if (String(a.coachId) !== String(c.coachId)) return { ok: false, error: 'forbidden' };
     var recN = deleteRowsByValue(SHEETS.records, 'athleteId', d.athleteId);
+    var wkN = deleteRowsByValue(SHEETS.weeklyKpi, 'athleteId', d.athleteId);
     var arow = findRow(SHEETS.athletes, 'athleteId', d.athleteId);
     if (arow !== -1) sheet(SHEETS.athletes).deleteRow(arow);
-    audit(c.email, 'deleteAthlete', d.athleteId, a.name + ' (紀錄' + recN + ')');
-    return { ok: true, deletedRecords: recN, activeCount: countActiveAthletes(c.coachId) };
+    audit(c.email, 'deleteAthlete', d.athleteId, a.name + ' (日報' + recN + '/週KPI' + wkN + ')');
+    return { ok: true, deletedRecords: recN, deletedWeeklyKpis: wkN, activeCount: countActiveAthletes(c.coachId) };
   } finally { lock.releaseLock(); }
 }
 
@@ -800,6 +880,7 @@ function visitSummary(c, d) {
   var recs = readAll(SHEETS.records).filter(function (r) {
     return String(r.coachId) === String(c.coachId) && (!teamId || String(r.teamId) === String(teamId)) && inRange(r.date);
   });
+  var visitWeekly = weeklyKpisCompat(c.coachId, teamId, '', from ? weekStartOf(from) : '', to ? weekStartOf(to) : '');
   var att = readAll(SHEETS.attendance).filter(function (a) {
     return String(a.coachId) === String(c.coachId) && (!teamId || String(a.teamId) === String(teamId)) && inRange(a.date);
   });
@@ -836,7 +917,8 @@ function visitSummary(c, d) {
     ok: true, athleteCount: aCount, days: days,
     trainingDays: att.length, courses: Object.keys(courses),
     attendanceRate: slots ? Math.round(present / slots * 100) : 0,
-    reportCount: recs.length, reportRate: (aCount && days) ? Math.min(100, Math.round(recs.length / (aCount * days) * 100)) : 0,
+    reportCount: recs.length, weeklyKpiCount: visitWeekly.length,
+    reportRate: (aCount && days) ? Math.min(100, Math.round(recs.length / (aCount * days) * 100)) : 0,
     notesFilled: notesFilled, feedbackCount: fbCount,
     injuryAthletes: Object.keys(injSet).length, maxPain: maxPain, painParts: Object.keys(painParts),
     sleepShort: sleepShort, hydrationFlag: hydrFlag, lights: lights,
@@ -938,20 +1020,28 @@ function warroom(c, d) {
   Object.keys(historyByAthlete).forEach(function (key) {
     historyByAthlete[key].sort(function (x, y) { return String(y.date).localeCompare(String(x.date)); });
   });
+  var weeklyByAthlete = {};
+  weeklyKpisCompat(c.coachId, teamId, '', '', '').forEach(function (r) {
+    (weeklyByAthlete[String(r.athleteId)] || (weeklyByAthlete[String(r.athleteId)] = [])).push(r);
+  });
+  var reviewWeek = addDateDays(weekStartOf(date), -7);
+  var effectiveIds = effectiveKpiIds(c.coachId, PLANS[effectivePlan(c)].kpiAthletes);
+  var weeklyCompleted = 0;
 
   var submitted = [], missing = [], lights = { green: 0, yellow: 0, red: 0 }, encourages = [];
   var declining = [], worthEncouraging = [];
   athletes.forEach(function (a) {
     var r = byAthlete[String(a.athleteId)];
     if (r) {
-      var light = r.status || lightOf(r.totalScore);
-      var history = historyByAthlete[String(a.athleteId)] || [];
-      var isDeclining = history.length >= 3 &&
-        Number(history[0].totalScore) < Number(history[1].totalScore) &&
-        Number(history[1].totalScore) < Number(history[2].totalScore);
+      var light = r.status || riskStatus('green', r.painRisk, r.sleepRisk, r.hydrationRisk);
+      var weekly = weeklyByAthlete[String(a.athleteId)] || [];
+      var latestKpi = weekly[0] || null;
+      var isDeclining = weekly.length >= 3 && Number(weekly[0].totalScore) < Number(weekly[1].totalScore) &&
+        Number(weekly[1].totalScore) < Number(weekly[2].totalScore);
       lights[light] = (lights[light] || 0) + 1;
       submitted.push({
-        athleteId: a.athleteId, name: a.name, totalScore: r.totalScore, status: light,
+        athleteId: a.athleteId, name: a.name, totalScore: latestKpi ? latestKpi.totalScore : '', status: light,
+        kpiWeekStart: latestKpi ? latestKpi.weekStart : '',
         moodIndex: r.moodIndex, recordId: r.recordId, declining: isDeclining,
         sleepDurationMinutes: r.sleepDurationMinutes, sleepDurationText: r.sleepDurationText,
         sleepRisk: r.sleepRisk, painStatus: r.painStatus, painAreas: r.painAreas || r.injuryAreas,
@@ -963,18 +1053,25 @@ function warroom(c, d) {
         coachSuggestion: r.coachSuggestion
       });
       if (isDeclining) declining.push({ athleteId: a.athleteId, name: a.name });
-      if (light === 'green' && Number(r.totalScore) >= 4.3)
-        worthEncouraging.push({ athleteId: a.athleteId, name: a.name, totalScore: r.totalScore });
+      if (light === 'green' && latestKpi && Number(latestKpi.totalScore) >= 4.3)
+        worthEncouraging.push({ athleteId: a.athleteId, name: a.name, totalScore: latestKpi.totalScore });
       if (r.encourageMsg && String(r.encourageMsg).trim())
         encourages.push({ from: a.name, to: r.encourageName || '', msg: String(r.encourageMsg) });
     } else {
       missing.push({ athleteId: a.athleteId, name: a.name });
     }
   });
+  athletes.forEach(function (a) {
+    if (effectiveIds[String(a.athleteId)] && (weeklyByAthlete[String(a.athleteId)] || []).some(function (x) { return String(x.weekStart) === reviewWeek; })) weeklyCompleted++;
+  });
+  var weeklyTotal = athletes.filter(function (a) { return effectiveIds[String(a.athleteId)]; }).length;
   return {
     ok: true, date: date,
     total: athletes.length, submittedCount: submitted.length, missingCount: missing.length,
     completionRate: athletes.length ? Math.round(submitted.length / athletes.length * 100) : 0,
+    weeklyKpi: { weekStart: reviewWeek, weekEnd: addDateDays(reviewWeek, 6), total: weeklyTotal,
+      completed: weeklyCompleted, missing: Math.max(0, weeklyTotal - weeklyCompleted),
+      completionRate: weeklyTotal ? Math.round(weeklyCompleted / weeklyTotal * 100) : 0 },
     lights: lights, submitted: submitted, missing: missing, encourages: encourages,
     priority: {
       red: submitted.filter(function (s) { return s.status === 'red'; }),
@@ -1042,6 +1139,10 @@ function teamReport(c, d) {
            (!teamId || String(a.teamId) === String(teamId));
   });
   var aIds = {}; athletes.forEach(function (a) { aIds[String(a.athleteId)] = a; });
+  var fromWeek = from ? weekStartOf(from) : '', toWeek = to ? weekStartOf(to) : '';
+  var weekly = weeklyKpisCompat(c.coachId, teamId, '', fromWeek, toWeek).filter(function (r) {
+    return !!aIds[String(r.athleteId)];
+  });
 
   var recs = readAll(SHEETS.records).filter(function (r) {
     return String(r.coachId) === String(c.coachId) &&
@@ -1056,19 +1157,19 @@ function teamReport(c, d) {
   var byDate = {};      // date -> {sum,n}
   var perA = {};        // athleteId -> {recs:[]}
 
-  recs.forEach(function (r) {
+  weekly.forEach(function (r) {
     var t = Number(r.totalScore) || 0;
     if (t > 0) { totalSum += t; totalN++; }
     var l = r.status || lightOf(r.totalScore); lights[l] = (lights[l] || 0) + 1;
     DIMK.forEach(function (k) { var v = Number(r[k]) || 0; if (v > 0) { dimSum[k] += v; dimN[k]++; } });
-    var ds = byDate[r.date] || (byDate[r.date] = { sum: 0, n: 0 });
+    var ds = byDate[r.weekStart] || (byDate[r.weekStart] = { sum: 0, n: 0 });
     if (t > 0) { ds.sum += t; ds.n++; }
     (perA[r.athleteId] || (perA[r.athleteId] = [])).push(r);
   });
 
   // 每位選手摘要
   var athleteRows = athletes.map(function (a) {
-    var rs = (perA[a.athleteId] || []).slice().sort(function (x, y) { return String(x.date).localeCompare(String(y.date)); });
+    var rs = (perA[a.athleteId] || []).slice().sort(function (x, y) { return String(x.weekStart).localeCompare(String(y.weekStart)); });
     var totals = rs.map(function (r) { return Number(r.totalScore) || 0; }).filter(function (v) { return v > 0; });
     var avg = totals.length ? +(totals.reduce(function (s, v) { return s + v; }, 0) / totals.length).toFixed(2) : 0;
     var delta = (rs.length >= 2) ? +((Number(rs[rs.length - 1].totalScore) || 0) - (Number(rs[0].totalScore) || 0)).toFixed(2) : 0;
@@ -1089,6 +1190,8 @@ function teamReport(c, d) {
     dimAvg: dimAvg, lights: lights,
     totalReports: recs.length, expectedReports: expected,
     completionRate: expected ? Math.round(recs.length / expected * 100) : 0,
+    weeklyKpiReports: weekly.length,
+    weeklyKpiExpected: athletes.filter(function (a) { return boolCell(a.kpiEnabled); }).length * Math.max(1, Object.keys(byDate).length),
     trend: trend, athletes: athleteRows
   };
 }
@@ -1239,10 +1342,125 @@ function myRecords(d) {
   if (!a) return { ok: false, error: '選手不屬於此團隊' };
   if (!athleteHasPin(a)) return { ok: false, noPin: true, error: '尚未設定 PIN' };
   if (!pinOk(a, d.pin)) return { ok: false, pinRequired: true, error: 'PIN 不正確' };
-  var recs = readAll(SHEETS.records).filter(function (r) {
-    return String(r.teamId) === String(t.teamId) && String(r.athleteId) === aId;
-  }).sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
+  var recs = weeklyKpisCompat(t.coachId, t.teamId, aId, '', '').map(function (r) {
+    r.date = r.weekStart; return r;
+  });
   return { ok: true, records: recs.slice(0, Number(d.limit || 14)) };
+}
+
+function weeklyScoreOf(scores) {
+  var dimAvg = {}, allValid = true;
+  KPI_DIMENSIONS.forEach(function (dim, di) {
+    var items = KPI_ITEMS.slice(di * 5, di * 5 + 5), sum = 0;
+    items.forEach(function (k) {
+      var v = Number(scores[k]);
+      if (v < 1 || v > 5 || Math.floor(v) !== v) allValid = false;
+      else sum += v;
+    });
+    dimAvg[dim] = +(sum / 5).toFixed(2);
+  });
+  var total = +(KPI_DIMENSIONS.reduce(function (s, k) { return s + dimAvg[k]; }, 0) / KPI_DIMENSIONS.length).toFixed(2);
+  return { valid: allValid, dimAvg: dimAvg, total: total, status: lightOf(total) };
+}
+
+/* 新週 KPI + 舊 records 相容層：舊資料每人每週只取最後一筆。 */
+function weeklyKpisCompat(coachId, teamId, athleteId, fromWeek, toWeek) {
+  var byKey = {};
+  readAll(SHEETS.records).filter(function (r) {
+    return String(r.coachId) === String(coachId) && (!teamId || String(r.teamId) === String(teamId)) &&
+      (!athleteId || String(r.athleteId) === String(athleteId)) && Number(r.totalScore) > 0;
+  }).forEach(function (r) {
+    var ws = weekStartOf(r.date), key = String(r.athleteId) + '|' + ws;
+    if ((!fromWeek || ws >= fromWeek) && (!toWeek || ws <= toWeek) &&
+        (!byKey[key] || String(r.timestamp) > String(byKey[key].updatedAt))) {
+      byKey[key] = {
+        weeklyKpiId: 'legacy_' + r.recordId, coachId: r.coachId, teamId: r.teamId,
+        athleteId: r.athleteId, name: r.name, weekStart: ws, weekEnd: addDateDays(ws, 6),
+        submittedAt: r.timestamp, updatedAt: r.timestamp,
+        technicalAvg: r.technicalAvg, tacticalAvg: r.tacticalAvg, physicalAvg: r.physicalAvg,
+        mentalAvg: r.mentalAvg, attitudeAvg: r.attitudeAvg, physiologicalAvg: r.physiologicalAvg,
+        totalScore: r.totalScore, status: lightOf(r.totalScore), legacy: true, rawJson: r.rawJson
+      };
+    }
+  });
+  readAll(SHEETS.weeklyKpi).filter(function (r) {
+    return String(r.coachId) === String(coachId) && (!teamId || String(r.teamId) === String(teamId)) &&
+      (!athleteId || String(r.athleteId) === String(athleteId)) &&
+      (!fromWeek || String(r.weekStart) >= fromWeek) && (!toWeek || String(r.weekStart) <= toWeek);
+  }).forEach(function (r) { byKey[String(r.athleteId) + '|' + String(r.weekStart)] = r; });
+  return Object.keys(byKey).map(function (k) { return byKey[k]; }).sort(function (a, b) {
+    return String(b.weekStart).localeCompare(String(a.weekStart));
+  });
+}
+
+function kpiEntitlementFor(t, a) {
+  var crow = findRow(SHEETS.coaches, 'coachId', t.coachId);
+  if (crow === -1) return { enabled: false, effective: false, limit: 0 };
+  var c = readAll(SHEETS.coaches)[crow - 2], limit = PLANS[effectivePlan(c)].kpiAthletes;
+  return { enabled: boolCell(a.kpiEnabled), effective: !!effectiveKpiIds(c.coachId, limit)[String(a.athleteId)], limit: limit };
+}
+
+function kpiFormState(d) {
+  var t = teamFromShareToken(d.t || d.shareToken);
+  if (!t) return { ok: false, error: '連結無效' };
+  var a = athleteInTeam(t.teamId, d.athleteId), date = String(d.date || todayStr());
+  if (!a) return { ok: false, error: '選手不屬於此團隊' };
+  var ent = kpiEntitlementFor(t, a);
+  var ws = addDateDays(weekStartOf(date), -7), recs = weeklyKpisCompat(t.coachId, t.teamId, a.athleteId, ws, ws);
+  return { ok: true, kpiEnabled: ent.enabled, kpiEffective: ent.effective, kpiDue: ent.effective && !recs.length,
+    weekStart: ws, weekEnd: addDateDays(ws, 6), completed: !!recs.length,
+    hasPin: athleteHasPin(a), pinRequired: athleteHasPin(a) && !pinOk(a, d.pin) };
+}
+
+function submitWeeklyKpi(d) {
+  var t = teamFromShareToken(d.t || d.shareToken);
+  if (!t) return { ok: false, error: '連結無效或已被重設' };
+  var a = athleteInTeam(t.teamId, d.athleteId);
+  if (!a) return { ok: false, error: '選手不屬於此團隊' };
+  var ent = kpiEntitlementFor(t, a);
+  if (!ent.enabled || !ent.effective) return { ok: false, error: 'kpi_not_enabled', message: '此選手未開啟 KPI 追蹤或已超過方案配額。' };
+  if (!athleteHasPin(a)) return { ok: false, noPin: true, error: '請先設定 4 位數 PIN 保護每週 KPI' };
+  if (!pinOk(a, d.pin)) return { ok: false, pinRequired: true, error: 'PIN 不正確' };
+  var expectedWeek = addDateDays(weekStartOf(todayStr()), -7);
+  var ws = String(d.weekStart || expectedWeek);
+  if (ws !== expectedWeek) return { ok: false, error: '只能填寫上週 KPI' };
+  var calc = weeklyScoreOf(d.scores || {});
+  if (!calc.valid) return { ok: false, error: '30 項 KPI 皆需填寫 1–5 分整數' };
+
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    ent = kpiEntitlementFor(t, readAll(SHEETS.athletes)[findRow(SHEETS.athletes, 'athleteId', a.athleteId) - 2]);
+    if (!ent.effective) return { ok: false, error: 'kpi_limit_reached', message: 'KPI 追蹤配額已滿。' };
+    var existing = readAll(SHEETS.weeklyKpi), hitRow = -1;
+    for (var i = 0; i < existing.length; i++) {
+      if (String(existing[i].athleteId) === String(a.athleteId) && String(existing[i].weekStart) === ws) { hitRow = i + 2; break; }
+    }
+    var same = 0, vals = KPI_ITEMS.map(function (k) { return Number(d.scores[k]); });
+    vals.forEach(function (v) { if (v === vals[0]) same++; });
+    var qScore = same === KPI_ITEMS.length ? 60 : 100;
+    var rec = {
+      weeklyKpiId: hitRow === -1 ? uid('wk_') : existing[hitRow - 2].weeklyKpiId,
+      coachId: t.coachId, teamId: t.teamId, athleteId: a.athleteId, name: a.name,
+      weekStart: ws, weekEnd: addDateDays(ws, 6), submittedAt: hitRow === -1 ? now() : existing[hitRow - 2].submittedAt,
+      updatedAt: now(), technicalAvg: calc.dimAvg.technical, tacticalAvg: calc.dimAvg.tactical,
+      physicalAvg: calc.dimAvg.physical, mentalAvg: calc.dimAvg.mental, attitudeAvg: calc.dimAvg.attitude,
+      physiologicalAvg: calc.dimAvg.physiological, totalScore: calc.total, status: calc.status,
+      qualityScore: qScore, qualityLabel: qScore >= 80 ? '正常' : '需確認',
+      qualityReasons: qScore < 80 ? '30 題全部同分' : '', rawJson: JSON.stringify(d.scores || {})
+    };
+    KPI_ITEMS.forEach(function (k) { rec[k] = Number(d.scores[k]); });
+    if (hitRow === -1) appendObj(SHEETS.weeklyKpi, rec);
+    else sheet(SHEETS.weeklyKpi).getRange(hitRow, 1, 1, WEEKLY_KPI_HEADERS.length).setValues([toRow(SHEETS.weeklyKpi, rec)]);
+    return { ok: true, updated: hitRow !== -1, totalScore: calc.total, status: calc.status,
+      dimAvg: calc.dimAvg, weekStart: ws, weekEnd: rec.weekEnd, quality: { score: qScore, label: rec.qualityLabel } };
+  } finally { lock.releaseLock(); }
+}
+
+function athleteWeeklyKpis(c, d) {
+  var aId = String(d.athleteId || ''), row = findRow(SHEETS.athletes, 'athleteId', aId);
+  if (row === -1 || String(readAll(SHEETS.athletes)[row - 2].coachId) !== String(c.coachId))
+    return { ok: false, error: 'forbidden' };
+  return { ok: true, records: weeklyKpisCompat(c.coachId, '', aId, '', '').slice(0, Number(d.limit || 30)) };
 }
 
 function sleepMetrics(bedTime, wakeTime) {
@@ -1360,21 +1578,12 @@ function submitRecord(d) {
   var a = readAll(SHEETS.athletes)[arow - 2];
   if (String(a.teamId) !== String(t.teamId)) return { ok: false, error: '選手不屬於此團隊' };
 
-  var scores = d.scores || {};
+  // 日報只儲存安全與恢復資料；30 項 KPI 由 submitWeeklyKpi 獨立寫入。
+  var scores = {};
   var date = d.date || todayStr();
-
-  // 計分：每面向 5 項平均、總分 6 面向等權平均
-  var dimAvg = {};
-  KPI_DIMENSIONS.forEach(function (dim, di) {
-    var items = KPI_ITEMS.slice(di * 5, di * 5 + 5);
-    var sum = 0, n = 0;
-    items.forEach(function (k) { var v = Number(scores[k]); if (v >= 1 && v <= 5) { sum += v; n++; } });
-    dimAvg[dim] = n ? +(sum / n).toFixed(2) : '';
-  });
-  var dims = KPI_DIMENSIONS.map(function (k) { return Number(dimAvg[k]) || 0; });
-  var filled = dims.filter(function (v) { return v > 0; }).length;
-  var total = filled ? +(dims.reduce(function (s, v) { return s + v; }, 0) / filled).toFixed(2) : 0;
-  var baseStatus = lightOf(total);
+  var dimAvg = { technical: '', tactical: '', physical: '', mental: '', attitude: '', physiological: '' };
+  var total = '';
+  var baseStatus = 'green';
 
   var athleteHistory = readAll(SHEETS.records).filter(function (r) {
     return String(r.teamId) === String(t.teamId) && String(r.athleteId) === aId && String(r.date) < String(date);
@@ -1386,7 +1595,7 @@ function submitRecord(d) {
     date: date, waterAmount: d.waterAmount, sweatAmount: d.sweatAmount,
     urineColor: d.urineColor, fatigue: d.fatigue
   }, athleteHistory[0] || null, sleep);
-  var quality = qualityMetrics(d, scores, total, dimAvg, athleteHistory, pain, sleep);
+  var quality = qualityMetrics(d, scores, total, dimAvg, [], pain, sleep);
   var status = riskStatus(baseStatus, pain.risk, sleep.risk, hydration.risk);
 
   var height = Number(d.heightCm) || '';
@@ -1431,10 +1640,10 @@ function submitRecord(d) {
     compLocation: String(d.compLocation || ''), compResult: String(d.compResult || ''),
     compDetail: String(d.compDetail || ''), compReflection: String(d.compReflection || ''),
     compAward: d.compAward ? true : false, compAwardLink: String(d.compAwardLink || ''),
-    rawJson: JSON.stringify(scores)
+    rawJson: ''
   };
   rec.coachSuggestion = coachSuggestionFor(rec);
-  KPI_ITEMS.forEach(function (k) { rec[k] = Number(scores[k]) || ''; });
+  KPI_ITEMS.forEach(function (k) { rec[k] = ''; });
   if (rec.compName) findOrCreateCompetition(t.teamId, t.coachId, rec.compDate, rec.compName, rec.compLocation);
 
   // upsert：同團隊同選手同日只留一筆

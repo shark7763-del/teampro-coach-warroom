@@ -237,6 +237,12 @@
       <div class="stat"><div class="num" id="stYellow" style="color:var(--yellow)">0</div><div class="lbl">黃燈</div></div>
       <div class="stat"><div class="num" id="stRed" style="color:var(--red)">0</div><div class="lbl">紅燈</div></div>
     </div>
+    <div class="card" id="weeklyKpiCard" style="margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;">
+        <div><b>上週 KPI 評估</b><div class="muted" id="weeklyKpiRange" style="font-size:12px;margin-top:3px;">等待載入</div></div>
+        <div><b id="weeklyKpiProgress">—</b><div class="muted" style="font-size:12px;">已完成／追蹤人數</div></div>
+      </div>
+    </div>
     <div class="card" style="margin-bottom:16px;">
       <h3 style="margin-top:0;">今日優先處理名單</h3>
       <div class="grid grid-4">
@@ -538,7 +544,7 @@
   var $ = TP.$, esc = TP.esc, toast = TP.toast;
   var authView = $('#authView'), appView = $('#appView');
   var mode = 'login';
-  var state = { coach: null, teams: [], athletes: [] };
+  var state = { coach: null, teams: [], athletes: [], kpiMeta: {} };
   var params = new URLSearchParams(location.search);
   var DEMO = params.get('demo') === '1';
   function localToday() {
@@ -989,6 +995,11 @@
   async function loadAthletes() {
     var r = await TP.callAuth('listAthletes');
     state.athletes = (r.ok && r.athletes) || [];
+    state.kpiMeta = r.ok ? r : {};
+    if (r.ok && state.coach) {
+      $('#planQuota').textContent = ' · 點名 ' + state.coach.activeAthletes + ' / ' + planCfg().maxAthletes + ' · KPI 追蹤 ' + r.kpiUsed + ' / ' + r.kpiLimit;
+      $('#planUsagePretty').textContent = '點名 ' + state.coach.activeAthletes + ' / ' + planCfg().maxAthletes + '　KPI ' + r.kpiUsed + ' / ' + r.kpiLimit;
+    }
     renderAthletes();
     renderQuotaWarn();
     fillReportAthletes();
@@ -1020,9 +1031,10 @@
         ? '免費版可管理 ' + cfg.maxAthletes + ' 位選手點名。你的隊伍已超過免費人數，升級教練版即可管理 30 位選手。'
         : '你已達' + esc(c.planName) + ' ' + cfg.maxAthletes + ' 位選手點名上限，請升級方案後再新增。') +
         ' <a href="https://docs.google.com/forms/d/e/1FAIpQLSc2WhGQP1BQhWMgTJFtnR_gznolKA-KDqYVqXzBEfuxZI7OHA/viewform" target="_blank" rel="noopener">填寫升級申請表</a></div>';
-    } else if (c.effectivePlan === 'free' && c.activeAthletes >= cfg.kpiAthletes) {
-      box.innerHTML = '<div class="upgrade">免費版可追蹤 ' + cfg.kpiAthletes + ' 位選手 KPI（點名仍可到 ' + cfg.maxAthletes + ' 位）。升級教練版可追蹤 15 位 KPI，並查看歷史趨勢與 30 日報告。</div>';
-    } else { box.innerHTML = ''; }
+    } else {
+      var used = Number(state.kpiMeta.kpiUsed || 0), limit = Number(state.kpiMeta.kpiLimit || cfg.kpiAthletes);
+      box.innerHTML = '<div class="upgrade"><b>KPI 追蹤 ' + used + '/' + limit + '</b>：全隊每日做輕量回報，只有開啟追蹤的選手每週多做一次完整 KPI。</div>';
+    }
     $('#btnAddAthlete').disabled = c.activeAthletes >= cfg.maxAthletes;
   }
 
@@ -1055,11 +1067,16 @@
       var vis = TP.normVisibility(a.lastPerformanceVisibility);
       var visBadge = vis !== TP.DEFAULT_LAST_PERF_VISIBILITY
         ? ' <span class="muted" style="font-size:11px;">🔒 ' + esc(TP.visibilityText(vis)) + '</span>' : '';
+      var ks = a.kpiWeekStatus === 'completed' ? '<span class="pill green">上週已完成</span>' :
+        (a.kpiWeekStatus === 'due' ? '<span class="pill yellow">上週待評估</span>' :
+        (a.kpiWeekStatus === 'suspended' ? '<span class="pill red">超額暫停</span>' : '<span class="muted" style="font-size:11px;">未追蹤 KPI</span>'));
       return '<div class="row" data-arow="' + a.athleteId + '">' +
         '<div><b>' + esc(a.name) + '</b> <span class="muted">· ' + esc(teamName[a.teamId] || '未分隊') +
           (a.gradeClass ? ' · ' + esc(a.gradeClass) : '') + '</span>' + visBadge +
-          (active ? '' : ' <span class="pill red">已停用</span>') + '</div>' +
+          (active ? '' : ' <span class="pill red">已停用</span>') + '<div style="margin-top:5px;">' + ks + '</div></div>' +
         '<div style="display:flex;gap:6px;">' +
+          '<button class="btn btn-sm' + (a.kpiEnabled ? ' btn-primary' : '') + '" data-kpi="' + a.athleteId + '" data-enabled="' + (!!a.kpiEnabled) + '"' + (!active ? ' disabled' : '') + '>' +
+            (a.kpiEnabled ? '停止 KPI' : '開啟 KPI') + '</button>' +
           '<button class="btn btn-sm" data-edit="' + a.athleteId + '">修改</button>' +
           '<button class="btn btn-sm" data-toggle="' + a.athleteId + '" data-active="' + active + '">' +
             (active ? '停用' : '恢復') + '</button>' +
@@ -1107,6 +1124,17 @@
         else { toast(r.message || r.error, true); }
       };
     });
+    TP.$all('[data-kpi]', box).forEach(function (b) {
+      b.onclick = async function () {
+        if (DEMO) { demoBlock(); return; }
+        var want = b.dataset.enabled !== 'true';
+        if (want && !confirm('開啟後，此選手每週會多一份 KPI 評估。確定開啟？')) return;
+        var r = await TP.callAuth('setKpiTracking', { athleteId: b.dataset.kpi, enabled: want });
+        if (r.ok) { toast(want ? '已開啟 KPI 追蹤' : '已停止 KPI 追蹤，歷史資料保留'); loadAthletes(); loadWarroom(); }
+        else if (r.error === 'kpi_limit_reached') openUpgradeModal({ reason: 'kpi', toPlan: 'coach', message: r.message });
+        else toast(r.message || r.error, true);
+      };
+    });
     TP.$all('[data-del]', box).forEach(function (b) {
       b.onclick = async function () {
         if (DEMO) { demoBlock(); return; }
@@ -1126,10 +1154,6 @@
       renderQuotaWarn();
       openUpgradeModal({ reason: 'roster', toPlan: 'coach', message: '免費版可管理 ' + cfg.maxAthletes + ' 位選手點名。你的隊伍已經超過免費人數，升級教練版即可管理 30 位選手。' });
       return;
-    }
-    // 情境2：KPI 追蹤人數軟提示（不擋，提醒升級）
-    if (planKey() === 'free' && cur >= cfg.kpiAthletes && cur < cfg.maxAthletes) {
-      openUpgradeModal({ reason: 'kpi', toPlan: 'coach', message: '免費版可追蹤 ' + cfg.kpiAthletes + ' 位選手 KPI。升級教練版後，可追蹤 15 位選手狀態，並查看歷史趨勢與 30 日報告。（仍可繼續新增點名選手）' });
     }
     var name = $('#naName').value.trim();
     if (!name) { toast('請輸入選手姓名', true); return; }
@@ -1178,6 +1202,9 @@
     $('#missCount').textContent = '（' + r.missingCount + '）';
     $('#taskRed').textContent = (r.lights.red || 0) ? (r.lights.red + ' 位需要先關心') : '今天沒有需要特別關心的選手';
     $('#taskMissing').textContent = r.missingCount ? (r.missingCount + ' 位尚未完成') : '今天全員已完成';
+    var wk = r.weeklyKpi || {};
+    $('#weeklyKpiProgress').textContent = (wk.completed || 0) + '/' + (wk.total || 0);
+    $('#weeklyKpiRange').textContent = wk.weekStart ? ('評估期間 ' + wk.weekStart + ' ～ ' + wk.weekEnd + (wk.missing ? '，尚有 ' + wk.missing + ' 位未完成' : '，已全數完成')) : '尚未開啟 KPI 追蹤';
 
     var priority = r.priority || {};
     renderPriority('#priorityRed', priority.red || r.submitted.filter(function (s) { return s.status === 'red'; }), '今天沒有需要特別關心的選手');
@@ -1231,8 +1258,8 @@
       var hydrationLabel = hasHydrationFlag(s, 'severe_dehydration_risk') && s.hydrationRisk !== 'red'
         ? '水分黃燈偏紅' : '水分' + TP.lightText(s.hydrationRisk || 'green');
       return '<div class="athlete-risk-card" data-fb="' + s.athleteId + '" data-rec="' + (s.recordId || '') + '" data-name="' + esc(s.name) + '">' +
-        '<div class="risk-head"><b><span class="dot ' + l + '"></span> ' + esc(s.name) + '</b><span class="pill ' + l + '">' + TP.lightText(l) + ' ' + (Number(s.totalScore) || 0).toFixed(1) + '</span></div>' +
-        '<div class="risk-meta"><span>睡眠：' + esc(sleep) + '</span><span>疼痛：' + esc(pain) + '</span><span>可信度：' + esc(quality) + '</span></div>' +
+        '<div class="risk-head"><b><span class="dot ' + l + '"></span> ' + esc(s.name) + '</b><span class="pill ' + l + '">' + TP.lightText(l) + (Number(s.totalScore) > 0 ? ' · 最近 KPI ' + Number(s.totalScore).toFixed(1) : '') + '</span></div>' +
+        '<div class="risk-meta"><span>睡眠：' + esc(sleep) + '</span><span>疼痛：' + esc(pain) + '</span><span>資料品質：' + esc(quality) + '</span></div>' +
         '<div class="risk-meta"><span class="pill ' + esc(s.hydrationRisk || 'green') + '">' + esc(hydrationLabel) + '</span>' +
         '<span>喝水：' + esc(waterLabels[s.waterAmount] || '未填') + '</span><span>流汗：' + esc(sweatLabels[s.sweatAmount] || '未填') + '</span><span>尿液：' + esc(urineLabels[s.urineColor] || '未填') + '</span></div>' +
         (s.reportQualityReasons ? '<div class="muted" style="font-size:12px;margin-top:6px;">需確認：' + esc(s.reportQualityReasons) + '</div>' : '') +
@@ -1382,13 +1409,17 @@
     var aId = $('#rpAthlete').value;
     if (!aId) { toast('請選擇選手', true); return; }
     var athlete = state.athletes.filter(function (a) { return a.athleteId === aId; })[0] || {};
-    var r = await TP.callAuth('athleteRecords', { athleteId: aId, limit: 120 });
+    var isParent = $('#rpType').value === 'parent';
+    var r = await TP.callAuth(isParent ? 'athleteRecords' : 'athleteWeeklyKpis', { athleteId: aId, limit: 120 });
     if (!r.ok) { toast(r.error, true); return; }
-    var recs = (r.records || []).filter(function (x) { return x.date >= range.from && x.date <= range.to; })
+    var recs = (r.records || []).filter(function (x) {
+      return isParent ? (x.date >= range.from && x.date <= range.to) :
+        (x.weekEnd >= range.from && x.weekStart <= range.to);
+    }).map(function (x) { if (!isParent && !x.date) x.date = x.weekStart; return x; })
       .sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); });
     if (range.days === 7) markTask('report7', true);
     renderOnboarding();
-    if ($('#rpType').value === 'parent') renderParentReport(athlete, range, recs);
+    if (isParent) renderParentReport(athlete, range, recs);
     else renderReport(athlete, range, recs);
   };
 
@@ -1399,8 +1430,8 @@
         ' 在 ' + range.from + ' ~ ' + range.to + ' 期間沒有填寫紀錄。</p></div>';
       return;
     }
-    var totals = recs.map(function (r) { return num(r.totalScore); });
-    var avg = mean(totals), filled = recs.length, rate = Math.round(filled / range.days * 100);
+    var filled = recs.length, rate = Math.round(filled / range.days * 100);
+    var attentionDays = recs.filter(function (r) { return r.status === 'red' || r.status === 'yellow'; }).length;
     var lastRec = recs[recs.length - 1];
     var light = lastRec.status || TP.lightOf(num(lastRec.totalScore));
     var hasSensitive = light === 'red' || recs.some(function (r) { return r.injuryAreas && r.injuryAreas !== '無受傷'; });
@@ -1419,7 +1450,7 @@
         '<div class="rp-stat"><div class="n">' + rate + '%</div><div class="l">回報完成率</div></div>' +
         '<div class="rp-stat"><div class="n">' + filled + '</div><div class="l">回報天數</div></div>' +
         '<div class="rp-stat"><div class="n"><span class="rp-light ' + light + '">' + TP.lightText(light) + '</span></div><div class="l">最近整體狀態</div></div>' +
-        '<div class="rp-stat"><div class="n">' + avg.toFixed(1) + '</div><div class="l">期間平均（供參考）</div></div>' +
+        '<div class="rp-stat"><div class="n">' + attentionDays + '</div><div class="l">需留意天數</div></div>' +
       '</div>' +
       '<div class="rp-section"><h3>給家長的話</h3><div class="rp-comment">' +
         esc(TP.parentSummary({ name: athlete.name, light: light, private: hasSensitive })) + '</div></div>' +
@@ -1463,9 +1494,9 @@
     }
     var T = {
       '1-1': {
-        short: '已為 ' + vs.athleteCount + ' 位選手建置訓練歷程，累積 ' + vs.reportCount + ' 筆每日回報與 KPI 評分。',
-        formal: '本隊已為 ' + vs.athleteCount + ' 位選手建立完整訓練歷程檔案，期間累積 ' + vs.reportCount + ' 筆每日訓練回報，內容涵蓋六大表現指標 KPI 評分、身體狀態與訓練心得，可完整呈現選手訓練軌跡與成長趨勢。',
-        evidence: '佐證：選手名單 ' + vs.athleteCount + ' 人；每日回報 ' + vs.reportCount + ' 筆（含 30 項 KPI、訓練日誌、教練回饋）。'
+        short: '已為 ' + vs.athleteCount + ' 位選手建置訓練歷程，累積 ' + vs.reportCount + ' 筆每日回報與 ' + (vs.weeklyKpiCount || 0) + ' 筆週 KPI。',
+        formal: '本隊已為 ' + vs.athleteCount + ' 位選手建立訓練歷程，期間累積 ' + vs.reportCount + ' 筆每日安全與恢復回報，另有 ' + (vs.weeklyKpiCount || 0) + ' 筆每週表現評估，可分開呈現日常風險與中期成長趨勢。',
+        evidence: '佐證：選手名單 ' + vs.athleteCount + ' 人；每日回報 ' + vs.reportCount + ' 筆；週 KPI ' + (vs.weeklyKpiCount || 0) + ' 筆。'
       },
       '1-2': {
         short: '本期點名 ' + vs.trainingDays + ' 天，涵蓋 ' + (vs.courses.length) + ' 種訓練課程，平均到課率 ' + vs.attendanceRate + '%。',
@@ -1514,7 +1545,7 @@
         '<div class="rp-comment" style="white-space:normal;">' + esc(visitText(it[0], vs, ver)) + '</div></div>';
     }).join('');
 
-    var evidence = ['每日訓練回報 ' + vs.reportCount + ' 筆（含 KPI、訓練日誌）', '點名紀錄 ' + vs.trainingDays + ' 天、課程 ' + (vs.courses.length) + ' 種',
+    var evidence = ['每日訓練回報 ' + vs.reportCount + ' 筆、週 KPI ' + (vs.weeklyKpiCount || 0) + ' 筆', '點名紀錄 ' + vs.trainingDays + ' 天、課程 ' + (vs.courses.length) + ' 種',
       '到課率 ' + vs.attendanceRate + '%、選手回報率 ' + vs.reportRate + '%', '教練回饋 ' + vs.feedbackCount + ' 則',
       '傷勢追蹤 ' + vs.injuryAthletes + ' 人次、睡眠/水分提醒 ' + (vs.sleepShort + vs.hydrationFlag) + ' 人次'];
 
@@ -1631,7 +1662,7 @@
     }
     var totals = recs.map(function (r) { return num(r.totalScore); });
     var avg = mean(totals), first = totals[0], last = totals[totals.length - 1];
-    var filled = recs.length, rate = Math.round(filled / range.days * 100);
+    var filled = recs.length, expectedWeeks = Math.max(1, Math.ceil(range.days / 7)), rate = Math.min(100, Math.round(filled / expectedWeeks * 100));
     var lights = { green: 0, yellow: 0, red: 0 };
     recs.forEach(function (r) { var l = r.status || TP.lightOf(r.totalScore); lights[l] = (lights[l] || 0) + 1; });
     var moods = recs.map(function (r) { return num(r.moodIndex); }).filter(function (v) { return v > 0; });
@@ -1661,8 +1692,8 @@
       '<div class="rp-grid">' +
         '<div class="rp-stat"><div class="n">' + avg.toFixed(1) + '</div><div class="l">平均總分</div></div>' +
         '<div class="rp-stat"><div class="n">' + deltaTag(last - first) + '</div><div class="l">期間進步</div></div>' +
-        '<div class="rp-stat"><div class="n">' + rate + '%</div><div class="l">填寫率 (' + filled + '/' + range.days + '天)</div></div>' +
-        '<div class="rp-stat"><div class="n">' + (moods.length ? mean(moods).toFixed(1) : '—') + '</div><div class="l">平均心情</div></div>' +
+        '<div class="rp-stat"><div class="n">' + rate + '%</div><div class="l">週 KPI 完成率 (' + filled + '/' + expectedWeeks + '週)</div></div>' +
+        '<div class="rp-stat"><div class="n">' + filled + '</div><div class="l">有效週評估</div></div>' +
       '</div>' +
 
       '<div class="rp-section"><h3>總分趨勢</h3>' + sparkline(totals) +
@@ -1683,9 +1714,9 @@
       '</div>' +
 
       '<div class="rp-section"><h3>狀態燈號分布</h3>' +
-        '<span class="rp-light green">綠燈 ' + lights.green + ' 天</span> ' +
-        '<span class="rp-light yellow">黃燈 ' + lights.yellow + ' 天</span> ' +
-        '<span class="rp-light red">紅燈 ' + lights.red + ' 天</span></div>' +
+        '<span class="rp-light green">綠燈 ' + lights.green + ' 週</span> ' +
+        '<span class="rp-light yellow">黃燈 ' + lights.yellow + ' 週</span> ' +
+        '<span class="rp-light red">紅燈 ' + lights.red + ' 週</span></div>' +
 
       (comment ? '<div class="rp-section"><h3>教練評語</h3><div class="rp-comment">' + esc(comment) + '</div></div>' : '') +
 
@@ -1710,7 +1741,7 @@
     var dimMap = {};
     dimKeys.forEach(function (k, i) { dimMap[k] = labels[i] || dimDefaults[k]; });
     var trendVals = (tr.trend || []).map(function (x) { return num(x.avg); });
-    var rows = (tr.athletes || []).slice().sort(function (a, b) { return num(b.avgTotal) - num(a.avgTotal); });
+    var rows = (tr.athletes || []).slice();
     var comment = $('#rpComment').value.trim();
     var attention = rows.filter(function (a) { return a.lastStatus === 'red' || (a.avgTotal && a.avgTotal < 3); });
     var rpNo = reportNo(state.coach.name + '|' + teamName + '|' + range.from + '|' + range.to);
@@ -1727,12 +1758,12 @@
 
       '<div class="rp-grid">' +
         '<div class="rp-stat"><div class="n">' + num(tr.teamAvg).toFixed(1) + '</div><div class="l">全隊平均總分</div></div>' +
-        '<div class="rp-stat"><div class="n">' + tr.completionRate + '%</div><div class="l">填寫率 (' + tr.totalReports + '/' + tr.expectedReports + ')</div></div>' +
+        '<div class="rp-stat"><div class="n">' + tr.completionRate + '%</div><div class="l">每日回報率 (' + tr.totalReports + '/' + tr.expectedReports + ')</div></div>' +
         '<div class="rp-stat"><div class="n">' + tr.athleteCount + '</div><div class="l">選手人數</div></div>' +
-        '<div class="rp-stat"><div class="n">' + tr.totalReports + '</div><div class="l">總回報筆數</div></div>' +
+        '<div class="rp-stat"><div class="n">' + (tr.weeklyKpiReports || 0) + '</div><div class="l">週 KPI 筆數</div></div>' +
       '</div>' +
 
-      '<div class="rp-section"><h3>全隊每日平均趨勢</h3>' + sparkline(trendVals) + '</div>' +
+      '<div class="rp-section"><h3>全隊每週 KPI 趨勢</h3>' + sparkline(trendVals) + '</div>' +
 
       '<div class="rp-section"><h3>六大面向（全隊平均）</h3>' +
         Object.keys(dimMap).map(function (k) {
@@ -1752,9 +1783,9 @@
       (attention.length ? '<div class="rp-section"><h3>🎯 需要關心（最近紅燈或平均偏低）</h3>' +
         attention.map(function (a) { return '<span class="rp-light red" style="margin:2px;">' + esc(a.name) + ' ' + num(a.avgTotal).toFixed(1) + '</span>'; }).join(' ') + '</div>' : '') +
 
-      '<div class="rp-section"><h3>選手排名</h3>' +
+      '<div class="rp-section"><h3>選手週 KPI 摘要</h3>' +
         '<table style="width:100%;border-collapse:collapse;font-size:13px;">' +
-        '<tr style="border-bottom:1px solid #d6dce4;color:#5b6675;"><th style="text-align:left;padding:6px;">選手</th><th>填寫天數</th><th>平均總分</th><th>進步</th><th>最近狀態</th></tr>' +
+        '<tr style="border-bottom:1px solid #d6dce4;color:#5b6675;"><th style="text-align:left;padding:6px;">選手</th><th>有效週數</th><th>個人平均</th><th>變化</th><th>最近狀態</th></tr>' +
         rows.map(function (a) {
           var l = a.lastStatus || 'green';
           var dt = num(a.delta);
