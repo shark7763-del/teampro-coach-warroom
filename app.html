@@ -547,6 +547,15 @@
   function coachLS(suffix) { return 'teampro_' + suffix + '_' + coachKey(); }
   function planKey() { return (state.coach && state.coach.effectivePlan) || 'free'; }
   function planCfg() { return (TP.planLimits && TP.planLimits[planKey()]) || (TP.getPlanLimits ? TP.getPlanLimits(planKey()) : null) || TP.planLimits.free; }
+
+  /* 教練跨裝置設定（自訂課程清單、LINE 連結…）：存後端 coaches.settings */
+  function coachSettings() { return (state.coach && state.coach.settings) || {}; }
+  async function saveCoachSettings(patch) {
+    if (DEMO) return;
+    state.coach.settings = Object.assign({}, coachSettings(), patch);
+    var r = await TP.callAuth('saveSettings', { settings: state.coach.settings });
+    if (r && r.ok && r.settings) state.coach.settings = r.settings;
+  }
   function unlockedFeatures(cfg) {
     return [
       cfg.report7Days ? '7 日報告' : '',
@@ -718,6 +727,7 @@
     $('#coachName').textContent = state.coach.name + '（' + state.coach.email + '）';
     $('#setName').value = state.coach.name || '';
     $('#setEmail').value = state.coach.email || '';
+    if (coachSettings().lineUrl) TP.setLineUrl(coachSettings().lineUrl); // 跨裝置同步 LINE 連結
     $('#setUrl').value = TP.getUrl();
     $('#setLineUrl').value = TP.getLineUrl();
     $('#setLineOpen').href = TP.getLineUrl();
@@ -1904,8 +1914,12 @@
 
   function attLabel(s) { for (var i = 0; i < ATT_LIST.length; i++) if (ATT_LIST[i][0] === s) return ATT_LIST[i][1]; return '出席'; }
   function attCoursesKey() { return 'teampro_attendance_courses_' + ((state.coach && state.coach.coachId) || 'x'); }
-  function attGetCourses() { try { return JSON.parse(localStorage.getItem(attCoursesKey()) || 'null') || ATT_DEFAULT_COURSES.slice(); } catch (e) { return ATT_DEFAULT_COURSES.slice(); } }
-  function attSetCourses(a) { localStorage.setItem(attCoursesKey(), JSON.stringify(a)); }
+  function attGetCourses() {
+    var fromSettings = coachSettings().attendanceCourses; // 後端同步優先
+    if (fromSettings && fromSettings.length) return fromSettings.slice();
+    try { return JSON.parse(localStorage.getItem(attCoursesKey()) || 'null') || ATT_DEFAULT_COURSES.slice(); } catch (e) { return ATT_DEFAULT_COURSES.slice(); }
+  }
+  function attSetCourses(a) { localStorage.setItem(attCoursesKey(), JSON.stringify(a)); saveCoachSettings({ attendanceCourses: a }); }
   function attDaysAgo(n) { var d = new Date(); d.setDate(d.getDate() - n); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
   function attMin(m) { m = Number(m) || 0; return Math.floor(m / 60) + ' 小時 ' + (m % 60) + ' 分'; }
 

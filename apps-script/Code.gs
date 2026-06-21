@@ -33,7 +33,7 @@ var SHEETS = {
 
 /* ---------- 表頭 ---------- */
 var H = {
-  coaches:  ['coachId', 'email', 'passwordHash', 'salt', 'name', 'plan', 'planExpiry', 'status', 'createdAt', 'lastLogin', 'paymentNote'],
+  coaches:  ['coachId', 'email', 'passwordHash', 'salt', 'name', 'plan', 'planExpiry', 'status', 'createdAt', 'lastLogin', 'paymentNote', 'settings'],
   sessions: ['token', 'coachId', 'expiresAt'],
   teams:    ['teamId', 'coachId', 'teamName', 'sport', 'shareToken', 'status', 'createdAt', 'competitionSystem', 'sportCategory', 'memberTerm'],
   athletes: ['athleteId', 'coachId', 'teamId', 'name', 'gradeClass', 'grp', 'active', 'createdAt', 'lastPerformanceVisibility', 'perfPinHash', 'perfPinSalt'],
@@ -188,6 +188,7 @@ function handle(action, d) {
     case 'logout':          return jsonOut(logout(d));
     case 'updateProfile':   return jsonOut(withCoach(d, updateProfile));
     case 'changePassword':  return jsonOut(withCoach(d, changePassword));
+    case 'saveSettings':    return jsonOut(withCoach(d, saveSettings));
 
     /* ---- 團隊 ---- */
     case 'listTeams':       return jsonOut(withCoach(d, listTeams));
@@ -528,8 +529,25 @@ function publicCoach(coachId) {
     plan: c.plan, effectivePlan: plan,
     planName: PLANS[plan].name, maxAthletes: PLANS[plan].maxAthletes,
     planExpiry: c.planExpiry, expired: isExpired(c),
-    activeAthletes: countActiveAthletes(coachId), createdAt: c.createdAt
+    activeAthletes: countActiveAthletes(coachId), createdAt: c.createdAt,
+    settings: parseSettings(c.settings)
   };
+}
+
+function parseSettings(s) { try { return JSON.parse(s || '{}') || {}; } catch (e) { return {}; } }
+
+/* 教練跨裝置設定（自訂課程清單、LINE 連結等）合併儲存 */
+function saveSettings(c, d) {
+  var patch = d.settings || {};
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var row = findRow(SHEETS.coaches, 'coachId', c.coachId);
+    if (row === -1) return { ok: false, error: '找不到帳號' };
+    var cur = parseSettings(readAll(SHEETS.coaches)[row - 2].settings);
+    Object.keys(patch).forEach(function (k) { cur[k] = patch[k]; });
+    sheet(SHEETS.coaches).getRange(row, H.coaches.indexOf('settings') + 1).setValue(JSON.stringify(cur));
+    return { ok: true, settings: cur };
+  } finally { lock.releaseLock(); }
 }
 
 /* 到期 → 退回 free 行為（資料不刪、超額唯讀） */
