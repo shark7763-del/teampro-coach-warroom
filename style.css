@@ -160,6 +160,11 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 28p
 .war-summary b { color: var(--text); font-size: 18px; font-weight: 800; }
 .war-summary .war-completion b { color: var(--brand); }
 .war-summary .war-lights b { font-size: 15px; }
+/* 週 KPI 從重卡降為安靜提示列 */
+.war-kpi-nudge { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline;
+  font-size: 13px; margin-bottom: 16px; }
+.war-kpi-nudge .war-kpi-label { color: var(--text); font-weight: 600; }
+.war-kpi-nudge .war-kpi-label b { color: var(--brand); font-weight: 800; }
 
 /* ===== 快速點名中心（只新增，不動既有變數/色票/卡片） ===== */
 .att-setup { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 12px; }
