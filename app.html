@@ -1261,17 +1261,17 @@
     $('#stYellow').textContent = r.lights.yellow || 0;
     $('#stRed').textContent = r.lights.red || 0;
     $('#missCount').textContent = '（' + r.missingCount + '）';
-    $('#taskRed').textContent = (r.lights.red || 0) ? (r.lights.red + ' 位需要先關心') : '今天沒有需要特別關心的選手';
+    $('#taskRed').textContent = (r.lights.red || 0) ? (r.lights.red + ' 位需要先關心') : '✅ 今天沒有人亮紅燈，全隊狀態穩';
     $('#taskMissing').textContent = r.missingCount ? (r.missingCount + ' 位尚未完成') : '今天全員已完成';
     var wk = r.weeklyKpi || {};
     $('#weeklyKpiProgress').textContent = (wk.completed || 0) + '/' + (wk.total || 0);
     $('#weeklyKpiRange').textContent = wk.weekStart ? ('評估期間 ' + wk.weekStart + ' ～ ' + wk.weekEnd + (wk.missing ? '，尚有 ' + wk.missing + ' 位未完成' : '，已全數完成')) : '尚未開啟 KPI 追蹤';
 
     var priority = r.priority || {};
-    renderPriority('#priorityRed', priority.red || r.submitted.filter(function (s) { return s.status === 'red'; }), '今天沒有需要特別關心的選手');
+    renderPriority('#priorityRed', priority.red || r.submitted.filter(function (s) { return s.status === 'red'; }), '✅ 今天沒有人亮紅燈，全隊狀態穩');
     renderPriority('#priorityMissing', priority.missing || r.missing, '今天全員已完成');
-    renderPriority('#priorityDeclining', priority.declining || [], '目前沒有需要特別支持的選手');
-    renderPriority('#priorityEncouraging', priority.encouraging || [], '完成回報後會自動推薦');
+    renderPriority('#priorityDeclining', priority.declining || [], '📈 沒有人連續下滑，維持得不錯');
+    renderPriority('#priorityEncouraging', priority.encouraging || [], '選手回報後，這裡會自動推薦今天值得鼓勵的人');
 
     renderWarroomLists(r);
 
@@ -1307,7 +1307,7 @@
     var showMissing = currentRiskFilter === 'all' || currentRiskFilter === 'missing';
     $('#missList').innerHTML = showMissing && r.missing.length
       ? r.missing.map(function (m) { return '<div class="row"><span>' + esc(m.name) + '</span><span class="muted">尚未回報</span></div>'; }).join('')
-      : '<p class="muted">' + (currentRiskFilter === 'missing' ? '今天全員都已完成回報。' : '此篩選不包含未回報選手。') + '</p>';
+      : '<p class="muted">' + (currentRiskFilter === 'missing' ? '🎉 全隊今天都完成回報了，乾淨俐落。' : '此篩選不含未回報選手。') + '</p>';
     var rows = currentRiskFilter === 'missing' ? [] : r.submitted.filter(function (s) { return matchRiskFilter(s, currentRiskFilter); });
     $('#doneList').innerHTML = rows.length ? rows.sort(function (a, b) {
       return (a.status === 'red' ? -2 : a.status === 'yellow' ? -1 : 0) - (b.status === 'red' ? -2 : b.status === 'yellow' ? -1 : 0);
