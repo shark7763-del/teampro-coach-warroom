@@ -1,4 +1,9 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { coachAction } from "./coach-actions.ts";
+import { teamAthleteAction } from "./team-athlete-actions.ts";
+import { publicAction } from "./public-actions.ts";
+import { coachDataAction, contactAction } from "./coach-data-actions.ts";
+import { adminAction, reportAction } from "./report-admin-actions.ts";
 
 const allowedOrigins = new Set([
   "https://shark7763-del.github.io",
@@ -55,16 +60,16 @@ Deno.serve(async (request: Request) => {
     });
   }
 
-  if (action === "health") {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    if (!supabaseUrl || !serviceRoleKey) {
-      return json(request, { ok: false, error: "server_not_configured" }, 500);
-    }
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceRoleKey) {
+    return json(request, { ok: false, error: "server_not_configured" }, 500);
+  }
+  const supabase = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 
-    const supabase = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
+  if (action === "health") {
     const { error } = await supabase.from("coaches").select("coach_id").limit(1);
     if (error) {
       return json(request, { ok: false, error: "database_unavailable" }, 503);
@@ -76,5 +81,18 @@ Deno.serve(async (request: Request) => {
     });
   }
 
-  return json(request, { ok: false, error: "action_not_implemented" }, 404);
+  try {
+    const result = await coachAction(supabase, action, body) ||
+      await teamAthleteAction(supabase, action, body) ||
+      await publicAction(supabase, action, body) ||
+      await coachDataAction(supabase, action, body) ||
+      await contactAction(supabase, action, body) ||
+      await reportAction(supabase, action, body) ||
+      await adminAction(supabase, action, body);
+    if (result) return json(request, result);
+    return json(request, { ok: false, error: `未知 action：${action}` }, 404);
+  } catch (error) {
+    console.error("teampro-api", action, error);
+    return json(request, { ok: false, error: "internal_server_error" }, 500);
+  }
 });
