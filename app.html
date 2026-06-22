@@ -1253,10 +1253,15 @@
   $('#warDate').onchange = loadWarroom;
 
   var lastWar = null;
+  function skeletonRows(n) {
+    var one = '<div class="skel-card"><div class="skel w-40"></div><div class="skel w-90"></div><div class="skel w-70"></div></div>';
+    return new Array(n).fill(one).join('');
+  }
   async function loadWarroom() {
     if (DEMO) { renderWarroom(DEMO_DATA.warroom); return; }
+    $('#doneList').innerHTML = skeletonRows(3); $('#missList').innerHTML = '';
     var r = await TP.callAuth('warroom', { teamId: $('#warTeam').value, date: $('#warDate').value });
-    if (!r.ok) { toast(r.error, true); return; }
+    if (!r.ok) { $('#doneList').innerHTML = '<p class="muted">載入失敗，請按「↻ 重新整理」再試一次。</p>'; toast(r.error, true); return; }
     renderWarroom(r);
   }
   function renderWarroom(r) {
