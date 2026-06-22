@@ -98,7 +98,8 @@
     });
   }
   function toast(msg, isErr) {
-    var t = el('div', { class: 'toast' + (isErr ? ' err' : '') }, esc(msg));
+    var t = el('div', { class: 'toast' + (isErr ? ' err' : ''),
+      role: isErr ? 'alert' : 'status', 'aria-live': isErr ? 'assertive' : 'polite' }, esc(msg));
     document.body.appendChild(t);
     requestAnimationFrame(function () { t.classList.add('show'); });
     setTimeout(function () { t.classList.remove('show'); setTimeout(function () { t.remove(); }, 300); }, 2600);
