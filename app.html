@@ -1265,7 +1265,11 @@
     if (DEMO) { renderWarroom(DEMO_DATA.warroom); return; }
     $('#doneList').innerHTML = skeletonRows(3); $('#missList').innerHTML = '';
     var r = await TP.callAuth('warroom', { teamId: $('#warTeam').value, date: $('#warDate').value });
-    if (!r.ok) { $('#doneList').innerHTML = '<p class="muted">載入失敗，請按「↻ 重新整理」再試一次。</p>'; toast(r.error, true); return; }
+    if (!r.ok) {
+      $('#doneList').innerHTML = '<div class="empty-state">載入失敗，可能是網路或連線問題。<div style="margin-top:12px;"><button class="btn btn-sm" id="warRetry">↻ 重新載入</button></div></div>';
+      var rt = $('#warRetry'); if (rt) rt.onclick = loadWarroom;
+      toast(r.error, true); return;
+    }
     renderWarroom(r);
   }
   function renderWarroom(r) {

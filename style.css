@@ -57,7 +57,9 @@ a { color: var(--accent); text-decoration: none; }
 /* 卡片 / 面板 */
 .card {
   background: var(--panel); border: 1px solid var(--line);
-  border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow);
+  border-radius: var(--radius); padding: 20px;
+  /* iter35：深色卡片層次 — 極淡頂緣高光做出材質深度 */
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,.04);
 }
 .card + .card { margin-top: 16px; }
 /* iter29：行銷頁卡片細微 hover 上浮（只作用 .section 內，不影響後台不可點的卡） */
