@@ -1682,14 +1682,25 @@
 
   function sparkline(vals) {
     if (vals.length < 2) return '';
-    var w = 320, h = 56, pad = 4, max = 5, min = 1;
-    var pts = vals.map(function (v, i) {
+    var w = 340, h = 64, pad = 7, max = 5, min = 1;
+    var xy = vals.map(function (v, i) {
       var x = pad + i * (w - 2 * pad) / (vals.length - 1);
-      var y = h - pad - (v - min) / (max - min) * (h - 2 * pad);
-      return x.toFixed(1) + ',' + y.toFixed(1);
-    }).join(' ');
-    return '<svg width="100%" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" style="margin-top:6px;">' +
-      '<polyline points="' + pts + '" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linejoin="round"/></svg>';
+      var cv = Math.max(min, Math.min(max, Number(v) || min));
+      var y = h - pad - (cv - min) / (max - min) * (h - 2 * pad);
+      return [x, y];
+    });
+    var line = xy.map(function (p) { return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' ');
+    var area = 'M' + xy[0][0].toFixed(1) + ',' + (h - pad).toFixed(1) +
+      xy.map(function (p) { return ' L' + p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join('') +
+      ' L' + xy[xy.length - 1][0].toFixed(1) + ',' + (h - pad).toFixed(1) + ' Z';
+    var last = xy[xy.length - 1];
+    var gid = 'spk' + Math.random().toString(36).slice(2, 7);
+    return '<svg viewBox="0 0 ' + w + ' ' + h + '" style="margin-top:6px;width:100%;max-width:340px;height:auto;display:block;">' +
+      '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0%" stop-color="#16a34a" stop-opacity=".22"/><stop offset="100%" stop-color="#16a34a" stop-opacity="0"/></linearGradient></defs>' +
+      '<path d="' + area + '" fill="url(#' + gid + ')"/>' +
+      '<polyline points="' + line + '" fill="none" stroke="#16a34a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' +
+      '<circle cx="' + last[0].toFixed(1) + '" cy="' + last[1].toFixed(1) + '" r="3.2" fill="#16a34a"/></svg>';
   }
 
   function isPro() { return state.coach && state.coach.effectivePlan === 'pro'; }
