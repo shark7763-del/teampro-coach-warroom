@@ -858,7 +858,8 @@
   function switchTab(tab) {
     TP.$all('.tab-btn').forEach(function (x) { x.classList.remove('active'); });
     var btn = TP.$('.tab-btn[data-tab="' + tab + '"]');
-    if (btn) btn.classList.add('active');
+    if (btn) { btn.classList.add('active');
+      if (btn.scrollIntoView) btn.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }); }
     ['warroom', 'attendance', 'athletes', 'teams', 'report', 'settings'].forEach(function (t) {
       $('#tab-' + t).classList.toggle('hidden', t !== tab);
     });
