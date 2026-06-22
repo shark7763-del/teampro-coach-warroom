@@ -541,7 +541,7 @@
     <p class="muted" style="font-size:12px;margin:0 0 6px;">點任一情境，AI 依這位選手今日資料生成回饋草稿，你再潤飾即可。</p>
     <div class="ai-modules" id="aiModules"></div>
     <p class="muted" style="font-size:12px;margin:2px 0 0;">AI 回饋僅供教練撰寫參考，送出前請由教練確認內容，不作為醫療、心理診斷或專業治療建議；提供給家長時會自動套用家長摘要規則。</p>
-    <label>給這位選手的回饋 / 建議</label>
+    <label>給這位選手的回饋 / 建議<span id="aiDraftBadge" class="ai-draft-badge hidden">🤖 AI 草稿・請潤飾後送出</span></label>
     <textarea id="fbText" placeholder="例：今天恢復分數偏低，今晚早點睡；明天踢靶注意收腿速度。"></textarea>
     <button class="btn btn-primary btn-block" id="fbSend" style="margin-top:10px;">送出回饋</button>
   </div>
@@ -1950,15 +1950,28 @@
     if (rec.trainingNotes) bits.push('心得:' + rec.trainingNotes);
     $('#fbDetail').innerHTML = bits.length ? '<span class="muted">' + esc(bits.join('　')) + '</span>' : '';
     $('#fbText').value = rec.coachComment || '';
+    $('#aiDraftBadge').classList.add('hidden');
     // 渲染 AI 模組按鈕
     $('#aiModules').innerHTML = '';
     AI_MODULES.forEach(function (m) {
       var b = TP.el('button', {}, esc(m.key));
-      b.onclick = function () { $('#fbText').value = m.build(rec, name); };
+      b.onclick = function () {
+        if (b.disabled) return;
+        var orig = b.textContent;
+        b.disabled = true; b.textContent = '✨ 生成中…';
+        setTimeout(function () {
+          var t = $('#fbText');
+          t.value = m.build(rec, name);
+          t.classList.remove('ai-fade'); void t.offsetWidth; t.classList.add('ai-fade');
+          $('#aiDraftBadge').classList.remove('hidden');
+          b.disabled = false; b.textContent = orig;
+        }, 240);
+      };
       $('#aiModules').appendChild(b);
     });
   }
 
+  $('#fbText').addEventListener('input', function () { $('#aiDraftBadge').classList.add('hidden'); });
   $('#fbClose').onclick = function () { $('#fbModal').classList.add('hidden'); };
   $('#fbModal').onclick = function (e) { if (e.target === $('#fbModal')) $('#fbModal').classList.add('hidden'); };
   $('#fbSend').onclick = async function () {

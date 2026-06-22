@@ -218,6 +218,12 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 28p
 @media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
 /* iter24：空狀態統一 — 置中、留白、一致的語氣，而非散落的灰字 */
 .empty-state { text-align: center; color: var(--muted); padding: 20px 12px; font-size: 13.5px; line-height: 1.65; }
+/* iter26：AI 體驗 — 草稿標記 + 生成淡入，強化「AI 草稿、你來潤飾」敘事 */
+.ai-draft-badge { display: inline-block; font-size: 11px; font-weight: 700; color: var(--accent);
+  border: 1px solid rgba(56,189,248,.35); background: rgba(56,189,248,.1); border-radius: 6px; padding: 1px 8px; margin-left: 8px; }
+@keyframes aiFade { from { opacity: .25; } to { opacity: 1; } }
+.ai-fade { animation: aiFade .35s ease; }
+@media (prefers-reduced-motion: reduce) { .ai-fade { animation: none; } }
 
 /* ===== 快速點名中心（只新增，不動既有變數/色票/卡片） ===== */
 .att-setup { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 12px; }
