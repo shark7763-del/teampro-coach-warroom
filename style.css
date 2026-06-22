@@ -47,8 +47,8 @@ a { color: var(--accent); text-decoration: none; }
   cursor: pointer; transition: .15s; text-decoration: none;
 }
 .btn:hover { border-color: var(--brand); }
-.btn-primary { background: linear-gradient(135deg, var(--brand), var(--brand-2)); border: none; color: #04210f; }
-.btn-primary:hover { filter: brightness(1.08); }
+.btn-primary { background: var(--brand); border: none; color: #04210f; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+.btn-primary:hover { background: var(--brand-2); filter: none; }
 .btn-ghost { background: transparent; }
 .btn-sm { padding: 6px 12px; font-size: 13px; }
 .btn-block { width: 100%; }
@@ -182,7 +182,7 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 28p
 .war-summary .war-completion b { font-size: 20px; }
 /* iter13：report 控制區 grid-4 表單 → report composer 編輯感 */
 .report-composer .composer-head { margin-bottom: 18px; }
-.eyebrow-sm { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--brand); margin-bottom: 4px; }
+.eyebrow-sm { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
 .report-composer .composer-head h3 { margin: 0 0 4px; font-size: 20px; }
 .report-composer .composer-head p { margin: 0; font-size: 13px; }
 .composer-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
