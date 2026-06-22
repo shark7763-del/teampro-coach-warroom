@@ -135,8 +135,10 @@
     </details>
     <div class="card">
       <h2 style="margin-top:0;">水分狀態</h2>
-      <label>今日喝水量</label><div class="choice-grid" id="waterChoices"></div>
+      <label>今日喝水量（參考範圍）</label><div class="choice-grid" id="waterChoices"></div>
+      <p class="muted" style="font-size:12px;margin:5px 0 10px;">請填今天截至目前喝下的白開水與無糖飲品總量；1 cc = 1 mL。個人需求會因體重、天氣與訓練量不同。</p>
       <label>今日流汗量</label><div class="choice-grid" id="sweatChoices"></div>
+      <p class="muted" style="font-size:12px;margin:5px 0 10px;"><b>判定方式：</b>少＝皮膚微濕、衣服大致乾；普通＝皮膚濕、衣服局部濕；多＝明顯滴汗、衣服大面積濕；非常多＝汗持續流、衣服幾乎濕透。</p>
       <label>今日尿液顏色</label><div class="choice-grid urine-grid" id="urineChoices"></div>
       <p class="muted" id="urineHint" style="font-size:13px;margin:5px 0;"></p>
       <p class="muted" style="font-size:12px;">尿液顏色只是水分狀態參考，不是醫療診斷。若出現紅色、茶色、異常混濁或身體明顯不適，請主動告知教練與家長。</p>
@@ -346,7 +348,7 @@
   var compsLoaded = false;
   var PAIN_STATUS = [['none','無疼痛'],['old','舊傷不適'],['new','新出現疼痛'],['acute','急性受傷']];
   var PAIN_IMPACT = [['none','不影響訓練'],['high_intensity','高強度時會痛'],['power_down','動作出力下降'],['cannot_sport','無法完成專項動作'],['daily_affected','日常活動也受影響']];
-  var WATER = [['very_little','很少'],['normal','普通'],['enough','足夠'],['a_lot','很多']];
+  var WATER = [['very_little','很少（少於 1,000 cc）'],['normal','普通（1,000–1,499 cc）'],['enough','足夠（1,500–2,499 cc）'],['a_lot','很多（2,500 cc 以上）']];
   var SWEAT = [['low','少'],['normal','普通'],['high','多'],['very_high','非常多']];
   var URINE = [['clear','⚪ 透明 / 很淡'],['pale_yellow','🟡 淡黃色'],['yellow','🟨 黃色'],['dark','🟧 深黃色 / 琥珀色'],['abnormal','🟥 茶色 / 紅色 / 異常混濁']];
   var URINE_HINTS = {
