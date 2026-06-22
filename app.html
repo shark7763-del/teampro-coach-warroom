@@ -218,14 +218,15 @@
       <p class="muted" style="margin:0;">3 分鐘掌握誰需要關心、誰還沒填，以及要傳什麼給家長。</p>
     </div>
     <div class="today-steps">
-      <div class="today-step"><span class="step-no">第一件事</span><b>先關心今日需要關心的選手</b><span class="muted" id="taskRed">等待載入</span></div>
-      <div class="today-step"><span class="step-no">第二件事</span><b>提醒尚未完成回報</b><span class="muted" id="taskMissing">等待載入</span></div>
+      <div class="today-step"><span class="step-no">第一件事</span><b>先關心今日需要關心的選手</b><span class="muted" id="taskRed">—</span></div>
+      <div class="today-step"><span class="step-no">第二件事</span><b>提醒尚未完成回報</b><span class="muted" id="taskMissing">—</span></div>
       <div class="today-step"><span class="step-no">第三件事</span><b>複製家長通知</b><button class="btn btn-sm" id="btnParentNotify" style="margin-top:5px;">複製家長通知</button></div>
     </div>
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
-      <select id="warTeam" style="max-width:220px;"></select>
-      <input id="warDate" type="date" style="max-width:170px;">
-      <button class="btn btn-sm" id="warRefresh">重新整理</button>
+    <div class="war-context-bar">
+      <select id="warTeam"></select>
+      <span class="ctx-sep">·</span>
+      <input id="warDate" type="date">
+      <button class="btn btn-sm btn-ghost" id="warRefresh">↻ 重新整理</button>
     </div>
     <details class="filter-details">
       <summary>🔍 篩選名單</summary>
@@ -249,13 +250,13 @@
     </div>
     <div class="war-kpi-nudge" id="weeklyKpiCard">
       <span class="war-kpi-label">📋 上週 KPI 評估 <b id="weeklyKpiProgress">—</b></span>
-      <span class="muted" id="weeklyKpiRange">等待載入</span>
+      <span class="muted" id="weeklyKpiRange">—</span>
     </div>
     <div class="card" style="margin-bottom:16px;">
       <h3 style="margin-top:0;">今日優先處理名單</h3>
       <div class="grid grid-2">
-        <div class="priority-card"><h4>🔴 今日需要關心</h4><div class="priority-names" id="priorityRed">載入中</div></div>
-        <div class="priority-card"><h4>📉 近期需要支持</h4><div class="priority-names" id="priorityDeclining">載入中</div></div>
+        <div class="priority-card"><h4>🔴 今日需要關心</h4><div class="priority-names" id="priorityRed">—</div></div>
+        <div class="priority-card"><h4>📉 近期需要支持</h4><div class="priority-names" id="priorityDeclining">—</div></div>
       </div>
     </div>
     <div class="grid grid-2">
@@ -464,7 +465,7 @@
       </div>
       <label>請求說明（選填）</label><textarea id="prNote" placeholder="記錄請求人、聯絡方式與具體要求；避免填入不必要的敏感資料。"></textarea>
       <button class="btn btn-primary" id="btnCreatePrivacy" style="margin-top:8px;">建立個資請求</button>
-      <div id="privacyRequestList" style="margin-top:16px;"><span class="muted">載入中…</span></div>
+      <div id="privacyRequestList" style="margin-top:16px;"><span class="muted">—…</span></div>
     </div>
     <div class="card">
       <h3 style="margin-top:0;">帳號設定</h3>
@@ -1910,7 +1911,7 @@
     if (DEMO) { demoBlock(); return; }
     fbCtx = { recordId: recordId || '', record: null };
     $('#fbTitle').textContent = '回饋給 ' + name;
-    $('#fbMeta').textContent = '載入中…';
+    $('#fbMeta').textContent = '—…';
     $('#fbDetail').innerHTML = ''; $('#fbText').value = '';
     $('#fbModal').classList.remove('hidden');
     // 取該選手紀錄，找到這筆（或最新）
@@ -2252,7 +2253,7 @@
   }
 
   async function loadAttDay() {
-    $('#atList').innerHTML = '<p class="muted">載入中…</p>';
+    $('#atList').innerHTML = '<p class="muted">—…</p>';
     $('#atSummaryCard').classList.add('hidden');
     atState.roster = (state.athletes || []).filter(function (a) { return String(a.teamId) === String(atState.teamId) && String(a.active) !== 'false' && a.active !== false; });
     atState.wById = {}; atState.missingSet = {}; atState.marks = {}; atState.touched = {}; atState.history = [];

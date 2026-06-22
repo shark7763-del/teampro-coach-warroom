@@ -165,6 +165,21 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 28p
   font-size: 13px; margin-bottom: 16px; }
 .war-kpi-nudge .war-kpi-label { color: var(--text); font-weight: 600; }
 .war-kpi-nudge .war-kpi-label b { color: var(--brand); font-weight: 800; }
+/* iter10：控制列去表單感 → inline context bar */
+.war-context-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.war-context-bar select, .war-context-bar input[type=date] {
+  border: 1px solid transparent; background: var(--bg2, rgba(127,127,127,.08));
+  border-radius: 8px; padding: 6px 10px; font-size: 14px; font-weight: 600; color: var(--text);
+  max-width: 220px; transition: border-color .15s, background .15s; }
+.war-context-bar select:hover, .war-context-bar input[type=date]:hover { background: rgba(127,127,127,.14); }
+.war-context-bar select:focus, .war-context-bar input[type=date]:focus { border-color: var(--brand); outline: none; }
+.war-context-bar input[type=date] { max-width: 160px; }
+.war-context-bar .ctx-sep { color: var(--muted); opacity: .5; }
+.btn-ghost { background: transparent; border: 1px solid transparent; color: var(--muted); box-shadow: none; }
+.btn-ghost:hover { background: rgba(127,127,127,.12); color: var(--text); }
+/* iter11：數字對齊用 tabular-nums，階層更穩 */
+.war-summary, .war-kpi-nudge, #tab-warroom .stat .num { font-variant-numeric: tabular-nums; }
+.war-summary .war-completion b { font-size: 20px; }
 
 /* ===== 快速點名中心（只新增，不動既有變數/色票/卡片） ===== */
 .att-setup { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 12px; }
