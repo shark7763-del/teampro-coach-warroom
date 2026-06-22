@@ -318,7 +318,7 @@
         <select id="atBatch" class="btn btn-sm" style="width:auto;"><option value="">批次設為…</option></select>
         <button class="btn btn-sm" id="atViewToggle">🔲 棋盤</button>
       </div>
-      <div id="atList"><p class="muted">請先選擇隊伍。</p></div>
+      <div id="atList"><div class="empty-state">請先在上方選擇隊伍，名單就會出現在這裡。</div></div>
       <button class="btn btn-primary btn-block" id="atSave" style="margin-top:6px;">💾 儲存點名</button>
     </div>
     <div class="card hidden" id="atSummaryCard">
@@ -2271,7 +2271,7 @@
   }
 
   async function loadAttDay() {
-    $('#atList').innerHTML = '<p class="muted">—…</p>';
+    $('#atList').className = ''; $('#atList').innerHTML = skeletonRows(3);
     $('#atSummaryCard').classList.add('hidden');
     atState.roster = (state.athletes || []).filter(function (a) { return String(a.teamId) === String(atState.teamId) && String(a.active) !== 'false' && a.active !== false; });
     atState.wById = {}; atState.missingSet = {}; atState.marks = {}; atState.touched = {}; atState.history = [];
@@ -2292,14 +2292,14 @@
   function renderAttList() {
     $('#atList').className = atState.view === 'grid' ? 'att-grid' : '';
     $('#atViewToggle').textContent = atState.view === 'grid' ? '☰ 清單' : '🔲 棋盤';
-    if (!atState.roster.length) { $('#atList').innerHTML = '<p class="muted">此隊伍沒有啟用中的選手。</p>'; return; }
+    if (!atState.roster.length) { $('#atList').className = ''; $('#atList').innerHTML = '<div class="empty-state">此隊伍還沒有啟用中的選手，先到「選手」頁新增。</div>'; return; }
     var list = atState.roster.filter(function (a) {
       if (atState.filter === 'unmarked') return !atState.touched[a.athleteId];
       if (atState.filter === 'abnormal') { var L = attLight(a); return L === '🟠' || L === '🔴' || L === '⚫'; }
       return true;
     });
     $('#atFilterAll').classList.toggle('hidden', atState.filter === 'all');
-    if (!list.length) { $('#atList').innerHTML = '<p class="muted">此篩選目前沒有選手。</p>'; return; }
+    if (!list.length) { $('#atList').className = ''; $('#atList').innerHTML = '<div class="empty-state">此篩選目前沒有選手。</div>'; return; }
     $('#atList').innerHTML = list.map(function (a) {
       var m = atState.marks[a.athleteId] || { s: 'present', n: '' };
       var icons = attFlags(a).map(function (x) { return x.icon; }).join('');
