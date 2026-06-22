@@ -180,6 +180,17 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 28p
 /* iter11：數字對齊用 tabular-nums，階層更穩 */
 .war-summary, .war-kpi-nudge, #tab-warroom .stat .num { font-variant-numeric: tabular-nums; }
 .war-summary .war-completion b { font-size: 20px; }
+/* iter13：report 控制區 grid-4 表單 → report composer 編輯感 */
+.report-composer .composer-head { margin-bottom: 18px; }
+.eyebrow-sm { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--brand); margin-bottom: 4px; }
+.report-composer .composer-head h3 { margin: 0 0 4px; font-size: 20px; }
+.report-composer .composer-head p { margin: 0; font-size: 13px; }
+.composer-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.composer-fields .field { display: flex; flex-direction: column; gap: 4px; }
+.composer-fields .field label { font-size: 12px; color: var(--muted); font-weight: 600; }
+.composer-comment-label { display: block; margin: 16px 0 6px; font-size: 12px; color: var(--muted); font-weight: 600; }
+.composer-actions { margin-top: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.composer-actions .composer-hint { font-size: 12px; }
 
 /* ===== 快速點名中心（只新增，不動既有變數/色票/卡片） ===== */
 .att-setup { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 12px; }

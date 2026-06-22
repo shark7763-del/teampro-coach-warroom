@@ -410,16 +410,20 @@
 
   <!-- 成果報告 -->
   <section id="tab-report" class="hidden">
-    <div class="card no-print">
-      <h3 style="margin-top:0;">產生成果報告</h3>
-      <div class="grid grid-4">
-        <div><label>報告類型</label>
+    <div class="card no-print report-composer">
+      <div class="composer-head">
+        <div class="eyebrow-sm">成果輸出</div>
+        <h3>產生一份能交出去的報告</h3>
+        <p class="muted">給家長、給校方、或專任教練訪視——選類型與期間，加一句評語就能印成 PDF。</p>
+      </div>
+      <div class="composer-fields">
+        <div class="field"><label>報告類型</label>
           <select id="rpType"><option value="athlete">個人選手報告</option><option value="team">團隊訓練報告</option><option value="parent">家長溝通報告</option><option value="visit">專任教練訪視報告</option></select>
         </div>
-        <div id="rpAthleteWrap"><label>選手</label><select id="rpAthlete"></select></div>
-        <div id="rpTeamWrap" style="display:none;"><label>團隊</label><select id="rpTeam"></select></div>
-        <div id="rpVisitWrap" style="display:none;"><label>文字版本</label><select id="rpVisitVer"><option value="formal">正式版</option><option value="short">簡短版</option><option value="evidence">佐證版</option></select></div>
-        <div><label>期間</label>
+        <div class="field" id="rpAthleteWrap"><label>選手</label><select id="rpAthlete"></select></div>
+        <div class="field" id="rpTeamWrap" style="display:none;"><label>團隊</label><select id="rpTeam"></select></div>
+        <div class="field" id="rpVisitWrap" style="display:none;"><label>文字版本</label><select id="rpVisitVer"><option value="formal">正式版</option><option value="short">簡短版</option><option value="evidence">佐證版</option></select></div>
+        <div class="field"><label>期間</label>
           <select id="rpRange">
             <option value="7">近 7 天</option>
             <option value="30" selected>近 30 天</option>
@@ -427,16 +431,16 @@
             <option value="custom">自訂</option>
           </select>
         </div>
-        <div id="rpCustomFrom" style="display:none;"><label>起</label><input id="rpFrom" type="date"></div>
-        <div id="rpCustomTo" style="display:none;"><label>迄</label><input id="rpTo" type="date"></div>
-        <div style="display:flex;align-items:flex-end;"><button class="btn btn-primary btn-block" id="btnGenReport">產生報告</button></div>
+        <div class="field" id="rpCustomFrom" style="display:none;"><label>起</label><input id="rpFrom" type="date"></div>
+        <div class="field" id="rpCustomTo" style="display:none;"><label>迄</label><input id="rpTo" type="date"></div>
       </div>
-      <div id="rpSchoolWrap" style="display:none;margin-top:6px;"><label>學校名稱（印在訪視報告封面，會跨裝置記住）</label><input id="rpSchool" placeholder="例：新北市立育林國中"></div>
-      <label>教練評語 / 待改善與下月重點（會印在報告上）</label>
+      <div id="rpSchoolWrap" style="display:none;margin-top:10px;"><label>學校名稱（印在訪視報告封面，會跨裝置記住）</label><input id="rpSchool" placeholder="例：新北市立育林國中"></div>
+      <label class="composer-comment-label">教練評語 / 待改善與下月重點（會印在報告上）</label>
       <textarea id="rpComment" placeholder="這段期間的整體表現、亮點與下一步建議…"></textarea>
-      <div style="margin-top:10px;display:flex;gap:8px;">
-        <button class="btn" id="btnPrint">🖨️ 列印 / 存成 PDF</button>
-        <span class="muted" style="font-size:13px;align-self:center;">列印視窗選「另存為 PDF」即可匯出檔案給家長/學校。</span>
+      <div class="composer-actions">
+        <button class="btn btn-primary" id="btnGenReport">產生報告</button>
+        <button class="btn btn-ghost" id="btnPrint">🖨️ 列印 / 存成 PDF</button>
+        <span class="muted composer-hint">列印視窗選「另存為 PDF」即可匯出給家長／學校。</span>
       </div>
       <p class="muted no-print" style="font-size:12px;margin:10px 0 0;">🔒 報告含選手私人訓練資料，請避免截圖公開或轉傳到群組；提供家長時建議搭配口頭說明。</p>
     </div>
