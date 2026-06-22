@@ -253,7 +253,7 @@
     </details>
     <div class="war-summary">
       <span class="war-completion"><b id="stCompletion">0%</b> 今日完成率</span>
-      <span><b id="stSubmitted">0</b> 已繳 · <b id="stMissing">0</b> 未繳</span>
+      <span><b id="stSubmitted">0</b> 已回報 · <b id="stMissing">0</b> 未回報</span>
       <span class="war-lights"><b id="stGreen">0</b> 綠 · <b id="stYellow">0</b> 黃 · <b id="stRed">0</b> 紅</span>
     </div>
     <div class="war-kpi-nudge" id="weeklyKpiCard">
@@ -277,7 +277,7 @@
       </div>
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;">
-          <h3 style="margin:0;">已繳交</h3>
+          <h3 style="margin:0;">已回報</h3>
           <span class="muted" style="font-size:13px;">點選選手可寫教練回饋</span>
         </div>
         <div id="doneList" style="margin-top:10px;"></div>
@@ -1369,7 +1369,7 @@
   }
 
   $('#btnRemind').onclick = function () {
-    if (!lastWar || !lastWar.missing.length) { toast('目前沒有未繳的選手'); return; }
+    if (!lastWar || !lastWar.missing.length) { toast('目前沒有未回報的選手'); return; }
     var names = lastWar.missing.map(function (m) { return m.name; }).join('、');
     var text = '以下選手今日尚未完成回報：' + names + '，請今天訓練前完成填寫，謝謝。' + lineWatermark();
     copyLineText(text, 'lineNotify');
