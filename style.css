@@ -195,6 +195,15 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 28p
 .section-label { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
   color: var(--muted); margin: 22px 2px 8px; }
 .section-label:first-child { margin-top: 2px; }
+/* iter16：戰情室 hero「3 件事」→ 真正的三格 command bar */
+.today-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; counter-reset: step; }
+.today-step { position: relative; background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px;
+  padding: 15px 15px 15px 15px; display: flex; flex-direction: column; gap: 6px; }
+.today-step .step-no { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.today-step b { font-size: 14.5px; line-height: 1.45; color: var(--text); }
+.today-step .muted { font-size: 13px; }
+.today-step:first-child { border-left: 3px solid var(--red); }
+@media (max-width: 680px) { .today-steps { grid-template-columns: 1fr; } }
 
 /* ===== 快速點名中心（只新增，不動既有變數/色票/卡片） ===== */
 .att-setup { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 12px; }
