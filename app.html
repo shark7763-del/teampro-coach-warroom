@@ -84,8 +84,9 @@
   .risk-filters { display:flex; gap:7px; flex-wrap:wrap; margin:0 0 14px; }
   .risk-filters button { min-height:38px; }
   .risk-filters button.active { border-color:var(--brand); background:rgba(34,197,94,.14); color:#86efac; }
-  .athlete-risk-card { border:1px solid var(--line); border-radius:12px; padding:12px; margin:8px 0; cursor:pointer; }
-  .athlete-risk-card:hover { border-color:var(--brand); }
+  .athlete-risk-card { border:1px solid var(--line); border-radius:12px; padding:12px; margin:8px 0; cursor:pointer; transition: border-color .15s, transform .15s, box-shadow .15s; }
+  .athlete-risk-card:hover { border-color:var(--brand); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,0,0,.25); }
+  .athlete-risk-card:active { transform: translateY(0); }
   .athlete-risk-card .risk-head { display:flex; justify-content:space-between; align-items:center; gap:8px; }
   .athlete-risk-card .risk-meta { display:flex; flex-wrap:wrap; gap:6px 12px; margin-top:8px; font-size:13px; color:var(--muted); }
   .athlete-risk-card .risk-advice { margin-top:8px; font-size:13px; }
