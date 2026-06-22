@@ -191,6 +191,10 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 28p
 .composer-comment-label { display: block; margin: 16px 0 6px; font-size: 12px; color: var(--muted); font-weight: 600; }
 .composer-actions { margin-top: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .composer-actions .composer-hint { font-size: 12px; }
+/* iter14：設定頁區段標籤，長捲動切成有層級的段落 */
+.section-label { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted); margin: 22px 2px 8px; }
+.section-label:first-child { margin-top: 2px; }
 
 /* ===== 快速點名中心（只新增，不動既有變數/色票/卡片） ===== */
 .att-setup { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 12px; }
