@@ -46,6 +46,11 @@
   .risk-note.yellow { background:rgba(245,158,11,.12); color:#fcd34d; }
   .risk-note.red { background:rgba(239,68,68,.12); color:#fca5a5; }
   @media (max-width:420px) { .choice-grid { grid-template-columns:1fr 1fr; } .choice-grid button { font-size:14px; } }
+  /* iter20：選手端可選按鈕的動效與後台一致（.15s 過場 + 按壓回饋） */
+  .mood-row button, .nutri-chips button, .choice-grid button, .train-slot .notrain {
+    transition: border-color .15s, background .15s, color .15s, transform .1s; }
+  .mood-row button:active, .nutri-chips button:active, .choice-grid button:active, .train-slot .notrain:active { transform: scale(.96); }
+  .choice-grid button:hover, .nutri-chips button:hover { border-color: var(--muted); }
 </style>
 </head>
 <body>
