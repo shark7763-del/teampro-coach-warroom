@@ -1090,7 +1090,12 @@
 
   function renderAthletes() {
     var box = $('#athleteList');
-    if (!state.athletes.length) { box.innerHTML = '<p class="muted">目前尚無選手，請先新增選手或載入示範資料。</p>'; return; }
+    if (!state.athletes.length) {
+      box.innerHTML = '<div class="empty-state">還沒有選手。<br>新增第一位，就能開始點名與追蹤狀態。' +
+        '<div style="margin-top:12px;"><button class="btn btn-primary btn-sm" id="emptyAddAthlete">＋ 新增第一位選手</button></div></div>';
+      var ea = $('#emptyAddAthlete'); if (ea) ea.onclick = function () { var n = $('#naName'); if (n) { n.scrollIntoView({ block: 'center', behavior: 'smooth' }); n.focus(); } };
+      return;
+    }
     var teamName = {}; state.teams.forEach(function (t) { teamName[t.teamId] = t.teamName; });
     box.innerHTML = state.athletes.map(function (a) {
       var active = String(a.active) !== 'false' && a.active !== false;
@@ -2317,7 +2322,11 @@
   function renderAttList() {
     $('#atList').className = atState.view === 'grid' ? 'att-grid' : '';
     $('#atViewToggle').textContent = atState.view === 'grid' ? '☰ 清單' : '🔲 棋盤';
-    if (!atState.roster.length) { $('#atList').className = ''; $('#atList').innerHTML = '<div class="empty-state">此隊伍還沒有啟用中的選手，先到「選手」頁新增。</div>'; return; }
+    if (!atState.roster.length) { $('#atList').className = '';
+      $('#atList').innerHTML = '<div class="empty-state">此隊伍還沒有啟用中的選手。<br>到「選手」頁新增或啟用，名單就會出現在這裡。' +
+        '<div style="margin-top:12px;"><button class="btn btn-primary btn-sm" id="emptyGotoAthletes">前往選手頁 →</button></div></div>';
+      var ga = $('#emptyGotoAthletes'); if (ga) ga.onclick = function () { switchTab('athletes'); };
+      return; }
     var list = atState.roster.filter(function (a) {
       if (atState.filter === 'unmarked') return !atState.touched[a.athleteId];
       if (atState.filter === 'abnormal') { var L = attLight(a); return L === '🟠' || L === '🔴' || L === '⚫'; }
