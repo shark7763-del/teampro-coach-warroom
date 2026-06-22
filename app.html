@@ -255,11 +255,9 @@
     </div>
     <div class="card" style="margin-bottom:16px;">
       <h3 style="margin-top:0;">今日優先處理名單</h3>
-      <div class="grid grid-4">
-        <div class="priority-card"><h4>今日需要關心</h4><div class="priority-names" id="priorityRed">載入中</div></div>
-        <div class="priority-card"><h4>尚未完成回報</h4><div class="priority-names" id="priorityMissing">載入中</div></div>
-        <div class="priority-card"><h4>近期需要支持</h4><div class="priority-names" id="priorityDeclining">載入中</div></div>
-        <div class="priority-card"><h4>今日值得鼓勵</h4><div class="priority-names" id="priorityEncouraging">載入中</div></div>
+      <div class="grid grid-2">
+        <div class="priority-card"><h4>🔴 今日需要關心</h4><div class="priority-names" id="priorityRed">載入中</div></div>
+        <div class="priority-card"><h4>📉 近期需要支持</h4><div class="priority-names" id="priorityDeclining">載入中</div></div>
       </div>
     </div>
     <div class="grid grid-2">
@@ -1268,9 +1266,7 @@
 
     var priority = r.priority || {};
     renderPriority('#priorityRed', priority.red || r.submitted.filter(function (s) { return s.status === 'red'; }), '✅ 今天沒有人亮紅燈，全隊狀態穩');
-    renderPriority('#priorityMissing', priority.missing || r.missing, '今天全員已完成');
     renderPriority('#priorityDeclining', priority.declining || [], '📈 沒有人連續下滑，維持得不錯');
-    renderPriority('#priorityEncouraging', priority.encouraging || [], '選手回報後，這裡會自動推薦今天值得鼓勵的人');
 
     renderWarroomLists(r);
 
@@ -1339,7 +1335,8 @@
   });
 
   function renderPriority(selector, list, emptyText) {
-    $(selector).innerHTML = list.length
+    var el = $(selector); if (!el) return;
+    el.innerHTML = list.length
       ? list.map(function (x) { return '<span class="pill ' + (selector === '#priorityRed' ? 'red' : '') + '" style="margin:2px;">' + esc(x.name) + '</span>'; }).join('')
       : esc(emptyText);
   }
