@@ -144,6 +144,16 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 28p
 .tabs-group-label:first-child { margin-left: 0; }
 .tab-btn-quiet { opacity: .7; }
 .tab-btn-quiet.active { opacity: 1; }
+/* 戰情室減法：篩選收進展開鈕、stat 數字降一階，讓「待處理名單」成為焦點 */
+.filter-details { margin-bottom: 14px; }
+.filter-details > summary { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; list-style: none;
+  padding: 6px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel);
+  color: var(--muted); font-size: 13px; font-weight: 600; width: fit-content; }
+.filter-details > summary::-webkit-details-marker { display: none; }
+.filter-details[open] > summary { color: var(--text); border-color: var(--brand); margin-bottom: 10px; }
+.filter-details .risk-filters { display: flex; gap: 8px; flex-wrap: wrap; }
+#tab-warroom .stat { padding: 12px; }
+#tab-warroom .stat .num { font-size: 23px; }
 
 /* ===== 快速點名中心（只新增，不動既有變數/色票/卡片） ===== */
 .att-setup { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 12px; }

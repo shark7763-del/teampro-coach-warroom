@@ -226,18 +226,21 @@
       <input id="warDate" type="date" style="max-width:170px;">
       <button class="btn btn-sm" id="warRefresh">重新整理</button>
     </div>
-    <div class="risk-filters" id="riskFilters">
-      <button class="btn btn-sm active" data-risk-filter="all">全部</button>
-      <button class="btn btn-sm" data-risk-filter="red">今日紅燈</button>
-      <button class="btn btn-sm" data-risk-filter="pain">疼痛 ≥ 4</button>
-      <button class="btn btn-sm" data-risk-filter="sleep">睡眠 &lt; 6 小時</button>
-      <button class="btn btn-sm" data-risk-filter="quality">輕量回報異常</button>
-      <button class="btn btn-sm" data-risk-filter="missing">尚未回報</button>
-      <button class="btn btn-sm" data-risk-filter="hydration_red">水分紅燈</button>
-      <button class="btn btn-sm" data-risk-filter="urine_dark">尿液深黃色以上</button>
-      <button class="btn btn-sm" data-risk-filter="sweat_water">高流汗但喝水不足</button>
-      <button class="btn btn-sm" data-risk-filter="hydration_repeat">連續兩天水分不足</button>
-    </div>
+    <details class="filter-details">
+      <summary>🔍 篩選名單</summary>
+      <div class="risk-filters" id="riskFilters">
+        <button class="btn btn-sm active" data-risk-filter="all">全部</button>
+        <button class="btn btn-sm" data-risk-filter="red">今日紅燈</button>
+        <button class="btn btn-sm" data-risk-filter="pain">疼痛 ≥ 4</button>
+        <button class="btn btn-sm" data-risk-filter="sleep">睡眠 &lt; 6 小時</button>
+        <button class="btn btn-sm" data-risk-filter="quality">輕量回報異常</button>
+        <button class="btn btn-sm" data-risk-filter="missing">尚未回報</button>
+        <button class="btn btn-sm" data-risk-filter="hydration_red">水分紅燈</button>
+        <button class="btn btn-sm" data-risk-filter="urine_dark">尿液深黃色以上</button>
+        <button class="btn btn-sm" data-risk-filter="sweat_water">高流汗但喝水不足</button>
+        <button class="btn btn-sm" data-risk-filter="hydration_repeat">連續兩天水分不足</button>
+      </div>
+    </details>
     <div class="grid grid-3" style="margin-bottom:16px;">
       <div class="stat"><div class="num" id="stCompletion">0%</div><div class="lbl">今日完成率</div></div>
       <div class="stat"><div class="num" id="stSubmitted">0</div><div class="lbl">已繳</div></div>
