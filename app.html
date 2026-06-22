@@ -344,12 +344,12 @@
     <div class="card">
       <h3 style="margin-top:0;">新增選手</h3>
       <div id="quotaWarn"></div>
-      <div class="grid grid-4">
-        <div><label>姓名</label><input id="naName" placeholder="選手姓名"></div>
-        <div><label>所屬團隊</label><select id="naTeam"></select></div>
-        <div><label>年級班級（選填）</label><input id="naGrade" placeholder="八年級"></div>
-        <div style="display:flex;align-items:flex-end;"><button class="btn btn-primary btn-block" id="btnAddAthlete">＋ 新增</button></div>
+      <div class="composer-fields">
+        <div class="field"><label>姓名</label><input id="naName" placeholder="選手姓名"></div>
+        <div class="field"><label>所屬團隊</label><select id="naTeam"></select></div>
+        <div class="field"><label>年級班級（選填）</label><input id="naGrade" placeholder="八年級"></div>
       </div>
+      <div class="composer-actions"><button class="btn btn-primary" id="btnAddAthlete">＋ 新增選手</button></div>
     </div>
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
@@ -369,9 +369,9 @@
   <section id="tab-teams" class="hidden">
     <div class="card">
       <h3 style="margin-top:0;">建立團隊</h3>
-      <div class="grid grid-3">
-        <div><label>團隊名稱</label><input id="ntName" placeholder="例：跆拳道隊 / 田徑隊 / 籃球隊"></div>
-        <div><label>競賽體系</label>
+      <div class="composer-fields">
+        <div class="field"><label>團隊名稱</label><input id="ntName" placeholder="例：跆拳道隊 / 田徑隊 / 籃球隊"></div>
+        <div class="field"><label>競賽體系</label>
           <select id="ntSystem">
             <option value="全中運項目">全中運項目</option>
             <option value="奧運項目">奧運項目</option>
@@ -379,7 +379,7 @@
             <option value="自訂競技項目">自訂競技項目</option>
           </select>
         </div>
-        <div><label>運動分類</label>
+        <div class="field"><label>運動分類</label>
           <select id="ntCategory">
             <option value="田徑與體能型">田徑與體能型</option>
             <option value="水上運動">水上運動</option>
@@ -391,13 +391,11 @@
             <option value="綜合項目">綜合項目</option>
           </select>
         </div>
-      </div>
-      <div class="grid grid-3" style="margin-top:12px;">
-        <div><label>正式項目</label>
+        <div class="field"><label>正式項目</label>
           <select id="ntEvent"></select>
-          <input id="ntSport" placeholder="輸入競技項目" style="display:none;">
+          <input id="ntSport" placeholder="輸入競技項目" style="display:none;margin-top:6px;">
         </div>
-        <div><label>成員稱呼</label>
+        <div class="field"><label>成員稱呼</label>
           <select id="ntMemberTerm">
             <option value="選手">選手</option>
             <option value="運動員">運動員</option>
@@ -406,8 +404,8 @@
             <option value="學員">學員</option>
           </select>
         </div>
-        <div style="display:flex;align-items:flex-end;"><button class="btn btn-primary btn-block" id="btnCreateTeam">＋ 建立團隊</button></div>
       </div>
+      <div class="composer-actions"><button class="btn btn-primary" id="btnCreateTeam">＋ 建立團隊</button></div>
       <p class="muted" id="ntTemplateHint" style="font-size:13px;margin:10px 0 0;"></p>
     </div>
     <div class="card">
