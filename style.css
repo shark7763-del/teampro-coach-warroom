@@ -60,6 +60,10 @@ a { color: var(--accent); text-decoration: none; }
   border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow);
 }
 .card + .card { margin-top: 16px; }
+/* iter29：行銷頁卡片細微 hover 上浮（只作用 .section 內，不影響後台不可點的卡） */
+.section .card { transition: transform .15s ease, box-shadow .15s ease; }
+.section .card:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(0,0,0,.3); }
+@media (prefers-reduced-motion: reduce) { .section .card:hover { transform: none; } }
 .grid { display: grid; gap: 16px; }
 .grid-2 { grid-template-columns: repeat(2, 1fr); }
 .grid-3 { grid-template-columns: repeat(3, 1fr); }
