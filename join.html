@@ -603,9 +603,13 @@
     $('#encourageName').innerHTML = '<option value="">—</option>' + ctx.athletes
       .filter(function (a) { return a.athleteId !== id; })
       .map(function (a) { return '<option value="' + esc(a.name) + '">' + esc(a.name) + '</option>'; }).join('');
-    ctx.kpiState = await TP.call('kpiFormState', { t: shareToken, athleteId: id, date: localToday(), pin: ctx.pin });
     cur = 'body';
+    ctx.kpiState = null;
     show('body');
+    // KPI 狀態不影響日報填寫，背景載入即可，避免「確認」卡在上一頁。
+    TP.call('kpiFormState', { t: shareToken, athleteId: id, date: localToday(), pin: ctx.pin }).then(function (r) {
+      ctx.kpiState = r;
+    });
   };
 
   // 填表頁上方卡片：專業版→近 7 日折線趨勢圖（PIN 保護）；非專業版→升級解鎖賣點
@@ -635,9 +639,10 @@
       $('#fillPinGo').onclick = async function () {
         var pin = ($('#fillPin').value || '').trim();
         if (!/^\d{4}$/.test(pin)) { toast('請輸入 4 位數字 PIN', true); return; }
+        var btn = $('#fillPinGo'); btn.disabled = true; btn.textContent = '確認中…';
         if (setMode) {
           var sr = await TP.call('setPerfPin', { t: shareToken, athleteId: ctx.athleteId, pin: pin });
-          if (!sr.ok) { toast(sr.error || '設定失敗', true); return; }
+          if (!sr.ok) { toast(sr.error || '設定失敗', true); btn.disabled = false; btn.textContent = '設定'; return; }
         }
         ctx.pin = pin; ctx.prefillPinNeeded = false;
         loadSeven(true);
@@ -722,12 +727,15 @@
     $('#perfPinGo').onclick = async function () {
       var pin = ($('#perfPin').value || '').trim();
       if (!/^\d{4}$/.test(pin)) { toast('請輸入 4 位數字 PIN', true); return; }
+      var btn = $('#perfPinGo'); var originalText = btn.textContent;
+      btn.disabled = true; btn.textContent = '確認中…';
       if (setMode) {
         var sr = await TP.call('setPerfPin', { t: shareToken, athleteId: id, pin: pin });
-        if (!sr.ok) { toast(sr.error || '設定失敗', true); return; }
+        if (!sr.ok) { toast(sr.error || '設定失敗', true); btn.disabled = false; btn.textContent = originalText; return; }
       }
       var r = await TP.call('myRecords', { t: shareToken, athleteId: id, pin: pin, limit: 14 });
       if (!r.ok) {
+        btn.disabled = false; btn.textContent = originalText;
         if (r.pinRequired) { toast('PIN 不正確', true); return; }
         if (r.noPin) { renderPinGate(id, name, false); return; }
         toast(r.error || '載入失敗', true); return;
@@ -915,9 +923,13 @@
     if (!r.ok) { toast(r.error || '送出失敗', true); return; }
 
     ctx.result = r;
-    ctx.kpiState = await TP.call('kpiFormState', { t: shareToken, athleteId: ctx.athleteId, date: localToday(), pin: ctx.pin });
     showResult(r, payload, tips);
     show('result');
+    // 儲存成功後立即顯示結果，KPI 狀態在背景更新。
+    TP.call('kpiFormState', { t: shareToken, athleteId: ctx.athleteId, date: localToday(), pin: ctx.pin }).then(function (state) {
+      ctx.kpiState = state;
+      $('#btnWeeklyKpi').classList.toggle('hidden', !(state && state.kpiDue));
+    });
   }
 
   function showResult(r, payload, tips) {

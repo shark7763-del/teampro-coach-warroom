@@ -38,11 +38,29 @@
   function setToken(t) { if (t) localStorage.setItem(LS_TOKEN, t); }
   function clearToken() { localStorage.removeItem(LS_TOKEN); }
 
+  var activeCalls = 0;
+  function setApiBusy(busy) {
+    activeCalls = Math.max(0, activeCalls + (busy ? 1 : -1));
+    if (!document.body) return;
+    var bar = document.getElementById('apiBusyBar');
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = 'apiBusyBar';
+      bar.className = 'api-busy-bar';
+      bar.setAttribute('role', 'progressbar');
+      bar.setAttribute('aria-label', '資料處理中');
+      document.body.appendChild(bar);
+    }
+    bar.classList.toggle('show', activeCalls > 0);
+    document.body.classList.toggle('api-busy', activeCalls > 0);
+  }
+
   /* 呼叫後端：用 text/plain 避免 CORS preflight（GAS 友善） */
   async function call(action, data) {
     var url = getUrl();
     if (!url) return { ok: false, error: '尚未設定後端網址（請在系統設定貼上 GAS /exec 網址）' };
     var body = Object.assign({ action: action }, data || {});
+    setApiBusy(true);
     try {
       var res = await fetch(url, {
         method: 'POST',
@@ -52,6 +70,8 @@
       return await res.json();
     } catch (e) {
       return { ok: false, error: '連線失敗：' + e.message };
+    } finally {
+      setApiBusy(false);
     }
   }
 

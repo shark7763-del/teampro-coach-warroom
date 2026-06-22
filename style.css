@@ -27,6 +27,12 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
+.api-busy-bar { position:fixed; z-index:9999; left:0; top:0; width:100%; height:3px; opacity:0; pointer-events:none; overflow:hidden; background:rgba(56,189,248,.2); transition:opacity .12s; }
+.api-busy-bar::after { content:''; display:block; width:38%; height:100%; background:var(--accent); transform:translateX(-110%); }
+.api-busy-bar.show { opacity:1; }
+.api-busy-bar.show::after { animation:api-busy-slide .9s ease-in-out infinite; }
+body.api-busy { cursor:progress; }
+@keyframes api-busy-slide { 50% { transform:translateX(170%); } 100% { transform:translateX(285%); } }
 a { color: var(--accent); text-decoration: none; }
 .container { width: min(1100px, 92vw); margin: 0 auto; }
 .muted { color: var(--muted); }
