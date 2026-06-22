@@ -242,13 +242,10 @@
         <button class="btn btn-sm" data-risk-filter="hydration_repeat">連續兩天水分不足</button>
       </div>
     </details>
-    <div class="grid grid-3" style="margin-bottom:16px;">
-      <div class="stat"><div class="num" id="stCompletion">0%</div><div class="lbl">今日完成率</div></div>
-      <div class="stat"><div class="num" id="stSubmitted">0</div><div class="lbl">已繳</div></div>
-      <div class="stat"><div class="num" id="stMissing">0</div><div class="lbl">尚未回報</div></div>
-      <div class="stat"><div class="num" id="stGreen" style="color:var(--green)">0</div><div class="lbl">綠燈</div></div>
-      <div class="stat"><div class="num" id="stYellow" style="color:var(--yellow)">0</div><div class="lbl">黃燈</div></div>
-      <div class="stat"><div class="num" id="stRed" style="color:var(--red)">0</div><div class="lbl">紅燈</div></div>
+    <div class="war-summary">
+      <span class="war-completion"><b id="stCompletion">0%</b> 今日完成率</span>
+      <span><b id="stSubmitted">0</b> 已繳 · <b id="stMissing">0</b> 未繳</span>
+      <span class="war-lights"><b id="stGreen">0</b> 綠 · <b id="stYellow">0</b> 黃 · <b id="stRed">0</b> 紅</span>
     </div>
     <div class="card" id="weeklyKpiCard" style="margin-bottom:16px;">
       <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;">

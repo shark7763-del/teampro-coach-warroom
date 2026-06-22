@@ -154,6 +154,12 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 28p
 .filter-details .risk-filters { display: flex; gap: 8px; flex-wrap: wrap; }
 #tab-warroom .stat { padding: 12px; }
 #tab-warroom .stat .num { font-size: 23px; }
+/* 戰情室摘要列：6 大方塊 → 一條安靜的數據條，焦點還給待處理名單 */
+.war-summary { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: baseline;
+  color: var(--muted); font-size: 13px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.war-summary b { color: var(--text); font-size: 18px; font-weight: 800; }
+.war-summary .war-completion b { color: var(--brand); }
+.war-summary .war-lights b { font-size: 15px; }
 
 /* ===== 快速點名中心（只新增，不動既有變數/色票/卡片） ===== */
 .att-setup { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 12px; }
