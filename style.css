@@ -77,6 +77,10 @@ textarea { resize: vertical; min-height: 70px; }
 
 /* 標題 */
 h1, h2, h3 { line-height: 1.25; }
+/* iter21：type ramp — 收斂字級為一套系統（.hero h1 / .doc h1 以更高優先序覆蓋，不受影響） */
+h1 { font-size: 28px; font-weight: 800; letter-spacing: -.02em; }
+h2 { font-size: 21px; font-weight: 800; letter-spacing: -.01em; }
+h3 { font-size: 16px; font-weight: 700; }
 .eyebrow { color: var(--brand); font-weight: 700; letter-spacing: .08em; font-size: 13px; }
 
 /* 燈號 */
