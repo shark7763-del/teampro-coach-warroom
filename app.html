@@ -120,6 +120,21 @@
   .report-doc p { margin:9px 0; }
   .report-doc .rp-comment { line-height:1.7; }
 
+  /* 體育署訓練日誌（個人）版型 — 仿官方表格，黑白可列印 */
+  .tlog { color:#101114; }
+  .tlog .tlog-cover { margin-bottom:18px; }
+  .tlog .tlog-cover h2 { margin:0 0 4px; }
+  .tlog .tlog-cover .muted { color:#5b6675; }
+  .tlog-day { border:1.5px solid #101114; border-radius:6px; margin:0 0 18px; overflow:hidden; }
+  .tlog-day table { width:100%; border-collapse:collapse; font-size:13px; }
+  .tlog-day th, .tlog-day td { border:1px solid #9aa3af; padding:6px 8px; text-align:left; vertical-align:top; }
+  .tlog-day th { background:#f1f3f6; font-weight:700; white-space:nowrap; width:96px; }
+  .tlog-day .tl-content { min-height:46px; line-height:1.55; white-space:pre-wrap; }
+  .tlog-day .tl-blank { min-height:46px; color:#aab2bd; }
+  .tlog-day .tl-auto { background:#f7faf8; }
+  .tlog-day .tl-sign td { height:42px; }
+  .tlog-day caption { caption-side:top; text-align:left; font-weight:800; padding:8px 8px 6px; background:#101114; color:#fff; }
+
   @media print {
     body { background:#fff; }
     body * { visibility:hidden; }
@@ -127,6 +142,8 @@
     #reportArea { position:absolute; left:0; top:0; width:100%; }
     .report-doc { box-shadow:none; max-width:none; }
     .no-print { display:none !important; }
+    .tlog-day { page-break-inside:avoid; page-break-after:always; }
+    .tlog-day:last-child { page-break-after:auto; }
   }
   /* 選手名單列：按鈕多，手機讓按鈕群換到下一行避免爆版 */
   #athleteList .row { flex-wrap: wrap; }
@@ -439,7 +456,7 @@
       </div>
       <div class="composer-fields">
         <div class="field"><label>報告類型</label>
-          <select id="rpType"><option value="athlete">個人選手報告</option><option value="team">團隊訓練報告</option><option value="parent">家長溝通報告</option><option value="visit">專任教練訪視報告</option></select>
+          <select id="rpType"><option value="athlete">個人選手報告</option><option value="team">團隊訓練報告</option><option value="parent">家長溝通報告</option><option value="visit">專任教練訪視報告</option><option value="log">體育署訓練日誌（個人）</option></select>
         </div>
         <div class="field" id="rpAthleteWrap"><label>選手</label><select id="rpAthlete"></select></div>
         <div class="field" id="rpTeamWrap" style="display:none;"><label>團隊</label><select id="rpTeam"></select></div>
@@ -456,6 +473,18 @@
         <div class="field" id="rpCustomTo" style="display:none;"><label>迄</label><input id="rpTo" type="date"></div>
       </div>
       <div id="rpSchoolWrap" style="display:none;margin-top:10px;"><label>學校名稱（印在訪視報告封面，會跨裝置記住）</label><input id="rpSchool" placeholder="例：新北市立育林國中"></div>
+      <div id="rpLogWrap" style="display:none;margin-top:10px;">
+        <p class="muted" style="font-size:12px;margin:0 0 8px;">📋 體育署訓練日誌固定欄位（一次填好會跨裝置記住，每日內容自動帶選手回報的上午／下午／晚間課表與心得）。性別、氣候、訓練時數無逐日資料，先用此預設值，列印後可手寫修正。</p>
+        <div class="composer-fields">
+          <div class="field"><label>隸屬範圍</label><input id="logAffiliation" placeholder="例：新北市政府"></div>
+          <div class="field"><label>體育班名稱</label><input id="logPeClass" placeholder="例：體育班"></div>
+          <div class="field"><label>預設氣候</label>
+            <select id="logWeather"><option>晴天</option><option>陰天</option><option>雨天</option><option>室內</option></select>
+          </div>
+          <div class="field"><label>預設訓練時數（小時）</label><input id="logHours" type="number" min="1" max="12" value="2"></div>
+          <div class="field"><label>預設性別</label><select id="logGender"><option value="男">男</option><option value="女">女</option></select></div>
+        </div>
+      </div>
       <label class="composer-comment-label">教練評語 / 待改善與下月重點（會印在報告上）</label>
       <textarea id="rpComment" placeholder="這段期間的整體表現、亮點與下一步建議…"></textarea>
       <div class="composer-actions">
@@ -852,6 +881,12 @@
     $('#setEmail').value = state.coach.email || '';
     if (coachSettings().lineUrl) TP.setLineUrl(coachSettings().lineUrl); // 跨裝置同步 LINE 連結
     $('#rpSchool').value = coachSettings().school || '';
+    var cs = coachSettings();
+    $('#logAffiliation').value = cs.logAffiliation || '';
+    $('#logPeClass').value = cs.logPeClass || '體育班';
+    if (cs.logWeather) $('#logWeather').value = cs.logWeather;
+    $('#logHours').value = cs.logHours || 2;
+    if (cs.logGender) $('#logGender').value = cs.logGender;
     $('#setUrl').value = TP.getUrl();
     $('#setLineUrl').value = TP.getLineUrl();
     $('#setLineOpen').href = TP.getLineUrl();
@@ -1559,10 +1594,11 @@
   /* ---------- 成果報告 ---------- */
   $('#rpType').onchange = function () {
     var v = $('#rpType').value, teamLevel = (v === 'team' || v === 'visit');
-    $('#rpAthleteWrap').style.display = teamLevel ? 'none' : '';   // 個人/家長用選手選單；團隊/訪視用團隊
+    $('#rpAthleteWrap').style.display = teamLevel ? 'none' : '';   // 個人/家長/日誌用選手選單；團隊/訪視用團隊
     $('#rpTeamWrap').style.display = teamLevel ? '' : 'none';
     $('#rpVisitWrap').style.display = (v === 'visit') ? '' : 'none';
-    $('#rpSchoolWrap').style.display = (v === 'visit') ? '' : 'none';
+    $('#rpSchoolWrap').style.display = (v === 'visit' || v === 'log') ? '' : 'none';  // 日誌也要學校名
+    $('#rpLogWrap').style.display = (v === 'log') ? '' : 'none';
   };
   $('#rpRange').onchange = function () {
     var custom = $('#rpRange').value === 'custom';
@@ -1607,6 +1643,32 @@
       renderOnboarding();
       return;
     }
+    if ($('#rpType').value === 'log') {
+      var lAId = $('#rpAthlete').value;
+      if (!DEMO && !lAId) { toast('請選擇選手', true); return; }
+      var lAthlete = state.athletes.filter(function (a) { return a.athleteId === lAId; })[0] || state.athletes[0] || {};
+      // 記住固定欄位（跨裝置）
+      if ($('#rpSchool').value.trim()) saveCoachSettings({ school: $('#rpSchool').value.trim() });
+      saveCoachSettings({
+        logAffiliation: $('#logAffiliation').value.trim(),
+        logPeClass: $('#logPeClass').value.trim(),
+        logWeather: $('#logWeather').value,
+        logHours: $('#logHours').value,
+        logGender: $('#logGender').value
+      });
+      var lRecs;
+      if (DEMO) {
+        lRecs = demoRecords(range);
+      } else {
+        var lr = await TP.callAuth('athleteRecords', { athleteId: lAId, limit: 31 });
+        if (!lr.ok) { toast(lr.error || '產生失敗', true); return; }
+        lRecs = (lr.records || []).filter(function (x) { return x.date >= range.from && x.date <= range.to; });
+      }
+      lRecs = lRecs.sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); });
+      renderTrainingLog(lAthlete, range, lRecs);
+      renderOnboarding();
+      return;
+    }
     if (DEMO) {
       if ($('#rpType').value === 'team') { renderTeamReport('示範・兩隊合計', range, DEMO_DATA.teamReport); if (range.days === 7) markTask('report7', true); }
       else {
@@ -1648,6 +1710,70 @@
     if (isParent) renderParentReport(athlete, range, recs);
     else renderReport(athlete, range, recs);
   };
+
+  // 體育署訓練日誌（個人）：把選手每日回報的課表與心得，攤成仿官方表格，一天一頁可列印
+  function renderTrainingLog(athlete, range, recs) {
+    var teamName = (state.teams.filter(function (t) { return String(t.teamId) === String(athlete.teamId); })[0] || {}).teamName || '';
+    var school = $('#rpSchool').value.trim() || coachSettings().school || '';
+    var affiliation = $('#logAffiliation').value.trim() || coachSettings().logAffiliation || '';
+    var peClass = $('#logPeClass').value.trim() || coachSettings().logPeClass || '體育班';
+    var weather = $('#logWeather').value || '晴天';
+    var hours = $('#logHours').value || '2';
+    var gender = $('#logGender').value || '男';
+    var gradeClass = athlete.gradeClass || '';
+
+    if (!recs.length) {
+      $('#reportArea').innerHTML = '<div class="report-doc tlog"><h2>查無資料</h2><p>' + esc(athlete.name || '') +
+        ' 在 ' + range.from + ' ~ ' + range.to + ' 期間沒有訓練回報紀錄，無法產生訓練日誌。</p></div>';
+      return;
+    }
+
+    function field(v) {
+      return (v == null || String(v).trim() === '')
+        ? '<div class="tl-blank">（無回報，可列印後手寫補充）</div>'
+        : '<div class="tl-content">' + esc(v) + '</div>';
+    }
+    function bodyStatus(r) {
+      var bits = [];
+      if (r.sleepHours !== '' && r.sleepHours != null) bits.push('睡眠 ' + esc(r.sleepHours) + ' 小時');
+      if (r.fatigue) bits.push('疲勞 ' + esc(r.fatigue));
+      if (r.painScore !== '' && r.painScore != null && String(r.painScore) !== '0') bits.push('疼痛指數 ' + esc(r.painScore));
+      if (r.injuryAreas && r.injuryAreas !== '無受傷') bits.push('傷勢：' + esc(r.injuryAreas) + (r.injuryNote ? '（' + esc(r.injuryNote) + '）' : ''));
+      var t = num(r.totalScore);
+      if (t > 0) { var l = r.status || TP.lightOf(t); bits.push('當日 KPI ' + t.toFixed(1) + '（' + TP.lightText(l) + '）'); }
+      return bits.length ? bits.join('；') : '當日無身體狀況回報';
+    }
+
+    var days = recs.map(function (r, i) {
+      var notes = [r.trainingNotes, r.reflection].filter(function (x) { return x && String(x).trim(); }).join('\n');
+      return '<div class="tlog-day"><table>' +
+        '<caption>第 ' + (i + 1) + ' 天　訓練日誌</caption>' +
+        '<tr><th>隸屬範圍</th><td>' + esc(affiliation || '—') + '</td><th>學校</th><td colspan="3">' + esc(school || '—') + '</td></tr>' +
+        '<tr><th>體育班名稱</th><td>' + esc(peClass) + '</td><th>團隊名稱</th><td colspan="3">' + esc(teamName || '—') + '</td></tr>' +
+        '<tr><th>訓練日期</th><td>' + esc(r.date) + '</td><th>氣候</th><td>' + esc(weather) + '</td><th>訓練時數</th><td>' + esc(hours) + ' 小時</td></tr>' +
+        '<tr><th>班級</th><td>' + esc(gradeClass || '—') + '</td><th>選手姓名</th><td>' + esc(athlete.name || '') + '</td><th>性別</th><td>' + esc(gender) + '</td></tr>' +
+        '<tr><th>晨間活動內容</th><td colspan="5">' + field('') + '</td></tr>' +
+        '<tr><th>上午訓練內容</th><td colspan="5">' + field(r.trainingAM) + '</td></tr>' +
+        '<tr><th>下午訓練內容</th><td colspan="5">' + field(r.trainingPM) + '</td></tr>' +
+        '<tr><th>晚間／自主訓練</th><td colspan="5">' + field(r.trainingEve) + '</td></tr>' +
+        '<tr class="tl-auto"><th>出席與身體狀況</th><td colspan="5">' + esc(bodyStatus(r)) + '</td></tr>' +
+        '<tr><th>訓練心得／檢討</th><td colspan="5">' + field(notes) + '</td></tr>' +
+        (r.coachComment ? '<tr><th>教練回饋</th><td colspan="5"><div class="tl-content">' + esc(r.coachComment) + '</div></td></tr>' : '') +
+        '<tr class="tl-sign"><th>選手簽名</th><td colspan="2"></td><th>教練簽章</th><td colspan="2"></td></tr>' +
+        '</table></div>';
+    }).join('');
+
+    $('#reportArea').innerHTML =
+      '<div class="report-doc tlog">' +
+        '<div class="tlog-cover">' +
+          '<div class="rp-brand"><img src="assets/logo.png" alt="">TeamPro 教練戰情室</div>' +
+          '<h2>體育署 體育班訓練日誌（個人）</h2>' +
+          '<div class="muted">' + esc(school || '') + (school ? '　' : '') + esc(athlete.name || '') +
+            '　｜　' + range.from + ' ~ ' + range.to + '　｜　共 ' + recs.length + ' 個訓練日</div>' +
+        '</div>' +
+        days +
+      '</div>';
+  }
 
   // 家長溝通報告：溫和摘要，不顯示原始 KPI 分數、心情、壓力、體重、傷勢細節
   function renderParentReport(athlete, range, recs) {
@@ -2461,11 +2587,18 @@
     for (var i = 0; i < 12; i++) {
       var d = new Date(); d.setDate(d.getDate() - (11 - i));
       var v = Math.min(5, +(base + i * 0.12 + (i % 3 === 0 ? 0.2 : 0)).toFixed(1));
+      var amOpts = ['熱身慢跑 15 分鐘＋動態伸展，基本步法與位移', '核心肌群訓練、平衡墊穩定度', '柔軟度與關節活動，技術分解動作'];
+      var pmOpts = ['橫踢、下壓踢靶 10 組，實戰對打 3 回合', '速度與爆發力課表：跳箱、衝刺 8 趟', '戰術情境演練與計分對練'];
+      var eveOpts = ['伸展放鬆、滾筒按摩，今日影像複盤', '自主重量訓練（下肢）', '休息恢復，補充水分與蛋白質'];
+      var noteOpts = ['踢擊速度有進步，左側防守仍需加強。', '今日體能稍累但完成全部課表。', '對打節奏掌握不錯，下次加強反擊時機。'];
       out.push({
         date: d.toISOString().slice(0, 10), totalScore: v, status: TP.lightOf(v),
         technicalAvg: v, tacticalAvg: Math.max(1, v - 0.3), physicalAvg: Math.min(5, v + 0.2),
         mentalAvg: Math.max(1, v - 0.4), attitudeAvg: Math.min(5, v + 0.3), physiologicalAvg: Math.max(1, v - 0.2),
-        moodIndex: Math.min(5, Math.round(v))
+        moodIndex: Math.min(5, Math.round(v)),
+        trainingAM: amOpts[i % 3], trainingPM: pmOpts[i % 3], trainingEve: eveOpts[i % 3],
+        trainingNotes: noteOpts[i % 3], sleepHours: 7 + (i % 3) * 0.5, fatigue: ['輕度', '中度', '輕度'][i % 3],
+        injuryAreas: i % 4 === 0 ? '右腳踝輕微痠痛' : '無受傷'
       });
     }
     return out;
