@@ -61,8 +61,9 @@
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
       <button class="btn btn-sm btn-primary" id="allPresent">✅ 全員出席</button>
       <button class="btn btn-sm btn-ghost" id="reloadDay">↻ 重新載入</button>
+      <button class="btn btn-sm" id="enterConsole" style="margin-left:auto;">🎯 進入完整戰情室＋回覆 →</button>
     </div>
-    <p class="muted" style="margin:0 0 12px;font-size:13px;">每位選手都可以補一段簡短回覆，會跟著點名一起同步給教練。</p>
+    <p class="muted" style="margin:0 0 12px;font-size:13px;">每位選手都可以補一段簡短回覆，會跟著點名一起同步給教練。需要看 KPI／逐位回饋／報表，按右上「進入完整戰情室＋回覆」。</p>
     <div id="rollList"></div>
   </div>
 </div>
@@ -114,6 +115,17 @@
     $('#pinErr').textContent = '';
   });
   $('#pinInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('#pinNext').click(); });
+
+  // 助教全開：用同一組 PIN 換主教練 token，進入完整 app.html
+  $('#enterConsole').onclick = async function () {
+    if (!state.pin) { toast('請先輸入 PIN', true); return; }
+    this.disabled = true;
+    var r = await TP.call('asstLogin', { t: state.token, pin: state.pin });
+    this.disabled = false;
+    if (!r.ok) { toast(r.error || '進入失敗，請重試', true); return; }
+    TP.setToken(r.token);
+    location.href = 'app.html';
+  };
 
   $('#pinNext').onclick = async function () {
     var pin = $('#pinInput').value;

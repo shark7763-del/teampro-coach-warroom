@@ -1057,7 +1057,7 @@
             '<button class="btn btn-sm" data-asst-set="' + t.teamId + '">變更 PIN</button>' +
             '<button class="btn btn-sm btn-danger" data-asst-clear="' + t.teamId + '">關閉</button>' +
           '</div>'
-        : '<button class="btn btn-sm" data-asst-set="' + t.teamId + '">開啟助教點名＋回覆（設定 PIN）</button>';
+        : '<button class="btn btn-sm" data-asst-set="' + t.teamId + '">開啟助教權限（設定 PIN）</button>';
       return '<div class="row" style="flex-direction:column;align-items:stretch;gap:8px;">' +
         '<div><b>' + esc(t.teamName) + '</b> <span class="muted">· ' + esc(t.sport) + (t.sportCategory ? ' · ' + esc(t.sportCategory) : '') + '</span></div>' +
         '<div class="link-box" style="flex:1;min-width:280px;">' +
@@ -1067,7 +1067,7 @@
           '<button class="btn btn-sm btn-danger" data-del="' + t.teamId + '" data-name="' + esc(t.teamName) + '">刪除</button>' +
         '</div>' +
         '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
-          '<span class="muted" style="font-size:13px;white-space:nowrap;">🧑‍🏫 助教點名＋回覆連結 · ' + (hasAsst ? '<span style="color:var(--green)">已開啟</span>' : '未開啟') + '</span>' +
+          '<span class="muted" style="font-size:13px;white-space:nowrap;">🧑‍🏫 助教連結（⚠️ 此 PIN 可進入完整後台，等同帳號權限）· ' + (hasAsst ? '<span style="color:var(--green)">已開啟</span>' : '未開啟') + '</span>' +
           asstLine +
         '</div>' +
       '</div>';
@@ -1076,20 +1076,20 @@
     TP.$all('[data-asst-set]', box).forEach(function (b) {
       b.onclick = async function () {
         if (DEMO) { demoBlock(); return; }
-        var pin = prompt('設定 4 位數助教 PIN（助教用這組 PIN 開啟連結點名）：');
+        var pin = prompt('⚠️ 注意：助教用這組 PIN 可進入「完整教練後台」，等同你的帳號權限（含設定、方案訂閱、帳單、名單增刪、刪隊）。請只給信任的人。\n\n設定 4 位數助教 PIN：');
         if (pin == null) return;
         pin = String(pin).trim();
         if (!/^\d{4}$/.test(pin)) { toast('PIN 需為 4 位數字', true); return; }
         var r = await TP.callAuth('setAssistantPin', { teamId: b.dataset.asstSet, pin: pin });
-        if (r.ok) { toast('助教點名＋回覆已開啟，把連結與 PIN 給助教即可'); loadTeams(); } else { toast(r.error, true); }
+        if (r.ok) { toast('助教權限已開啟，把連結與 PIN 給助教即可'); loadTeams(); } else { toast(r.error, true); }
       };
     });
     TP.$all('[data-asst-clear]', box).forEach(function (b) {
       b.onclick = async function () {
         if (DEMO) { demoBlock(); return; }
-        if (!confirm('關閉後，現有助教連結與 PIN 立即失效，助教將無法再點名。確定？')) return;
+        if (!confirm('關閉後，現有助教連結與 PIN 立即失效，助教將無法再進入後台。確定？')) return;
         var r = await TP.callAuth('setAssistantPin', { teamId: b.dataset.asstClear, clear: true });
-        if (r.ok) { toast('已關閉助教點名＋回覆'); loadTeams(); } else { toast(r.error, true); }
+        if (r.ok) { toast('已關閉助教權限'); loadTeams(); } else { toast(r.error, true); }
       };
     });
     TP.$all('[data-copy]', box).forEach(function (b) {

@@ -299,6 +299,7 @@ function handle(action, d) {
     case 'asstInfo':          return jsonOut(asstInfo(d));
     case 'asstGetAttendance': return jsonOut(withAssistant(d, getAttendance));
     case 'asstSaveAttendance':return jsonOut(withAssistant(d, saveAttendance));
+    case 'asstLogin':         return jsonOut(asstLogin(d));   // 助教全開：PIN→主教練 token
 
     /* ---- 戰情室 / 報告 ---- */
     case 'warroom':         return jsonOut(withCoach(d, warroom));
@@ -1161,6 +1162,21 @@ function asstInfo(d) {
   return { ok: true, needPin: false,
     team: { teamName: t.teamName, sport: t.sport, memberTerm: t.memberTerm || '選手' },
     roster: roster, courses: Object.keys(courses), statuses: ATT_STATUSES };
+}
+
+/* 助教全開登入：team shareToken + 4 位 PIN 正確 → 直接發一張「真正的主教練 session token」。
+   ⚠️ 產品決策（使用者明確選擇）：助教＝完全比照主教練，含設定／方案訂閱／帳單／名單增刪／刪隊。
+   等同用 4 位 PIN 分享完整帳號，操作在稽核上記為主教練本人；風險由教練自行承擔。 */
+function asstLogin(d) {
+  var t = teamFromShareToken(d.t || d.shareToken);
+  if (!t) return { ok: false, error: '連結無效或已被重設，請向教練索取新連結' };
+  if (!teamHasAsstPin(t)) return { ok: false, error: '教練尚未開啟此隊的助教功能' };
+  var pin = String(d.pin == null ? '' : d.pin);
+  if (!pin || hashPassword(pin, t.asstPinSalt) !== String(t.asstPinHash))
+    return { ok: false, error: 'PIN 不正確' };
+  var token = newSession(t.coachId);
+  audit('assistant:' + t.teamId, 'asstLogin', t.coachId, t.teamName + '（助教全開登入）');
+  return { ok: true, token: token, coach: publicCoach(t.coachId) };
 }
 
 /* 教練：設定／變更／清除該隊助教 PIN */
