@@ -511,7 +511,16 @@
         <img src="assets/line-qr.jpg" alt="TeamPro 官方 LINE QR Code">
         <div class="muted" style="font-size:13px;">這張 QR 可直接放在簡報、海報或家長通知裡。</div>
       </div>
-      <label>KPI 評估頻率</label>
+      <label>KPI 評估方式</label>
+      <div class="link-box" style="margin-top:0;">
+        <select id="kpiVersion" style="max-width:300px;">
+          <option value="v1">經典版：30 題滑桿（1–5 分）</option>
+          <option value="v2">新版：15 題行為錨點 · 每天填（推薦）</option>
+        </select>
+      </div>
+      <p class="muted" style="font-size:12px;margin:4px 0 12px;">新版＝選手每天填 15 題，每題用「選最像我的那句」白話錨點（戰術依運動分類自動換題、恢復題併入每日），破解「都打 3 分」。切換不影響歷史資料。</p>
+      <div id="kpiCadenceWrap">
+      <label>KPI 評估頻率（經典版適用）</label>
       <div class="link-box" style="margin-top:0;">
         <select id="kpiCadence" style="max-width:240px;">
           <option value="weekly">每週一次（預設，選手負擔低）</option>
@@ -519,7 +528,8 @@
         </select>
         <span class="muted" id="kpiCadenceHint" style="font-size:13px;align-self:center;"></span>
       </div>
-      <p class="muted" style="font-size:12px;margin:4px 0 12px;">每天＝選手每天填 30 項 KPI、你在戰情室即時看到當日表現（負擔較高）；每週＝一週評一次。切換後當下週期重新計算，歷史資料不受影響。</p>
+      <p class="muted" style="font-size:12px;margin:4px 0 12px;">每天＝選手每天填、即時看到當日表現；每週＝一週評一次。新版一律每天，不受此設定影響。</p>
+      </div>
       <label>自訂 KPI 題目</label>
       <p class="muted" style="font-size:12px;margin:0 0 6px;">填 6 個詞，依序對應 6 大面向（技術／戰術／體能／心理／態度／生理）。可一鍵帶入專項範本再微調：</p>
       <div class="kpi-templates">
@@ -812,6 +822,8 @@
     $('#setLineOpen').href = TP.getLineUrl();
     $('#customKpiText').value = localStorage.getItem(coachLS('custom_kpi')) || '';
     $('#kpiCadence').value = coachSettings().kpiCadence === 'daily' ? 'daily' : 'weekly';
+    $('#kpiVersion').value = coachSettings().kpiVersion === 'v2' ? 'v2' : 'v1';
+    $('#kpiCadenceWrap').classList.toggle('hidden', coachSettings().kpiVersion === 'v2');
     renderPlan();
     $('#warDate').value = localToday();
     loadTeams().then(function () { loadAthletes(); loadWarroom(); loadTrialSummary(); });
@@ -2274,6 +2286,14 @@
 
   /* ---------- 設定 ---------- */
   $('#setUrlSave').onclick = function () { TP.setUrl($('#setUrl').value); toast('已儲存，重新整理生效'); };
+  $('#kpiVersion').onchange = async function () {
+    if (DEMO) { $('#kpiVersion').value = 'v1'; demoBlock(); return; }
+    var v = $('#kpiVersion').value === 'v2' ? 'v2' : 'v1';
+    await saveCoachSettings({ kpiVersion: v });
+    $('#kpiCadenceWrap').classList.toggle('hidden', v === 'v2');
+    toast(v === 'v2' ? '已切換為新版 15 題錨點（選手今天起每天填）' : '已切回經典 30 題');
+    if (!$('#tab-warroom').classList.contains('hidden')) loadWarroom();
+  };
   $('#kpiCadence').onchange = async function () {
     if (DEMO) { $('#kpiCadence').value = 'weekly'; demoBlock(); return; }
     var v = $('#kpiCadence').value === 'daily' ? 'daily' : 'weekly';

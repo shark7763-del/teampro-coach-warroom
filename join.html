@@ -49,6 +49,20 @@
   .dim-trend-row .dt-name { font-size:13px; }
   .dim-trend-row .dt-spark svg { margin:0 !important; }
   .dim-trend-row .dt-val { text-align:right; font-size:13px; white-space:nowrap; }
+  /* KPI v2 錨點填答 */
+  .kpi2-bar { height:6px; background:var(--panel-2); border-radius:999px; margin-top:8px; overflow:hidden; }
+  .kpi2-bar > div { height:100%; background:var(--brand); width:0; transition:width .2s; }
+  .k2q { padding:14px 0; border-bottom:1px solid var(--line); }
+  .k2q:last-child { border-bottom:none; }
+  .k2q-name { font-weight:700; font-size:15px; }
+  .k2q-hint { color:var(--muted); font-size:12px; margin:2px 0 8px; }
+  .k2q-btns { display:grid; grid-template-columns:repeat(5,1fr); gap:6px; }
+  .k2q-btns button { padding:13px 0; border:1px solid var(--line); background:var(--panel-2); color:var(--text); border-radius:10px; font-size:16px; font-weight:800; cursor:pointer; transition:border-color .12s,background .12s,transform .1s; }
+  .k2q-btns button:active { transform:scale(.94); }
+  .k2q-btns button.sel { border-color:var(--brand); background:rgba(34,197,94,.2); }
+  .k2q-anchor { margin-top:8px; font-size:13.5px; line-height:1.5; color:var(--text); }
+  .k2q-anchor:not(:empty) { background:rgba(56,189,248,.1); border-radius:8px; padding:8px 10px; }
+  .k2q-anchor:empty::before { content:"↑ 選一個最像你的"; color:var(--muted); font-size:12px; }
   @media (max-width:420px) { .choice-grid { grid-template-columns:1fr 1fr; } .choice-grid button { font-size:14px; } }
   /* iter20：選手端可選按鈕的動效與後台一致（.15s 過場 + 按壓回饋） */
   .mood-row button, .nutri-chips button, .choice-grid button, .train-slot .notrain {
@@ -254,6 +268,23 @@
     <button class="btn btn-primary btn-block hidden" id="btnWeeklyKpi" style="margin-top:12px;">繼續填寫上週 KPI（約 3–5 分鐘）</button>
     <button class="btn btn-primary btn-block" id="btnAgain" style="margin-top:12px;">完成</button>
   </div>
+
+  <!-- KPI v2：15 題錨點填答（一面向一頁） -->
+  <div id="step-kpi2" class="step">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+        <h2 id="kpi2DimTitle" style="margin:0;">—</h2>
+        <span class="muted" id="kpi2Progress" style="font-size:13px;white-space:nowrap;"></span>
+      </div>
+      <div class="kpi2-bar"><div id="kpi2BarFill"></div></div>
+      <p class="muted" id="kpi2DimDesc" style="font-size:12px;margin:6px 0 0;"></p>
+      <div id="kpi2Questions"></div>
+      <div style="display:flex;gap:8px;margin-top:14px;">
+        <button class="btn hidden" id="kpi2Back">← 上一面向</button>
+        <button class="btn btn-primary" id="kpi2Next" style="flex:1;" disabled>下一面向</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- 底部導覽（KPI/身體步驟用） -->
@@ -300,7 +331,7 @@
   }
 
   function show(step) {
-    ['who', 'kpi', 'body', 'result', 'perf'].forEach(function (s) {
+    ['who', 'kpi', 'body', 'result', 'perf', 'kpi2'].forEach(function (s) {
       $('#step-' + s).classList.toggle('active', s === step);
     });
     $('#navBar').classList.toggle('hidden', step !== 'kpi' && step !== 'body');
@@ -612,10 +643,12 @@
     $('#encourageName').innerHTML = '<option value="">—</option>' + ctx.athletes
       .filter(function (a) { return a.athleteId !== id; })
       .map(function (a) { return '<option value="' + esc(a.name) + '">' + esc(a.name) + '</option>'; }).join('');
-    cur = 'body';
+    // 先查 KPI 版本：v2 且已開啟 KPI 追蹤 → 走 15 題錨點填答；否則走原每日輕量回報
     ctx.kpiState = null;
+    var st = await TP.call('kpi2State', { t: shareToken, athleteId: id, date: localToday(), pin: ctx.pin });
+    if (st && st.ok && st.version === 'v2' && st.kpiEffective) { startKpi2(st.sportCategory, st); return; }
+    cur = 'body';
     show('body');
-    // KPI 狀態不影響日報填寫，背景載入即可，避免「確認」卡在上一頁。
     TP.call('kpiFormState', { t: shareToken, athleteId: id, date: localToday(), pin: ctx.pin }).then(function (r) {
       ctx.kpiState = r; applyKpiLabels();
     });
@@ -691,6 +724,82 @@
           : '<p class="muted" style="font-size:12px;margin:8px 0;">至少 2 天才畫得出折線，再多填幾天就會出現趨勢。</p>') +
         '<p class="muted" style="font-size:12px;margin:8px 0 0;">可按右上「↺ 帶入上次」沿用最近分數再微調。</p>';
     }
+  }
+
+  /* ---------- KPI v2：15 題錨點填答（一面向一頁） ---------- */
+  var kpi2 = { byDim: [], dimIdx: 0, scores: {} };
+  function startKpi2(sportCategory, st) {
+    if (st) ctx.kpiState = st;
+    var items = TP.kpi2Resolve(sportCategory);
+    kpi2 = { byDim: [], dimIdx: 0, scores: {} };
+    var seen = {};
+    items.forEach(function (it) {
+      if (!seen[it.dimKey]) { seen[it.dimKey] = { dimKey: it.dimKey, dimName: it.dimName, daily: it.daily, items: [] }; kpi2.byDim.push(seen[it.dimKey]); }
+      seen[it.dimKey].items.push(it);
+    });
+    renderKpi2Dim();
+    cur = 'kpi2'; show('kpi2');
+  }
+  function renderKpi2Dim() {
+    var d = kpi2.byDim[kpi2.dimIdx];
+    $('#kpi2DimTitle').textContent = d.dimName;
+    $('#kpi2Progress').textContent = '面向 ' + (kpi2.dimIdx + 1) + ' / ' + kpi2.byDim.length;
+    $('#kpi2BarFill').style.width = (kpi2.dimIdx / kpi2.byDim.length * 100) + '%';
+    $('#kpi2DimDesc').textContent = d.daily ? '依今天的身體狀況選' : '回想這週的訓練表現選';
+    $('#kpi2Questions').innerHTML = d.items.map(function (it) {
+      var v0 = kpi2.scores[it.k];
+      return '<div class="k2q">' +
+        '<div class="k2q-name">' + esc(it.n) + '</div>' +
+        (it.q ? '<div class="k2q-hint">' + esc(it.q) + '</div>' : '') +
+        '<div class="k2q-btns">' + [1, 2, 3, 4, 5].map(function (v) {
+          return '<button type="button" data-k="' + esc(it.k) + '" data-v="' + v + '"' + (v0 === v ? ' class="sel"' : '') + '>' + v + '</button>';
+        }).join('') + '</div>' +
+        '<div class="k2q-anchor" id="anc_' + esc(it.k) + '">' + (v0 ? esc(it.a[v0 - 1]) : '') + '</div>' +
+        '</div>';
+    }).join('');
+    TP.$all('#kpi2Questions [data-v]').forEach(function (b) {
+      b.onclick = function () {
+        var k = b.dataset.k, v = Number(b.dataset.v);
+        kpi2.scores[k] = v;
+        var it = d.items.filter(function (x) { return x.k === k; })[0];
+        $('#anc_' + k).textContent = it.a[v - 1];
+        TP.$all('#kpi2Questions button[data-k="' + k + '"]').forEach(function (x) { x.classList.toggle('sel', Number(x.dataset.v) === v); });
+        updateKpi2Next();
+      };
+    });
+    $('#kpi2Back').classList.toggle('hidden', kpi2.dimIdx === 0);
+    $('#kpi2Next').textContent = kpi2.dimIdx === kpi2.byDim.length - 1 ? '完成並送出' : '下一面向 →';
+    updateKpi2Next();
+    window.scrollTo(0, 0);
+  }
+  function updateKpi2Next() {
+    var d = kpi2.byDim[kpi2.dimIdx];
+    $('#kpi2Next').disabled = !d.items.every(function (it) { return kpi2.scores[it.k]; });
+  }
+  $('#kpi2Back').onclick = function () { if (kpi2.dimIdx > 0) { kpi2.dimIdx--; renderKpi2Dim(); } };
+  $('#kpi2Next').onclick = async function () {
+    if (kpi2.dimIdx < kpi2.byDim.length - 1) { kpi2.dimIdx++; renderKpi2Dim(); return; }
+    var pin = ctx.pin || await kpiPin();
+    if (!pin) return;
+    var btn = $('#kpi2Next'); btn.disabled = true; btn.textContent = '送出中…';
+    var r = await TP.call('submitKpi2', { t: shareToken, athleteId: ctx.athleteId, pin: pin, scores: kpi2.scores });
+    if (!r.ok) { ctx.pin = ''; btn.disabled = false; btn.textContent = '完成並送出'; toast(r.message || r.error || '送出失敗', true); return; }
+    ctx.pin = pin; $('#kpi2BarFill').style.width = '100%';
+    showKpi2Result(r);
+  };
+  function showKpi2Result(r) {
+    var light = r.status || 'green';
+    $('#resScore').textContent = Number(r.totalScore).toFixed(1);
+    $('#resScore').style.color = light === 'green' ? 'var(--green)' : (light === 'yellow' ? 'var(--yellow)' : 'var(--red)');
+    $('#resLight').innerHTML = '<span class="pill ' + light + '">今日 KPI · ' + TP.lightText(light) + '</span>' +
+      (r.recoveryStatus && r.recoveryStatus !== 'green' ? ' <span class="pill ' + r.recoveryStatus + '">身體狀況需注意</span>' : '');
+    $('#resDims').innerHTML = TP.KPI_DIMENSIONS.map(function (dm) { return esc(dm.name) + ' ' + Number(r.dimAvg[dm.key]).toFixed(1); }).join('　');
+    $('#resAdvice').textContent = '今天的紀錄已送出，教練會看到你的狀態。明天記得再來填 💪';
+    var sum = '【' + ctx.name + ' 今日 KPI】總分 ' + Number(r.totalScore).toFixed(1) + '（' + TP.lightText(light) + '）';
+    $('#btnCopyStudent').onclick = function () { TP.copy(sum); };
+    $('#btnCopyParent').onclick = function () { TP.copy('家長您好：' + ctx.name + ' 今天已完成訓練自評，整體狀態 ' + TP.lightText(light) + '。感謝您的陪伴 🙏'); };
+    $('#btnWeeklyKpi').classList.add('hidden');
+    cur = 'result'; show('result');
   }
 
   /* ---------- 我的近期表現 ---------- */
