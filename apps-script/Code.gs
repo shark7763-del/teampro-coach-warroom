@@ -1245,6 +1245,7 @@ function warroom(c, d) {
         athleteId: a.athleteId, name: a.name, totalScore: latestKpi ? latestKpi.totalScore : '', status: light,
         kpiWeekStart: latestKpi ? latestKpi.weekStart : '',
         moodIndex: r.moodIndex, recordId: r.recordId, declining: isDeclining,
+        submittedAt: r.timestamp || '',
         sleepDurationMinutes: r.sleepDurationMinutes, sleepDurationText: r.sleepDurationText,
         sleepRisk: r.sleepRisk, painStatus: r.painStatus, painAreas: r.painAreas || r.injuryAreas,
         painScore: r.painScore, painImpact: r.painImpact, painRisk: r.painRisk,

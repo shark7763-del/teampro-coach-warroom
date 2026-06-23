@@ -1459,6 +1459,12 @@
 
   function renderWarroomLists(r) {
     var showMissing = currentRiskFilter === 'all' || currentRiskFilter === 'missing';
+    function formatSubmittedAt(ts) {
+      if (!ts) return '';
+      var d = new Date(ts);
+      if (isNaN(d.getTime())) return '';
+      return d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0');
+    }
     $('#missList').innerHTML = showMissing && r.missing.length
       ? r.missing.map(function (m) { return '<div class="row"><span>' + esc(m.name) + '</span><span class="muted">尚未回報</span></div>'; }).join('')
       : '<div class="empty-state">' + (currentRiskFilter === 'missing' ? '🎉 全隊今天都完成回報了，乾淨俐落。' : '此篩選不含未回報選手。') + '</div>';
@@ -1472,11 +1478,15 @@
       var quality = s.reportQualityScore === '' || s.reportQualityScore == null ? '舊資料' : s.reportQualityScore + '・' + (s.reportQualityLabel || '正常');
       var hydrationLabel = hasHydrationFlag(s, 'severe_dehydration_risk') && s.hydrationRisk !== 'red'
         ? '水分黃燈偏紅' : '水分' + TP.lightText(s.hydrationRisk || 'green');
+      var submittedAt = formatSubmittedAt(s.submittedAt);
+      var urineTime = submittedAt && (s.urineColor === 'dark' || s.urineColor === 'abnormal')
+        ? '<span>回報時間：' + esc(submittedAt) + '</span>'
+        : '';
       return '<div class="athlete-risk-card" data-fb="' + s.athleteId + '" data-rec="' + (s.recordId || '') + '" data-name="' + esc(s.name) + '">' +
         '<div class="risk-head"><b><span class="dot ' + l + '"></span> ' + esc(s.name) + '</b><span class="pill ' + l + '">' + TP.lightText(l) + (Number(s.totalScore) > 0 ? ' · 最近 KPI ' + Number(s.totalScore).toFixed(1) : '') + '</span></div>' +
         '<div class="risk-meta"><span>睡眠：' + esc(sleep) + '</span><span>疼痛：' + esc(pain) + '</span><span>資料品質：' + esc(quality) + '</span></div>' +
         '<div class="risk-meta"><span class="pill ' + esc(s.hydrationRisk || 'green') + '">' + esc(hydrationLabel) + '</span>' +
-        '<span>喝水：' + esc(waterLabels[s.waterAmount] || '未填') + '</span><span>流汗：' + esc(sweatLabels[s.sweatAmount] || '未填') + '</span><span>尿液：' + esc(urineLabels[s.urineColor] || '未填') + '</span></div>' +
+        '<span>喝水：' + esc(waterLabels[s.waterAmount] || '未填') + '</span><span>流汗：' + esc(sweatLabels[s.sweatAmount] || '未填') + '</span><span>尿液：' + esc(urineLabels[s.urineColor] || '未填') + '</span>' + urineTime + '</div>' +
         (s.reportQualityReasons ? '<div class="muted" style="font-size:12px;margin-top:6px;">需確認：' + esc(s.reportQualityReasons) + '</div>' : '') +
         '<div class="risk-advice"><b>建議：</b>' + esc(s.coachSuggestion || '依今日狀態安排訓練並持續觀察。') + '</div></div>';
     }).join('') : '<div class="empty-state">此條件目前沒有選手。</div>';

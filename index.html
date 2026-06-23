@@ -8,11 +8,12 @@
 <link rel="stylesheet" href="style.css">
 <style>
   .hero { padding: 70px 0 50px; text-align: center; }
-  .hero h1 { font-size: 44px; margin: 14px 0 10px; }
+  .hero h1 { font-size: 44px; margin: 14px 0 10px; color: var(--brand); }      /* 大標：綠 */
   .hero .sub { font-size: 19px; color: var(--muted); max-width: 640px; margin: 0 auto 26px; }
   .hero .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
   .section { padding: 56px 0; border-top: 1px solid var(--line); }
-  .section h2 { font-size: 30px; text-align: center; margin: 6px 0 8px; }
+  .section h2 { font-size: 30px; text-align: center; margin: 6px 0 8px; color: var(--text); }  /* 中標：白 */
+  .section h3 { color: var(--muted); }                                                        /* 小標：灰 */
   .section .lead { text-align: center; color: var(--muted); max-width: 640px; margin: 0 auto 34px; }
   .step-card, .report-sample, .phone-mock { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
   .step-card { padding: 20px; min-height: 160px; }
@@ -82,8 +83,6 @@
     <p class="sub">點名、訓練狀態、傷勢與 KPI 一個畫面看完；月底自動生成專任教練訪視報告。從田徑、游泳、球類到跆拳道都適用。</p>
     <div class="cta">
       <a class="btn btn-primary" href="app.html?signup=1">建立我的運動團隊 →</a>
-      <a class="btn" href="app.html?demo=1">查看全中運項目範例</a>
-      <a class="btn btn-ghost" href="https://line.me/R/ti/p/@529utwnh" target="_blank" rel="noopener">加入官方 LINE</a>
     </div>
     <div class="line-qr">
       <img src="assets/line-qr.jpg" alt="TeamPro 官方 LINE QR Code">
@@ -103,7 +102,7 @@
   <div class="container">
     <div class="eyebrow center">競賽項目</div>
     <h2>支援亞奧運與全中運正式競賽項目</h2>
-    <p class="lead">不分個人或團隊、技擊或球類，TeamPro 都能幫你管理整隊狀態。跆拳道，只是其中一個項目。</p>
+    <p class="lead">不分運動類型，從個人到團隊、技擊到球類，TeamPro 都能一站式管理整隊狀態。</p>
     <div class="grid grid-4">
       <div class="card"><h3>🏃 田徑與體能</h3><p class="muted">田徑・自由車・滑輪溜冰・木球</p></div>
       <div class="card"><h3>🏊 水上運動</h3><p class="muted">游泳・輕艇・划船</p></div>
@@ -114,7 +113,7 @@
       <div class="card"><h3>🤸 體操技巧</h3><p class="muted">體操</p></div>
       <div class="card"><h3>🏀 團隊球類</h3><p class="muted">籃球・排球・足球・棒球・壘球・手球等亞奧運球類項目</p></div>
     </div>
-    <p class="lead" style="margin-top:24px;">每個項目都可以使用共通 6 大運科 KPI，也可以依照專項訓練需求自訂題目。</p>
+    <p class="lead" style="margin-top:24px;">各運動項目皆適用運動科學 KPI 作為基礎評估指標，並可依專項需求自訂訓練評估指標。</p>
   </div>
 </section>
 
@@ -122,14 +121,14 @@
 <section class="section">
   <div class="container">
     <div class="eyebrow center">新手導引</div>
-    <h2>5 分鐘上手流程</h2>
+    <h2>5 分鐘快速上手</h2>
     <p class="lead">第一次使用，不用研究很久。照著這 5 步做，今天就能開始追蹤整隊狀態。</p>
     <div class="steps-5">
-      <div class="step-card"><div class="step-no">STEP 1</div><h3>建立隊伍</h3><p class="muted">先把教練名下的隊伍建好，像跆拳道隊、田徑隊、球隊、體育班都可以。</p></div>
-      <div class="step-card"><div class="step-no">STEP 2</div><h3>新增選手</h3><p class="muted">把選手名單輸入進來，系統會自動開始管理今日回報與燈號。</p></div>
-      <div class="step-card"><div class="step-no">STEP 3</div><h3>分享填寫連結</h3><p class="muted">每個隊伍都有專屬連結，直接傳給家長或選手即可，不用另外開帳號。</p></div>
-      <div class="step-card"><div class="step-no">STEP 4</div><h3>選手每日回報</h3><p class="muted">選手每天用手機填一次，最快 30 秒完成，資料就會進到後台。</p></div>
-      <div class="step-card"><div class="step-no">STEP 5</div><h3>看戰情室與 LINE 通知</h3><p class="muted">教練一眼看到誰沒填、誰是紅燈，還能直接複製催繳與家長通知。</p></div>
+      <div class="step-card"><div class="step-no">STEP 1</div><h3>建立隊伍</h3><p class="muted">建立隊伍及其所屬編制。</p></div>
+      <div class="step-card"><div class="step-no">STEP 2</div><h3>新增選手</h3><p class="muted">輸入所屬選手名單。</p></div>
+      <div class="step-card"><div class="step-no">STEP 3</div><h3>分享填寫連結</h3><p class="muted">提供隊伍專屬填寫連結，可直接分享給教練或選手使用，無需額外建立帳號。</p></div>
+      <div class="step-card"><div class="step-no">STEP 4</div><h3>選手每日回報</h3><p class="muted">選手每日透過手機填寫一次，約 30 秒即可完成，資料即時回傳後台。</p></div>
+      <div class="step-card"><div class="step-no">STEP 5</div><h3>看戰情室與 LINE 通知</h3><p class="muted">即時掌握未填報與紅燈狀態，一鍵催繳提醒；月底自動生成訪視報表。</p></div>
     </div>
   </div>
 </section>
