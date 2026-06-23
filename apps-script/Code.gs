@@ -1153,7 +1153,8 @@ function warroom(c, d) {
   weeklyKpisCompat(c.coachId, teamId, '', '', '').forEach(function (r) {
     (weeklyByAthlete[String(r.athleteId)] || (weeklyByAthlete[String(r.athleteId)] = [])).push(r);
   });
-  var reviewWeek = addDateDays(weekStartOf(date), -7);
+  var kpiPeriod = kpiReviewPeriod(c.coachId, date);
+  var reviewWeek = kpiPeriod.start;
   var effectiveIds = effectiveKpiIds(c.coachId, PLANS[effectivePlan(c)].kpiAthletes);
   var weeklyCompleted = 0;
 
@@ -1198,7 +1199,7 @@ function warroom(c, d) {
     ok: true, date: date,
     total: athletes.length, submittedCount: submitted.length, missingCount: missing.length,
     completionRate: athletes.length ? Math.round(submitted.length / athletes.length * 100) : 0,
-    weeklyKpi: { weekStart: reviewWeek, weekEnd: addDateDays(reviewWeek, 6), total: weeklyTotal,
+    weeklyKpi: { weekStart: reviewWeek, weekEnd: kpiPeriod.end, cadence: kpiPeriod.cadence, total: weeklyTotal,
       completed: weeklyCompleted, missing: Math.max(0, weeklyTotal - weeklyCompleted),
       completionRate: weeklyTotal ? Math.round(weeklyCompleted / weeklyTotal * 100) : 0 },
     lights: lights, submitted: submitted, missing: missing, encourages: encourages,
@@ -1559,15 +1560,31 @@ function kpiEntitlementFor(t, a) {
   return { enabled: boolCell(a.kpiEnabled), effective: !!effectiveKpiIds(c.coachId, limit)[String(a.athleteId)], limit: limit };
 }
 
+/* KPI 評估頻率：教練帳號層級開關（weekly 預設 / daily），存 coaches.settings.kpiCadence */
+function kpiCadenceOf(coachId) {
+  var crow = findRow(SHEETS.coaches, 'coachId', coachId);
+  if (crow === -1) return 'weekly';
+  var s = parseSettings(readAll(SHEETS.coaches)[crow - 2].settings);
+  return s.kpiCadence === 'daily' ? 'daily' : 'weekly';
+}
+/* 當下「該填 / 該看」的評估週期：每天=當天；每週=剛結束的上一週。weeklyKpi 以 weekStart 當週期起點。 */
+function kpiReviewPeriod(coachId, date) {
+  date = String(date || todayStr());
+  if (kpiCadenceOf(coachId) === 'daily') return { start: date, end: date, cadence: 'daily' };
+  var ws = addDateDays(weekStartOf(date), -7);
+  return { start: ws, end: addDateDays(ws, 6), cadence: 'weekly' };
+}
+
 function kpiFormState(d) {
   var t = teamFromShareToken(d.t || d.shareToken);
   if (!t) return { ok: false, error: '連結無效' };
   var a = athleteInTeam(t.teamId, d.athleteId), date = String(d.date || todayStr());
   if (!a) return { ok: false, error: '選手不屬於此團隊' };
   var ent = kpiEntitlementFor(t, a);
-  var ws = addDateDays(weekStartOf(date), -7), recs = weeklyKpisCompat(t.coachId, t.teamId, a.athleteId, ws, ws);
+  var period = kpiReviewPeriod(t.coachId, date);
+  var recs = weeklyKpisCompat(t.coachId, t.teamId, a.athleteId, period.start, period.start);
   return { ok: true, kpiEnabled: ent.enabled, kpiEffective: ent.effective, kpiDue: ent.effective && !recs.length,
-    weekStart: ws, weekEnd: addDateDays(ws, 6), completed: !!recs.length,
+    weekStart: period.start, weekEnd: period.end, cadence: period.cadence, completed: !!recs.length,
     hasPin: athleteHasPin(a), pinRequired: athleteHasPin(a) && !pinOk(a, d.pin) };
 }
 
@@ -1578,11 +1595,12 @@ function submitWeeklyKpi(d) {
   if (!a) return { ok: false, error: '選手不屬於此團隊' };
   var ent = kpiEntitlementFor(t, a);
   if (!ent.enabled || !ent.effective) return { ok: false, error: 'kpi_not_enabled', message: '此選手未開啟 KPI 追蹤或已超過方案配額。' };
-  if (!athleteHasPin(a)) return { ok: false, noPin: true, error: '請先設定 4 位數 PIN 保護每週 KPI' };
+  if (!athleteHasPin(a)) return { ok: false, noPin: true, error: '請先設定 4 位數 PIN 保護 KPI' };
   if (!pinOk(a, d.pin)) return { ok: false, pinRequired: true, error: 'PIN 不正確' };
-  var expectedWeek = addDateDays(weekStartOf(todayStr()), -7);
+  var period = kpiReviewPeriod(t.coachId, todayStr());
+  var expectedWeek = period.start;
   var ws = String(d.weekStart || expectedWeek);
-  if (ws !== expectedWeek) return { ok: false, error: '只能填寫上週 KPI' };
+  if (ws !== expectedWeek) return { ok: false, error: period.cadence === 'daily' ? '只能填寫今日 KPI' : '只能填寫上週 KPI' };
   var calc = weeklyScoreOf(d.scores || {});
   if (!calc.valid) return { ok: false, error: '30 項 KPI 皆需填寫 1–5 分整數' };
 
@@ -1600,7 +1618,7 @@ function submitWeeklyKpi(d) {
     var rec = {
       weeklyKpiId: hitRow === -1 ? uid('wk_') : existing[hitRow - 2].weeklyKpiId,
       coachId: t.coachId, teamId: t.teamId, athleteId: a.athleteId, name: a.name,
-      weekStart: ws, weekEnd: addDateDays(ws, 6), submittedAt: hitRow === -1 ? now() : existing[hitRow - 2].submittedAt,
+      weekStart: ws, weekEnd: period.end, submittedAt: hitRow === -1 ? now() : existing[hitRow - 2].submittedAt,
       updatedAt: now(), technicalAvg: calc.dimAvg.technical, tacticalAvg: calc.dimAvg.tactical,
       physicalAvg: calc.dimAvg.physical, mentalAvg: calc.dimAvg.mental, attitudeAvg: calc.dimAvg.attitude,
       physiologicalAvg: calc.dimAvg.physiological, totalScore: calc.total, status: calc.status,

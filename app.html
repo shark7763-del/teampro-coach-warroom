@@ -257,7 +257,7 @@
       <span class="war-lights"><b id="stGreen">0</b> 綠 · <b id="stYellow">0</b> 黃 · <b id="stRed">0</b> 紅</span>
     </div>
     <div class="war-kpi-nudge" id="weeklyKpiCard">
-      <span class="war-kpi-label">📋 上週 KPI 評估 <b id="weeklyKpiProgress">—</b></span>
+      <span class="war-kpi-label">📋 <span id="kpiNudgeTitle">上週 KPI 評估</span> <b id="weeklyKpiProgress">—</b></span>
       <span class="muted" id="weeklyKpiRange">—</span>
     </div>
     <div class="card" style="margin-bottom:16px;">
@@ -511,6 +511,15 @@
         <img src="assets/line-qr.jpg" alt="TeamPro 官方 LINE QR Code">
         <div class="muted" style="font-size:13px;">這張 QR 可直接放在簡報、海報或家長通知裡。</div>
       </div>
+      <label>KPI 評估頻率</label>
+      <div class="link-box" style="margin-top:0;">
+        <select id="kpiCadence" style="max-width:240px;">
+          <option value="weekly">每週一次（預設，選手負擔低）</option>
+          <option value="daily">每天（即時看到 KPI 表現）</option>
+        </select>
+        <span class="muted" id="kpiCadenceHint" style="font-size:13px;align-self:center;"></span>
+      </div>
+      <p class="muted" style="font-size:12px;margin:4px 0 12px;">每天＝選手每天填 30 項 KPI、你在戰情室即時看到當日表現（負擔較高）；每週＝一週評一次。切換後當下週期重新計算，歷史資料不受影響。</p>
       <label>自訂 KPI 題目</label>
       <textarea id="customKpiText" placeholder="團隊版以上可自訂，例如：節奏感、爆發起跑、收操完成度…"></textarea>
       <div class="link-box" style="margin-top:8px;">
@@ -796,6 +805,7 @@
     $('#setLineUrl').value = TP.getLineUrl();
     $('#setLineOpen').href = TP.getLineUrl();
     $('#customKpiText').value = localStorage.getItem(coachLS('custom_kpi')) || '';
+    $('#kpiCadence').value = coachSettings().kpiCadence === 'daily' ? 'daily' : 'weekly';
     renderPlan();
     $('#warDate').value = localToday();
     loadTeams().then(function () { loadAthletes(); loadWarroom(); loadTrialSummary(); });
@@ -1351,8 +1361,12 @@
     $('#taskRed').textContent = (r.lights.red || 0) ? (r.lights.red + ' 位需要先關心') : '✅ 今天沒有人亮紅燈，全隊狀態穩';
     $('#taskMissing').textContent = r.missingCount ? (r.missingCount + ' 位尚未完成') : '今天全員已完成';
     var wk = r.weeklyKpi || {};
+    var daily = wk.cadence === 'daily';
+    $('#kpiNudgeTitle').textContent = daily ? '今日 KPI' : '上週 KPI 評估';
     $('#weeklyKpiProgress').textContent = (wk.completed || 0) + '/' + (wk.total || 0);
-    $('#weeklyKpiRange').textContent = wk.weekStart ? ('評估期間 ' + wk.weekStart + ' ～ ' + wk.weekEnd + (wk.missing ? '，尚有 ' + wk.missing + ' 位未完成' : '，已全數完成')) : '尚未開啟 KPI 追蹤';
+    $('#weeklyKpiRange').textContent = wk.weekStart
+      ? ((daily ? '今日 ' + wk.weekStart : '評估週 ' + wk.weekStart + ' ～ ' + wk.weekEnd) + (wk.missing ? '，尚有 ' + wk.missing + ' 位未完成' : '，已全數完成'))
+      : '尚未開啟 KPI 追蹤';
 
     var priority = r.priority || {};
     renderPriority('#priorityRed', priority.red || r.submitted.filter(function (s) { return s.status === 'red'; }), '✅ 今天沒有人亮紅燈，全隊狀態穩');
@@ -2253,6 +2267,13 @@
 
   /* ---------- 設定 ---------- */
   $('#setUrlSave').onclick = function () { TP.setUrl($('#setUrl').value); toast('已儲存，重新整理生效'); };
+  $('#kpiCadence').onchange = async function () {
+    if (DEMO) { $('#kpiCadence').value = 'weekly'; demoBlock(); return; }
+    var v = $('#kpiCadence').value === 'daily' ? 'daily' : 'weekly';
+    await saveCoachSettings({ kpiCadence: v });
+    toast(v === 'daily' ? '已切換為每天 KPI，選手今天起每天可填' : '已切換為每週 KPI');
+    if (typeof loadWarroom === 'function' && !$('#tab-warroom').classList.contains('hidden')) loadWarroom();
+  };
   $('#setLineCopy').onclick = function () { TP.copy(TP.getLineUrl()); };
   $('#setLineOpen').onclick = function (e) {
     if (!TP.getLineUrl()) { e.preventDefault(); toast('尚未設定官方 LINE 連結', true); }

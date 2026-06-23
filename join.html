@@ -96,7 +96,7 @@
     </div>
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;">
-        <h2 style="margin:0;">上週 KPI 評估</h2>
+        <h2 style="margin:0;" id="kpiStepTitle">上週 KPI 評估</h2>
         <button class="btn btn-sm hidden" id="btnPrefill">↺ 帶入上次</button>
       </div>
       <p class="muted" id="kpiPeriod" style="margin:6px 0 0;">每項 1–5 分，5 分代表最好。請回顧整個上週的實際表現。</p>
@@ -613,7 +613,7 @@
     show('body');
     // KPI 狀態不影響日報填寫，背景載入即可，避免「確認」卡在上一頁。
     TP.call('kpiFormState', { t: shareToken, athleteId: id, date: localToday(), pin: ctx.pin }).then(function (r) {
-      ctx.kpiState = r;
+      ctx.kpiState = r; applyKpiLabels();
     });
   };
 
@@ -932,7 +932,7 @@
     show('result');
     // 儲存成功後立即顯示結果，KPI 狀態在背景更新。
     TP.call('kpiFormState', { t: shareToken, athleteId: ctx.athleteId, date: localToday(), pin: ctx.pin }).then(function (state) {
-      ctx.kpiState = state;
+      ctx.kpiState = state; applyKpiLabels();
       $('#btnWeeklyKpi').classList.toggle('hidden', !(state && state.kpiDue));
     });
   }
@@ -958,9 +958,15 @@
     $('#btnWeeklyKpi').classList.toggle('hidden', !(ctx.kpiState && ctx.kpiState.kpiDue));
   }
 
+  function kpiTitle() { return (ctx.kpiState && ctx.kpiState.cadence === 'daily') ? '今日 KPI' : '上週 KPI'; }
+  function applyKpiLabels() {
+    var t = kpiTitle();
+    var b = document.getElementById('btnWeeklyKpi'); if (b) b.textContent = '繼續填寫' + t + '（約 3–5 分鐘）';
+    var h = document.getElementById('kpiStepTitle'); if (h) h.textContent = t + ' 評估';
+  }
   async function kpiPin() {
     var creating = ctx.kpiState && !ctx.kpiState.hasPin;
-    var pin = (window.prompt(creating ? '請設定 4 位數 PIN，保護你的每週 KPI' : '請輸入 4 位數 PIN 送出每週 KPI') || '').trim();
+    var pin = (window.prompt(creating ? '請設定 4 位數 PIN，保護你的 ' + kpiTitle() : '請輸入 4 位數 PIN 送出 ' + kpiTitle()) || '').trim();
     if (!/^\d{4}$/.test(pin)) { toast('請輸入 4 位數字 PIN', true); return ''; }
     if (creating) {
       var sr = await TP.call('setPerfPin', { t: shareToken, athleteId: ctx.athleteId, pin: pin });
@@ -976,20 +982,23 @@
     $('#navNext').textContent = '送出中…'; $('#navNext').disabled = true;
     var r = await TP.call('submitWeeklyKpi', { t: shareToken, athleteId: ctx.athleteId,
       weekStart: ctx.kpiState.weekStart, pin: pin, scores: collectScores() });
-    $('#navNext').textContent = '送出上週 KPI'; $('#navNext').disabled = false;
+    $('#navNext').textContent = '送出' + kpiTitle(); $('#navNext').disabled = false;
     if (!r.ok) { ctx.pin = ''; toast(r.message || r.error || '送出失敗', true); return; }
     ctx.pin = pin; ctx.kpiState.kpiDue = false; ctx.kpiState.completed = true;
     $('#resScore').textContent = Number(r.totalScore).toFixed(1);
-    $('#resLight').innerHTML = '<span class="pill ' + r.status + '">上週 KPI · ' + TP.lightText(r.status) + '</span>';
+    $('#resLight').innerHTML = '<span class="pill ' + r.status + '">' + kpiTitle() + ' · ' + TP.lightText(r.status) + '</span>';
     $('#resDims').innerHTML = TP.KPI_DIMENSIONS.map(function (d) { return esc(d.name) + ' ' + Number(r.dimAvg[d.key]).toFixed(1); }).join('　');
     $('#btnWeeklyKpi').classList.add('hidden');
-    cur = 'body'; show('result'); toast('上週 KPI 已完成');
+    cur = 'body'; show('result'); toast(kpiTitle() + ' 已完成');
   }
 
   $('#btnWeeklyKpi').onclick = function () {
     if (!ctx.kpiState || !ctx.kpiState.kpiDue) return;
-    $('#kpiPeriod').textContent = '評估期間：' + ctx.kpiState.weekStart + ' ～ ' + ctx.kpiState.weekEnd + '。請回顧整週實際表現，不要直接複製上次答案。';
-    cur = 'kpi'; $('#navNext').textContent = '送出上週 KPI'; show('kpi');
+    var daily = ctx.kpiState.cadence === 'daily';
+    $('#kpiPeriod').textContent = daily
+      ? ('評估日：' + ctx.kpiState.weekStart + '。請依今天的實際表現評分，不要直接複製上次答案。')
+      : ('評估期間：' + ctx.kpiState.weekStart + ' ～ ' + ctx.kpiState.weekEnd + '。請回顧整週實際表現，不要直接複製上次答案。');
+    cur = 'kpi'; $('#navNext').textContent = '送出' + kpiTitle(); show('kpi');
   };
 
   $('#btnAgain').onclick = function () { location.reload(); };
