@@ -537,6 +537,18 @@
     <div id="fbMeta" class="muted" style="font-size:13px;margin:6px 0;"></div>
     <div id="fbDetail" style="font-size:14px;margin-bottom:8px;"></div>
     <p class="muted" style="font-size:12px;margin:0 0 8px;">🔒 上次表現屬於選手私人訓練資料，請避免截圖公開或轉傳到群組。</p>
+    <div class="coach-obs">
+      <label style="margin:0 0 5px;">教練今日整體觀察（選填，給 AI 成長目標校正自評落差用）</label>
+      <div class="obs-btns" id="coachObsBtns">
+        <button type="button" data-obs="1">1</button>
+        <button type="button" data-obs="2">2</button>
+        <button type="button" data-obs="3">3</button>
+        <button type="button" data-obs="4">4</button>
+        <button type="button" data-obs="5">5</button>
+        <button type="button" class="obs-clear" data-obs="">清除</button>
+      </div>
+      <span class="muted" style="font-size:11px;">1=明顯落後同階段　3=符合預期　5=超出預期；與選手自評差距大時，AI 會給校正建議。</span>
+    </div>
     <div class="goal-coach">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
         <label style="color:var(--brand);font-weight:700;margin:0;">🎯 AI 成長目標</label>
@@ -2007,7 +2019,7 @@
     var d = new Date(); d.setDate(d.getDate() - n);
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
-  function goalCoach(rec, records) {
+  function goalCoach(rec, records, coachObs) {
     records = records || [];
     var d7 = gcDaysAgo(7), d30 = gcDaysAgo(30);
     var rep7 = records.filter(function (x) { return String(x.date) >= d7; }).length;
@@ -2018,6 +2030,10 @@
     var fatigue = Number(rec.fatigue) || 0;
     var sleep = gcSleepHrs(rec);
     var hydrationBad = rec.hydrationRisk && rec.hydrationRisk !== 'green';
+    // 自評代理：本筆 KPI，無則取最近一筆有 KPI 的紀錄
+    var self = kpi;
+    if (!self) { var k = records.filter(function (x) { return Number(x.totalScore) > 0; })[0]; if (k) self = Number(k.totalScore) || 0; }
+    var coach = (coachObs === '' || coachObs == null) ? null : Number(coachObs);
     var o = {};
     if (pain >= 6 || fatigue >= 8) {
       o.state = '優先關注';
@@ -2025,6 +2041,12 @@
       o.goal = (sleep != null && sleep < 7) ? '本週睡眠平均達 7 小時以上' : '本週安排 2 次恢復訓練或完整伸展';
       o.reminder = '優先安排恢復、適度調整訓練量，避免疲勞累積影響表現。';
       o.motivation = '穩定比爆發更重要。';
+    } else if (coach != null && self > 0 && Math.abs(self - coach) >= 2) {
+      o.state = '需要調整';
+      o.observation = '近期自我感受與實際表現存在一些差異（選手自評 ' + self.toFixed(1) + '、教練觀察 ' + coach + '）。這不是對錯問題，而是校正觀察角度的好時機。';
+      o.goal = '本週用影片回看或訓練紀錄，做 2 次自評對照校正';
+      o.reminder = '透過客觀紀錄校正，未來能更精準掌握自身狀態。';
+      o.motivation = '專注當下每一次修正。';
     } else if (kpi >= 4 && rep7 >= 2) {
       o.state = '穩定成長';
       var wd = worstDim(rec) || '動作細節';
@@ -2077,10 +2099,10 @@
 
   async function openFeedback(athleteId, name, recordId) {
     if (DEMO) { demoBlock(); return; }
-    fbCtx = { recordId: recordId || '', record: null, records: [] };
+    fbCtx = { recordId: recordId || '', record: null, records: [], coachObs: '' };
     $('#fbTitle').textContent = '回饋給 ' + name;
     $('#fbMeta').textContent = '—…';
-    $('#fbDetail').innerHTML = ''; $('#fbText').value = ''; $('#goalCoachOut').innerHTML = '';
+    $('#fbDetail').innerHTML = ''; $('#fbText').value = ''; $('#goalCoachOut').innerHTML = ''; setCoachObs('');
     $('#fbModal').classList.remove('hidden');
     // 取該選手紀錄，找到這筆（或最新）
     var r = await TP.callAuth('athleteRecords', { athleteId: athleteId, limit: 30 });
@@ -2088,6 +2110,7 @@
     if (r.ok && r.records.length) rec = recordId ? (r.records.filter(function (x) { return x.recordId === recordId; })[0] || r.records[0]) : r.records[0];
     if (!rec) { $('#fbMeta').textContent = '查無紀錄'; return; }
     fbCtx.record = rec; fbCtx.recordId = rec.recordId || recordId; fbCtx.records = (r.records || []);
+    setCoachObs(rec.coachObservation || '');
     var light = rec.status || TP.lightOf(rec.totalScore);
     $('#fbMeta').innerHTML = esc(rec.date) + (Number(rec.totalScore) > 0 ? '　最近 KPI <b>' + Number(rec.totalScore).toFixed(1) + '</b>' : '　今日輕量回報') + ' <span class="pill ' + light + '">' + TP.lightText(light) + '</span>';
     var bits = [];
@@ -2121,12 +2144,22 @@
     });
   }
 
+  function setCoachObs(v) {
+    fbCtx.coachObs = (v == null ? '' : String(v));
+    TP.$all('#coachObsBtns button').forEach(function (b) {
+      b.classList.toggle('sel', b.dataset.obs !== '' && b.dataset.obs === fbCtx.coachObs);
+    });
+  }
+  TP.$all('#coachObsBtns button').forEach(function (b) {
+    b.onclick = function () { setCoachObs(b.dataset.obs); };
+  });
+
   $('#goalGenBtn').onclick = function () {
     if (!fbCtx.record) { toast('尚未載入選手資料', true); return; }
-    var b = this, orig = b.textContent;
+    var b = this;
     b.disabled = true; b.textContent = '✨ 分析中…';
     setTimeout(function () {
-      renderGoalCoach(goalCoach(fbCtx.record, fbCtx.records));
+      renderGoalCoach(goalCoach(fbCtx.record, fbCtx.records, fbCtx.coachObs));
       b.disabled = false; b.textContent = '重新生成';
     }, 260);
   };
@@ -2136,7 +2169,7 @@
   $('#fbSend').onclick = async function () {
     if (!fbCtx.recordId) { toast('找不到紀錄 id（可能是舊資料）', true); return; }
     var btn = this; btn.disabled = true;
-    var r = await TP.callAuth('coachFeedback', { recordId: fbCtx.recordId, feedback: $('#fbText').value.trim() });
+    var r = await TP.callAuth('coachFeedback', { recordId: fbCtx.recordId, feedback: $('#fbText').value.trim(), coachObservation: fbCtx.coachObs || '' });
     btn.disabled = false;
     if (r.ok) { toast('已送出回饋'); $('#fbModal').classList.add('hidden'); }
     else { toast(r.error, true); }

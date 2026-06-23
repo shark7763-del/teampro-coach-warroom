@@ -131,7 +131,9 @@ var RECORD_HEADERS = ['recordId', 'coachId', 'teamId', 'athleteId', 'name', 'dat
     'waterAmount', 'sweatAmount', 'urineColor', 'hydrationRisk', 'hydrationAdvice', 'hydrationFlags',
     'reportQualityScore', 'reportQualityLabel', 'reportQualityReasons', 'coachSuggestion',
     // 比賽紀錄（選手回報時填，比賽日才有）
-    'compName', 'compDate', 'compLocation', 'compResult', 'compDetail', 'compReflection', 'compAward', 'compAwardLink'
+    'compName', 'compDate', 'compLocation', 'compResult', 'compDetail', 'compReflection', 'compAward', 'compAwardLink',
+    // 教練點評時的快速整體觀察分（1-5），供 AI 成長目標做「認知落差」分析
+    'coachObservation'
   ]);
 
 /* ---------- 方案設定（寫死，不進 Sheet） ---------- */
@@ -1248,6 +1250,12 @@ function coachFeedback(c, d) {
   if (String(rec.coachId) !== String(c.coachId)) return { ok: false, error: 'forbidden' };
   sheet(SHEETS.records).getRange(row, RECORD_HEADERS.indexOf('coachComment') + 1).setValue(d.feedback || '');
   sheet(SHEETS.records).getRange(row, RECORD_HEADERS.indexOf('coachFeedbackAt') + 1).setValue(now());
+  // 快速整體觀察分（1-5；空字串=清除）
+  if (d.coachObservation !== undefined) {
+    var obs = String(d.coachObservation || '');
+    if (obs === '' || /^[1-5]$/.test(obs))
+      sheet(SHEETS.records).getRange(row, RECORD_HEADERS.indexOf('coachObservation') + 1).setValue(obs);
+  }
   audit(c.email, 'coachFeedback', recId, '');
   return { ok: true };
 }

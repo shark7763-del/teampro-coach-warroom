@@ -258,6 +258,14 @@ input[type="range"]::-moz-range-track { height: 8px; border-radius: 999px; backg
 .goal-target span:last-child { font-weight: 700; color: var(--text); }
 .goal-mot { text-align: center; color: var(--muted); font-style: italic; margin: 10px 0 2px; font-size: 13px; }
 .goal-actions { display: flex; gap: 8px; margin-top: 8px; }
+/* 教練快速觀察分（1-5），供認知落差分析 */
+.coach-obs { margin: 4px 0 12px; }
+.obs-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+.obs-btns button { min-width: 42px; padding: 8px 0; border: 1px solid var(--line); background: var(--panel-2);
+  color: var(--text); border-radius: 8px; cursor: pointer; font-weight: 700; transition: border-color .15s, background .15s; }
+.obs-btns button.obs-clear { min-width: auto; padding: 8px 12px; color: var(--muted); font-weight: 400; }
+.obs-btns button:hover { border-color: var(--muted); }
+.obs-btns button.sel { border-color: var(--brand); background: rgba(34,197,94,.15); }
 
 /* ===== 快速點名中心（只新增，不動既有變數/色票/卡片） ===== */
 .att-setup { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 12px; }
