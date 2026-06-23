@@ -220,6 +220,13 @@ function lightOf(total) {
 /* 診斷用（用網址查，key 防亂查；只回數量與日期、不回內容）。確認後可移除。 */
 function debugFb(d) {
   if (String(d.key || '') !== 'tpdbg') return { ok: false, error: 'forbidden' };
+  if (d.coach !== undefined) {
+    var q = String(d.coach || '');
+    var cs = readAll(SHEETS.coaches).filter(function (c) { return !q || String(c.name).indexOf(q) !== -1 || String(c.email).indexOf(q) !== -1; });
+    return { ok: true, coachCount: cs.length, coaches: cs.slice(0, 30).map(function (c) {
+      return { name: c.name, email: c.email, status: c.status, plan: c.plan, planExpiry: c.planExpiry, createdAt: c.createdAt, coachId: c.coachId };
+    }) };
+  }
   var name = String(d.name || '');
   var ath = readAll(SHEETS.athletes).filter(function (a) { return !name || String(a.name).indexOf(name) !== -1; });
   return { ok: true, count: ath.length, athletes: ath.slice(0, 20).map(function (a) {
