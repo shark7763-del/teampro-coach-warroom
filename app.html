@@ -19,6 +19,10 @@
   .link-box input { font-size: 13px; }
   .line-qr { display:flex; align-items:center; gap:16px; margin-top:14px; flex-wrap:wrap; }
   .line-qr img { width: 160px; height: 160px; object-fit: cover; border-radius: 12px; background:#fff; }
+  .assistant-banner { display:none; margin: 0 0 16px; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(56,189,248,.35); background: rgba(56,189,248,.08); color: #c7e8ff; font-size: 13px; }
+  body.assistant-mode .assistant-banner { display:flex; }
+  body.assistant-mode #tab-settings,
+  body.assistant-mode #btnPrint { display:none !important; }
   .upgrade { border:1px solid var(--yellow); background: rgba(245,158,11,.08); border-radius:12px; padding:14px; }
   .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; z-index:1000; padding:16px; }
   .modal-box { width:min(520px,94vw); max-height:88vh; overflow:auto; }
@@ -198,6 +202,7 @@
       <button class="btn btn-ghost btn-sm" id="btnLogout">登出</button>
     </div>
   </div>
+  <div id="assistantBanner" class="assistant-banner hidden">助教模式已啟用：可以看戰情室與點名，但不能進入設定，也不能列印或存成 PDF。</div>
 
   <div id="signupWelcome" class="signup-welcome hidden">
     <div>
@@ -682,8 +687,9 @@
 
   /* 教練跨裝置設定（自訂課程清單、LINE 連結…）：存後端 coaches.settings */
   function coachSettings() { return (state.coach && state.coach.settings) || {}; }
+  function isAssistantMode() { return !!(state.coach && state.coach.isAsst); }
   async function saveCoachSettings(patch) {
-    if (DEMO) return;
+    if (DEMO || isAssistantMode()) return;
     state.coach.settings = Object.assign({}, coachSettings(), patch);
     var r = await TP.callAuth('saveSettings', { settings: state.coach.settings });
     if (r && r.ok && r.settings) state.coach.settings = r.settings;
@@ -809,7 +815,7 @@
     if (params.get('signup') === '1') mode = 'signup';
     if (TP.getToken()) {
       TP.callAuth('me').then(function (r) {
-        if (r.ok) { state.coach = r.coach; showApp(); }
+        if (r.ok) { state.coach = r.coach; if (state.coach) state.coach.isAsst = !!r.isAsst; showApp(); }
         else { showAuth(); }
       });
     } else { showAuth(); }
@@ -873,7 +879,9 @@
   /* ---------- 主後台 ---------- */
   function showApp() {
     authView.classList.add('hidden'); appView.classList.remove('hidden');
+    document.body.classList.toggle('assistant-mode', isAssistantMode());
     $('#coachName').textContent = state.coach.name + '（' + state.coach.email + '）';
+    $('#assistantBanner').classList.toggle('hidden', !isAssistantMode());
     var welcome = $('#signupWelcome');
     var dismissed = localStorage.getItem('teampro_signup_welcome_dismissed') === '1';
     welcome.classList.toggle('hidden', !(signupJustCompleted && !dismissed));
@@ -894,10 +902,12 @@
     $('#kpiCadence').value = coachSettings().kpiCadence === 'daily' ? 'daily' : 'weekly';
     $('#kpiVersion').value = coachSettings().kpiVersion === 'v2' ? 'v2' : 'v1';
     $('#kpiCadenceWrap').classList.toggle('hidden', coachSettings().kpiVersion === 'v2');
+    $('#tab-settings').classList.toggle('hidden', isAssistantMode());
+    $('#btnPrint').classList.toggle('hidden', isAssistantMode());
     renderPlan();
     $('#warDate').value = localToday();
     loadTeams().then(function () { loadAthletes(); loadWarroom(); loadTrialSummary(); });
-    loadPrivacyRequests();
+    if (!isAssistantMode()) loadPrivacyRequests();
     signupJustCompleted = false;
   }
 
@@ -934,7 +944,7 @@
   }
 
   async function refreshMe() {
-    var r = await TP.callAuth('me'); if (r.ok) { state.coach = r.coach; renderPlan(); }
+    var r = await TP.callAuth('me'); if (r.ok) { state.coach = r.coach; if (state.coach) state.coach.isAsst = !!r.isAsst; renderPlan(); }
   }
 
   function onboardingState() {
@@ -975,6 +985,10 @@
   }
 
   function switchTab(tab) {
+    if (tab === 'settings' && isAssistantMode()) {
+      toast('助教模式不能進入設定', true);
+      tab = 'warroom';
+    }
     TP.$all('.tab-btn').forEach(function (x) { x.classList.remove('active'); });
     var btn = TP.$('.tab-btn[data-tab="' + tab + '"]');
     if (btn) { btn.classList.add('active');
@@ -1607,6 +1621,7 @@
   };
   $('#rpVisitVer').onchange = function () { if ($('#rpType').value === 'visit' && $('#reportArea').innerHTML.trim()) $('#btnGenReport').click(); };
   $('#btnPrint').onclick = function () {
+    if (isAssistantMode()) { toast('助教模式不能列印或存成 PDF', true); return; }
     if (!$('#reportArea').innerHTML.trim()) { toast('請先產生報告', true); return; }
     if (!planCfg().pdfExport) { openUpgradeModal({ reason: 'pdfExport', toPlan: 'team', message: 'PDF 成果報告為團隊版功能。升級團隊版後，可匯出月報、週報與家長溝通報告。' }); return; }
     window.print();

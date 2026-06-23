@@ -36,7 +36,7 @@ var SHEETS = {
 /* ---------- 表頭 ---------- */
 var H = {
   coaches:  ['coachId', 'email', 'passwordHash', 'salt', 'name', 'plan', 'planExpiry', 'status', 'createdAt', 'lastLogin', 'paymentNote', 'settings'],
-  sessions: ['token', 'coachId', 'expiresAt'],
+  sessions: ['token', 'coachId', 'expiresAt', 'isAsst'],
   teams:    ['teamId', 'coachId', 'teamName', 'sport', 'shareToken', 'status', 'createdAt', 'competitionSystem', 'sportCategory', 'memberTerm', 'asstPinHash', 'asstPinSalt'],
   athletes: ['athleteId', 'coachId', 'teamId', 'name', 'gradeClass', 'grp', 'active', 'createdAt', 'lastPerformanceVisibility', 'perfPinHash', 'perfPinSalt', 'kpiEnabled', 'kpiEnabledAt'],
   audit:    ['time', 'actor', 'action', 'target', 'detail'],
@@ -560,10 +560,10 @@ function login(d) {
   return { ok: true, token: token, coach: publicCoach(c.coachId) };
 }
 
-function newSession(coachId) {
+function newSession(coachId, isAsst) {
   var token = uid('t_') + uid('');
   var exp = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(); // 30 天
-  appendObj(SHEETS.sessions, { token: token, coachId: coachId, expiresAt: exp });
+  appendObj(SHEETS.sessions, { token: token, coachId: coachId, expiresAt: exp, isAsst: isAsst ? 'true' : '' });
   return token;
 }
 
@@ -575,6 +575,7 @@ function logout(d) {
 
 /* 教練自助：修改顯示名稱（會反映在發給家長的報告上） */
 function updateProfile(c, d) {
+  var deny = denyAsst(c); if (deny) return deny;
   var name = String(d.name || '').trim();
   if (!name) return { ok: false, error: '請輸入姓名' };
   var lock = LockService.getScriptLock();
@@ -590,6 +591,7 @@ function updateProfile(c, d) {
 
 /* 教練自助：修改密碼（須驗證目前密碼，重新產生 salt） */
 function changePassword(c, d) {
+  var deny = denyAsst(c); if (deny) return deny;
   var current = String(d.currentPassword || '');
   var next = String(d.newPassword || '');
   if (hashPassword(current, c.salt) !== String(c.passwordHash)) return { ok: false, error: '目前密碼不正確' };
@@ -620,7 +622,13 @@ function coachFromToken(token) {
   if (crow === -1) return null;
   var c = readAll(SHEETS.coaches)[crow - 2];
   if (String(c.status) === 'disabled') return null;
+  c._isAsst = (sess.isAsst === true || String(sess.isAsst) === 'true'); // 助教 session 標記（僅記憶體，不寫回）
   return c;
+}
+
+/* 助教 session 不可執行的動作（設定類）守門：回 true 表示要擋下 */
+function denyAsst(c) {
+  return c && c._isAsst ? { ok: false, error: '助教權限無法變更設定，請由主教練操作' } : null;
 }
 
 /* 包裝：需要登入教練的動作。fn(coach, data) */
@@ -633,7 +641,7 @@ function withCoach(d, fn) {
 function me(d) {
   var c = coachFromToken(d.token);
   if (!c) return { ok: false, error: 'unauthorized', needLogin: true };
-  return { ok: true, coach: publicCoach(c.coachId) };
+  return { ok: true, coach: publicCoach(c.coachId), isAsst: !!c._isAsst };
 }
 
 /* 對外的教練資料（含方案、配額、是否過期） */
@@ -656,6 +664,7 @@ function parseSettings(s) { try { return JSON.parse(s || '{}') || {}; } catch (e
 
 /* 教練跨裝置設定（自訂課程清單、LINE 連結等）合併儲存 */
 function saveSettings(c, d) {
+  var deny = denyAsst(c); if (deny) return deny;
   var patch = d.settings || {};
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
   try {
@@ -1174,9 +1183,9 @@ function asstLogin(d) {
   var pin = String(d.pin == null ? '' : d.pin);
   if (!pin || hashPassword(pin, t.asstPinSalt) !== String(t.asstPinHash))
     return { ok: false, error: 'PIN 不正確' };
-  var token = newSession(t.coachId);
-  audit('assistant:' + t.teamId, 'asstLogin', t.coachId, t.teamName + '（助教全開登入）');
-  return { ok: true, token: token, coach: publicCoach(t.coachId) };
+  var token = newSession(t.coachId, true);   // 標記助教 session：後端據此擋設定
+  audit('assistant:' + t.teamId, 'asstLogin', t.coachId, t.teamName + '（助教登入）');
+  return { ok: true, token: token, coach: publicCoach(t.coachId), isAsst: true };
 }
 
 /* 教練：設定／變更／清除該隊助教 PIN */
