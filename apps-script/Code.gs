@@ -101,6 +101,52 @@ var WEEKLY_KPI_HEADERS = ['weeklyKpiId', 'coachId', 'teamId', 'athleteId', 'name
     'totalScore', 'status', 'qualityScore', 'qualityLabel', 'qualityReasons', 'rawJson']);
 H.weeklyKpi = WEEKLY_KPI_HEADERS;
 
+/* ===== KPI v2：15 題、不等題數、戰術依運動分類換組（計分只需 item keys，錨點在前端 api.js）===== */
+var KPI2_DIM_ITEMS = {
+  technical: ['t_accuracy', 't_stability', 't_speed'],
+  physical: ['p_power', 'p_cardio'],
+  mental: ['m_focus', 'm_resilience', 'm_confidence'],
+  attitude: ['a_engage', 'a_coachable'],
+  physiological: ['r_sleep', 'r_soreness', 'r_pain']
+};
+var KPI2_TACTICAL_ITEMS = {
+  combat: ['tac_timing', 'tac_position'], endurance: ['tac_pace', 'tac_start'],
+  ball: ['tac_move', 'tac_exec'], precision: ['tac_rhythm', 'tac_pressure'], gymnastics: ['tac_flow', 'tac_error']
+};
+var SPORTCAT_TACTICAL2 = {
+  '技擊武道': 'combat', '田徑與體能型': 'endurance', '水上運動': 'endurance',
+  '球類團隊': 'ball', '球拍與隔網': 'ball', '精準與瞄準': 'precision',
+  '體操與技巧表現': 'gymnastics', '綜合項目': 'combat'
+};
+function kpi2TacticalGroup(cat) { return SPORTCAT_TACTICAL2[String(cat || '')] || 'combat'; }
+function kpi2DimItems(cat) {
+  return { technical: KPI2_DIM_ITEMS.technical, tactical: KPI2_TACTICAL_ITEMS[kpi2TacticalGroup(cat)],
+    physical: KPI2_DIM_ITEMS.physical, mental: KPI2_DIM_ITEMS.mental,
+    attitude: KPI2_DIM_ITEMS.attitude, physiological: KPI2_DIM_ITEMS.physiological };
+}
+function weeklyScoreV2(scores, cat) {
+  var dims = kpi2DimItems(cat), dimAvg = {}, allValid = true, allSum = 0, allN = 0;
+  KPI_DIMENSIONS.forEach(function (dk) {
+    var keys = dims[dk], sum = 0;
+    keys.forEach(function (k) {
+      var v = Number(scores[k]);
+      if (v < 1 || v > 5 || Math.floor(v) !== v) allValid = false; else { sum += v; allSum += v; allN++; }
+    });
+    dimAvg[dk] = +(sum / keys.length).toFixed(2);
+  });
+  return { valid: allValid, dimAvg: dimAvg, total: allN ? +(allSum / allN).toFixed(2) : 0, status: lightOf(allN ? allSum / allN : 0) };
+}
+/* 恢復 3 題 → 當日燈號：1=red 2=yellow ≥3=green，取最嚴重（傷勢=1 即紅旗） */
+function kpi2RecoveryStatus(scores) {
+  function lv(v) { v = Number(v); return v <= 1 ? 'red' : (v === 2 ? 'yellow' : 'green'); }
+  return riskStatus('green', lv(scores.r_pain), lv(scores.r_sleep), lv(scores.r_soreness));
+}
+function isKpiV2(coachId) {
+  var crow = findRow(SHEETS.coaches, 'coachId', coachId);
+  if (crow === -1) return false;
+  return parseSettings(readAll(SHEETS.coaches)[crow - 2].settings).kpiVersion === 'v2';
+}
+
 var RECORD_HEADERS = ['recordId', 'coachId', 'teamId', 'athleteId', 'name', 'date', 'timestamp', 'sessionType']
   .concat(KPI_ITEMS)
   .concat([
@@ -250,6 +296,8 @@ function handle(action, d) {
     case 'submitRecord':    return jsonOut(submitRecord(d));
     case 'kpiFormState':    return jsonOut(kpiFormState(d));
     case 'submitWeeklyKpi': return jsonOut(submitWeeklyKpi(d));
+    case 'kpi2State':       return jsonOut(kpi2State(d));
+    case 'submitKpi2':      return jsonOut(submitKpi2(d));
     case 'lastRecord':      return jsonOut(lastRecord(d));
     case 'myRecords':       return jsonOut(myRecords(d));
     case 'perfPinStatus':   return jsonOut(perfPinStatus(d));
@@ -1574,6 +1622,7 @@ function kpiCadenceOf(coachId) {
   var crow = findRow(SHEETS.coaches, 'coachId', coachId);
   if (crow === -1) return 'weekly';
   var s = parseSettings(readAll(SHEETS.coaches)[crow - 2].settings);
+  if (s.kpiVersion === 'v2') return 'daily'; // v2 一律每日
   return s.kpiCadence === 'daily' ? 'daily' : 'weekly';
 }
 /* 當下「該填 / 該看」的評估週期：每天=當天；每週=剛結束的上一週。weeklyKpi 以 weekStart 當週期起點。 */
@@ -1639,6 +1688,80 @@ function submitWeeklyKpi(d) {
     else sheet(SHEETS.weeklyKpi).getRange(hitRow, 1, 1, WEEKLY_KPI_HEADERS.length).setValues([toRow(SHEETS.weeklyKpi, rec)]);
     return { ok: true, updated: hitRow !== -1, totalScore: calc.total, status: calc.status,
       dimAvg: calc.dimAvg, weekStart: ws, weekEnd: rec.weekEnd, quality: { score: qScore, label: rec.qualityLabel } };
+  } finally { lock.releaseLock(); }
+}
+
+/* ===== KPI v2 提交（每日合流：一次提交＝15 題 KPI ＋水分等；恢復題驅動當日燈號）===== */
+function kpi2State(d) {
+  var t = teamFromShareToken(d.t || d.shareToken);
+  if (!t) return { ok: false, error: '連結無效' };
+  var a = athleteInTeam(t.teamId, d.athleteId), date = String(d.date || todayStr());
+  if (!a) return { ok: false, error: '選手不屬於此團隊' };
+  var ent = kpiEntitlementFor(t, a);
+  var done = readAll(SHEETS.weeklyKpi).some(function (r) {
+    return String(r.athleteId) === String(a.athleteId) && String(r.weekStart) === date;
+  });
+  return { ok: true, version: isKpiV2(t.coachId) ? 'v2' : 'v1',
+    sportCategory: t.sportCategory || '', tacticalGroup: kpi2TacticalGroup(t.sportCategory),
+    kpiEnabled: ent.enabled, kpiEffective: ent.effective, kpiDue: ent.effective && !done, completed: done,
+    date: date, hasPin: athleteHasPin(a), pinRequired: athleteHasPin(a) && !pinOk(a, d.pin) };
+}
+
+function submitKpi2(d) {
+  var t = teamFromShareToken(d.t || d.shareToken);
+  if (!t) return { ok: false, error: '連結無效或已被重設' };
+  var a = athleteInTeam(t.teamId, d.athleteId);
+  if (!a) return { ok: false, error: '選手不屬於此團隊' };
+  var ent = kpiEntitlementFor(t, a);
+  if (!ent.enabled || !ent.effective) return { ok: false, error: 'kpi_not_enabled', message: '此選手未開啟 KPI 追蹤或已超過方案配額。' };
+  if (!athleteHasPin(a)) return { ok: false, noPin: true, error: '請先設定 4 位數 PIN 保護 KPI' };
+  if (!pinOk(a, d.pin)) return { ok: false, pinRequired: true, error: 'PIN 不正確' };
+  var scores = d.scores || {};
+  var calc = weeklyScoreV2(scores, t.sportCategory);
+  if (!calc.valid) return { ok: false, error: '15 題都需填 1–5 分' };
+  var date = String(d.date || todayStr());
+  var recStatus = kpi2RecoveryStatus(scores);
+  function lv(v) { v = Number(v); return v <= 1 ? 'red' : (v === 2 ? 'yellow' : 'green'); }
+
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    ent = kpiEntitlementFor(t, readAll(SHEETS.athletes)[findRow(SHEETS.athletes, 'athleteId', a.athleteId) - 2]);
+    if (!ent.effective) return { ok: false, error: 'kpi_limit_reached', message: 'KPI 追蹤配額已滿。' };
+    // 1) weeklyKpi（聚合欄＋rawJson，key＝當日，upsert）
+    var existing = readAll(SHEETS.weeklyKpi), hitRow = -1;
+    for (var i = 0; i < existing.length; i++) {
+      if (String(existing[i].athleteId) === String(a.athleteId) && String(existing[i].weekStart) === date) { hitRow = i + 2; break; }
+    }
+    var rec = {
+      weeklyKpiId: hitRow === -1 ? uid('k2_') : existing[hitRow - 2].weeklyKpiId,
+      coachId: t.coachId, teamId: t.teamId, athleteId: a.athleteId, name: a.name,
+      weekStart: date, weekEnd: date, submittedAt: hitRow === -1 ? now() : existing[hitRow - 2].submittedAt,
+      updatedAt: now(), technicalAvg: calc.dimAvg.technical, tacticalAvg: calc.dimAvg.tactical,
+      physicalAvg: calc.dimAvg.physical, mentalAvg: calc.dimAvg.mental, attitudeAvg: calc.dimAvg.attitude,
+      physiologicalAvg: calc.dimAvg.physiological, totalScore: calc.total, status: calc.status,
+      qualityScore: 100, qualityLabel: '正常', qualityReasons: '', rawJson: JSON.stringify(scores)
+    };
+    if (hitRow === -1) appendObj(SHEETS.weeklyKpi, rec);
+    else sheet(SHEETS.weeklyKpi).getRange(hitRow, 1, 1, WEEKLY_KPI_HEADERS.length).setValues([toRow(SHEETS.weeklyKpi, rec)]);
+
+    // 2) 每日 record（不寫 totalScore→不被當 legacy 週KPI；供戰情室「已回報」＋當日燈號）
+    var recs = readAll(SHEETS.records), rrow = -1;
+    for (var j = 0; j < recs.length; j++) {
+      if (String(recs[j].athleteId) === String(a.athleteId) && String(recs[j].date) === date) { rrow = j + 2; break; }
+    }
+    var rrec = rrow === -1 ? {} : recs[rrow - 2];
+    rrec.recordId = rrec.recordId || uid('r_');
+    rrec.coachId = t.coachId; rrec.teamId = t.teamId; rrec.athleteId = a.athleteId; rrec.name = a.name;
+    rrec.date = date; rrec.timestamp = now(); rrec.status = recStatus;
+    rrec.painRisk = lv(scores.r_pain); rrec.sleepRisk = lv(scores.r_sleep);
+    rrec.painScore = Number(scores.r_pain) <= 2 ? (Number(scores.r_pain) === 1 ? 8 : 5) : 0;
+    rrec.totalScore = '';
+    if (d.waterAmount !== undefined) rrec.waterAmount = d.waterAmount;
+    if (rrow === -1) appendObj(SHEETS.records, rrec);
+    else sheet(SHEETS.records).getRange(rrow, 1, 1, RECORD_HEADERS.length).setValues([toRow(SHEETS.records, rrec)]);
+
+    audit(a.name, 'submitKpi2', a.athleteId, date);
+    return { ok: true, totalScore: calc.total, status: calc.status, dimAvg: calc.dimAvg, recoveryStatus: recStatus, date: date };
   } finally { lock.releaseLock(); }
 }
 
