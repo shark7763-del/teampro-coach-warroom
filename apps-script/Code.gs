@@ -2356,8 +2356,9 @@ function demoInputs_(key, offset) {
   };
   if (key === 'lin') {
     var hard = (offset === 1);
+    var lb = Math.min(4, +(2.6 + offset * 0.07).toFixed(2)); // 越近(offset小)越低 → 週 KPI 連週下滑
     return {
-      kpi: demoKpi_(3, 3, 3, 3, 3, 3), bed: hard ? '02:00' : '00:30', wake: hard ? '05:30' : '06:30',
+      kpi: demoKpi_(lb, lb, lb, lb, lb, lb), bed: hard ? '02:00' : '00:30', wake: hard ? '05:30' : '06:30',
       sleepQuality: hard ? 'good' : '', painStatus: 'none', painScore: 0, painImpact: 'none',
       water: 'normal', sweat: 'normal', urine: 'yellow', fatigue: 5, mood: 3,
       am: '晨操：慢跑', pm: '專長訓練：基本動作', eve: '',
@@ -2434,25 +2435,26 @@ function demoBuildRecord_(coachId, team, a, date, inp, prev) {
   return rec;
 }
 
-/* 7 天點名：每日一種課程輪替，狀態依角色變化（今日留異常給戰情室展示） */
+/* 點名：每日一種課程輪替，狀態依角色循環（出席率差異＋今日留異常給戰情室展示） */
 function demoSeedAttendance_(coachId, team, athletes, dates) {
-  var courses = ['晨操', '專長訓練', '晚自習', '自主訓練', '晨操', '專長訓練', '晚自習'];
-  var patt = {
-    'Demo 王柏鈞': ['present', 'present', 'present', 'present', 'present', 'present', 'present'],
+  var courses = ['晨操', '專長訓練', '晚自習', '自主訓練'];
+  // 各角色一段循環，跨日重複 → 不同出席率（王/張接近全勤，林最差）
+  var cyc = {
+    'Demo 王柏鈞': ['present'],
     'Demo 林子棠': ['present', 'late', 'absent', 'present', 'leave', 'late', 'absent'],
     'Demo 陳希恩': ['present', 'present', 'present', 'injured_watch', 'present', 'present', 'injured_watch'],
-    'Demo 許晨熙': ['present', 'present', 'late', 'present', 'present', 'late', 'present'],
-    'Demo 張晏慈': ['present', 'present', 'present', 'present', 'present', 'present', 'present']
+    'Demo 許晨熙': ['present', 'present', 'late', 'present', 'present'],
+    'Demo 張晏慈': ['present', 'present', 'present', 'present', 'present', 'late', 'present']
   };
   dates.forEach(function (date, i) {
     var marks = {};
     athletes.forEach(function (a) {
-      var arr = patt[a.name] || [];
-      marks[String(a.athleteId)] = { s: arr[i] || 'present', n: '' };
+      var arr = cyc[a.name] || ['present'];
+      marks[String(a.athleteId)] = { s: arr[i % arr.length], n: '' };
     });
     appendObj(SHEETS.attendance, {
       attId: uid('at_'), coachId: coachId, teamId: team.teamId, date: date,
-      course: courses[i] || '專長訓練', marks: JSON.stringify(marks), updatedAt: now()
+      course: courses[i % courses.length], marks: JSON.stringify(marks), updatedAt: now()
     });
   });
 }
@@ -2484,11 +2486,12 @@ function demoRebuild_(coachId) {
     return a;
   });
   var today = todayStr();
-  var dates = []; for (var i = 6; i >= 0; i--) dates.push(addDateDays(today, -i));
+  var DAYS = 21; // 3 週：撐起 30 天報告與「近期需要支持（連續 3 週下滑）」
+  var dates = []; for (var i = DAYS - 1; i >= 0; i--) dates.push(addDateDays(today, -i));
   athletes.forEach(function (a) {
     var prev = null;
     dates.forEach(function (date, di) {
-      var offset = 6 - di; // di=6 → offset 0 = 今天
+      var offset = (DAYS - 1) - di; // di=最後 → offset 0 = 今天
       if (a._key === 'lin' && offset === 0) return; // 林子棠今日未回報（展示尚未回報）
       var inp = demoInputs_(a._key, offset);
       var rec = demoBuildRecord_(coachId, team, a, date, inp, prev);
