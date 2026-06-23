@@ -45,6 +45,10 @@
   .risk-note { border-radius:10px; padding:10px 12px; margin:8px 0; font-size:13px; }
   .risk-note.yellow { background:rgba(245,158,11,.12); color:#fcd34d; }
   .risk-note.red { background:rgba(239,68,68,.12); color:#fca5a5; }
+  .dim-trend-row { display:grid; grid-template-columns:76px 1fr 72px; align-items:center; gap:10px; padding:4px 0; border-bottom:1px solid var(--line); }
+  .dim-trend-row .dt-name { font-size:13px; }
+  .dim-trend-row .dt-spark svg { margin:0 !important; }
+  .dim-trend-row .dt-val { text-align:right; font-size:13px; white-space:nowrap; }
   @media (max-width:420px) { .choice-grid { grid-template-columns:1fr 1fr; } .choice-grid button { font-size:14px; } }
   /* iter20：選手端可選按鈕的動效與後台一致（.15s 過場 + 按壓回饋） */
   .mood-row button, .nutri-chips button, .choice-grid button, .train-slot .notrain {
@@ -762,6 +766,50 @@
       '<polyline points="' + pts + '" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linejoin="round"/></svg>';
   }
 
+  // 六大面向雷達圖：本次實心綠、上次灰虛線疊圖 → 一眼看出哪個面向進步/退步
+  function radarChart(latest, prev) {
+    var dims = TP.KPI_DIMENSIONS, n = dims.length, cx = 150, cy = 140, R = 92;
+    function pt(val, i, rOverride) {
+      var ang = -Math.PI / 2 + i * 2 * Math.PI / n;
+      var rr = (rOverride != null) ? rOverride : (Math.max(0, Math.min(5, val)) / 5 * R);
+      return [cx + rr * Math.cos(ang), cy + rr * Math.sin(ang)];
+    }
+    var rings = '';
+    for (var g = 1; g <= 5; g++) {
+      rings += '<polygon points="' + dims.map(function (d, i) { var p = pt(0, i, g / 5 * R); return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' ') + '" fill="none" stroke="var(--line)" stroke-width="1"/>';
+    }
+    var axes = '', labels = '';
+    dims.forEach(function (d, i) {
+      var p = pt(0, i, R); axes += '<line x1="' + cx + '" y1="' + cy + '" x2="' + p[0].toFixed(1) + '" y2="' + p[1].toFixed(1) + '" stroke="var(--line)" stroke-width="1"/>';
+      var lp = pt(0, i, R + 17);
+      labels += '<text x="' + lp[0].toFixed(1) + '" y="' + lp[1].toFixed(1) + '" font-size="11" fill="var(--muted)" text-anchor="middle" dominant-baseline="middle">' + esc(d.name) + '</text>';
+    });
+    function poly(rec, color, fillOp, dash) {
+      var pts = dims.map(function (d, i) { var p = pt(Number(rec[d.key + 'Avg']) || 0, i); return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' ');
+      return '<polygon points="' + pts + '" fill="' + color + '" fill-opacity="' + fillOp + '" stroke="' + color + '" stroke-width="2"' + (dash ? ' stroke-dasharray="4 3"' : '') + '/>';
+    }
+    return '<svg viewBox="0 0 300 285" style="width:100%;max-width:330px;height:auto;display:block;margin:8px auto 0;">' +
+      rings + axes + (prev ? poly(prev, '#94a3b8', 0.05, true) : '') + poly(latest, '#22c55e', 0.18, false) + labels + '</svg>' +
+      (prev ? '<div class="center muted" style="font-size:12px;margin-top:2px;"><span style="color:var(--green)">━ 本次</span>　<span>┄ 上次</span></div>' : '');
+  }
+  // 每個面向的歷史走勢 + 與上次升降
+  function dimTrends(asc) {
+    return TP.KPI_DIMENSIONS.map(function (d) {
+      var vals = asc.map(function (r) { return Number(r[d.key + 'Avg']) || 0; });
+      var cur = vals[vals.length - 1], prev = vals.length >= 2 ? vals[vals.length - 2] : null;
+      var arrow = '';
+      if (prev != null) {
+        var dl = cur - prev;
+        arrow = dl > 0.05 ? '<span style="color:var(--green)">▲' + dl.toFixed(1) + '</span>'
+          : dl < -0.05 ? '<span style="color:var(--red)">▼' + Math.abs(dl).toFixed(1) + '</span>'
+          : '<span class="muted">–</span>';
+      }
+      return '<div class="dim-trend-row"><span class="dt-name">' + esc(d.name) + '</span>' +
+        '<span class="dt-spark">' + miniSpark(vals) + '</span>' +
+        '<span class="dt-val"><b>' + cur.toFixed(1) + '</b> ' + arrow + '</span></div>';
+    }).join('');
+  }
+
   function renderDailyPerf(name, daily) {
     var asc = daily.slice().sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); });
     var last = asc[asc.length - 1], light = last.status || 'green';
@@ -789,13 +837,9 @@
     if (!recs.length) { renderDailyPerf(name, daily); return; }
     var asc = recs.slice().sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); });
     var last = asc[asc.length - 1];
+    var prev = asc.length >= 2 ? asc[asc.length - 2] : null;
     var total = Number(last.totalScore) || 0, light = last.status || TP.lightOf(total);
     var totals = asc.map(function (r) { return Number(r.totalScore) || 0; });
-
-    var dims = TP.KPI_DIMENSIONS.map(function (d) {
-      var key = d.key + 'Avg';
-      return '<div class="row" style="padding:6px 0;"><span>' + esc(d.name) + '</span><b>' + (Number(last[key]) || 0).toFixed(1) + '</b></div>';
-    }).join('');
 
     var listDesc = recs.slice().sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
     var rows = listDesc.map(function (r) {
@@ -819,9 +863,10 @@
       (fb ? '<div class="card" style="background:rgba(34,197,94,.08);border-color:var(--brand);margin-top:12px;">' +
         '<b style="color:var(--brand);">👨‍🏫 教練回饋</b>' + (fbDate ? '<span class="muted" style="font-size:12px;margin-left:6px;">' + esc(fbDate) + '</span>' : '') +
         '<div style="margin-top:4px;white-space:pre-wrap;">' + esc(fb) + '</div></div>' : '') +
-      (totals.length >= 2 ? '<h3 style="margin:14px 0 0;">總分趨勢</h3>' + miniSpark(totals) : '') +
-      '<h3 style="margin:14px 0 6px;">最近一次六大面向</h3>' + dims +
-      '<h3 style="margin:14px 0 6px;">歷史紀錄</h3>' + rows;
+      '<h3 style="margin:16px 0 0;">六大面向' + (prev ? '（本次 vs 上次）' : '') + '</h3>' + radarChart(last, prev) +
+      (totals.length >= 2 ? '<h3 style="margin:16px 0 0;">總分趨勢</h3>' + miniSpark(totals) : '') +
+      '<h3 style="margin:16px 0 6px;">各面向走勢</h3>' + dimTrends(asc) +
+      '<h3 style="margin:16px 0 6px;">歷史紀錄</h3>' + rows;
   }
 
   $('#btnPrefill').onclick = async function () {
