@@ -217,6 +217,22 @@ function lightOf(total) {
 /* ============================================================
    Web App 入口
    ============================================================ */
+/* 診斷用（用網址查，key 防亂查；只回數量與日期、不回內容）。確認後可移除。 */
+function debugFb(d) {
+  if (String(d.key || '') !== 'tpdbg') return { ok: false, error: 'forbidden' };
+  var name = String(d.name || '');
+  var ath = readAll(SHEETS.athletes).filter(function (a) { return !name || String(a.name).indexOf(name) !== -1; });
+  return { ok: true, count: ath.length, athletes: ath.slice(0, 20).map(function (a) {
+    var recs = readAll(SHEETS.records).filter(function (r) { return String(r.athleteId) === String(a.athleteId); });
+    var fb = recs.filter(function (r) { return String(r.coachComment || '').trim(); });
+    var wk = readAll(SHEETS.weeklyKpi).filter(function (r) { return String(r.athleteId) === String(a.athleteId); });
+    return { name: a.name, athleteId: a.athleteId, teamId: a.teamId, kpiEnabled: a.kpiEnabled,
+      dailyRecords: recs.length, recordDates: recs.map(function (r) { return String(r.date); }),
+      withFeedback: fb.length, feedbackDates: fb.map(function (r) { return String(r.date); }),
+      weeklyKpi: wk.length, weeklyDates: wk.map(function (r) { return String(r.weekStart); }) };
+  }) };
+}
+
 function doGet(e) {
   var p = (e && e.parameter) || {};
   try {
@@ -239,6 +255,7 @@ function doPost(e) {
 function handle(action, d) {
   switch (action) {
     case 'ping':            return jsonOut({ ok: true, message: 'pong', time: now() });
+    case 'debugfb':         return jsonOut(debugFb(d));
 
     /* ---- 教練帳號 ---- */
     case 'register':        return jsonOut(register(d));
