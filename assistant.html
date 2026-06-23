@@ -9,12 +9,14 @@
   .wrap { max-width: 560px; margin: 0 auto; padding-bottom: 96px; }
   .asst-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
   .pin-input { letter-spacing: 8px; font-size: 22px; text-align: center; font-weight: 800; }
-  .asst-row { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  .asst-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
     padding: 11px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
   .asst-row .nm { font-weight: 700; }
   .asst-row .nm .gc { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 6px; }
   .asst-chips { display: flex; gap: 6px; flex-wrap: wrap; }
   .asst-chips .att-chip { font-size: 13px; padding: 7px 12px; }
+  .asst-note { width: 100%; margin-top: 8px; font-size: 13px; }
+  .asst-note::placeholder { color: var(--muted); }
   .sticky-save { position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel);
     border-top: 1px solid var(--line); padding: 12px; }
   .sticky-save .inner { width: min(560px, 92vw); margin: 0 auto; display: flex; gap: 8px; align-items: center; }
@@ -35,7 +37,7 @@
   <div id="step-pin" class="card hidden">
     <div class="asst-eyebrow">助教點名</div>
     <h2 style="margin:4px 0 6px;" id="pinTeam">—</h2>
-    <p class="muted" style="margin:0 0 12px;">請輸入教練給你的 4 位數助教 PIN，即可開始幫這一隊點名。</p>
+    <p class="muted" style="margin:0 0 12px;">請輸入教練給你的 4 位數助教 PIN，即可開始幫這一隊點名，順便留下回覆給教練。</p>
     <label>助教 PIN</label>
     <input id="pinInput" class="pin-input" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="off">
     <p class="muted" id="pinErr" style="color:var(--red);font-size:13px;margin:8px 0 0;min-height:18px;"></p>
@@ -46,7 +48,7 @@
   <!-- 步驟 2：點名 -->
   <div id="step-roll" class="card hidden">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
-      <h2 style="margin:0;">快速點名</h2>
+      <h2 style="margin:0;">快速點名＋回覆</h2>
       <span class="count-pill" id="countPill"></span>
     </div>
     <div class="asst-meta" style="margin-top:10px;">
@@ -60,6 +62,7 @@
       <button class="btn btn-sm btn-primary" id="allPresent">✅ 全員出席</button>
       <button class="btn btn-sm btn-ghost" id="reloadDay">↻ 重新載入</button>
     </div>
+    <p class="muted" style="margin:0 0 12px;font-size:13px;">每位選手都可以補一段簡短回覆，會跟著點名一起同步給教練。</p>
     <div id="rollList"></div>
   </div>
 </div>
@@ -150,17 +153,27 @@
     }
     $('#rollList').innerHTML = state.roster.map(function (a) {
       var cur = (state.marks[a.athleteId] || {}).s || 'present';
+      var note = (state.marks[a.athleteId] || {}).n || '';
       var chips = STATUSES.map(function (s) {
         return '<button class="att-chip ' + (cur === s.v ? s.cls : '') + '" data-aid="' + esc(a.athleteId) + '" data-st="' + s.v + '">' + s.label + '</button>';
       }).join('');
       return '<div class="asst-row"><div class="nm">' + esc(a.name) +
         (a.gradeClass ? '<span class="gc">' + esc(a.gradeClass) + '</span>' : '') +
-        '</div><div class="asst-chips">' + chips + '</div></div>';
+        '</div><div class="asst-chips">' + chips + '</div>' +
+        '<input class="asst-note" data-note="' + esc(a.athleteId) + '" placeholder="回覆教練：例如今天狀態不錯、需要留意膝蓋、請家長協助觀察…" value="' + esc(note) + '">' +
+      '</div>';
     }).join('');
     TP.$all('[data-aid]', $('#rollList')).forEach(function (b) {
       b.onclick = function () {
         state.marks[b.dataset.aid] = { s: b.dataset.st };
         renderRoster();
+      };
+    });
+    TP.$all('[data-note]', $('#rollList')).forEach(function (inp) {
+      inp.oninput = function () {
+        var aid = inp.dataset.note;
+        state.marks[aid] = state.marks[aid] || { s: 'present', n: '' };
+        state.marks[aid].n = inp.value;
       };
     });
     updateCounts();
@@ -191,7 +204,7 @@
       marks: state.marks
     });
     this.disabled = false;
-    if (r && r.ok) { toast('✅ 點名已儲存，教練端即時同步'); }
+    if (r && r.ok) { toast('✅ 點名與回覆已儲存，教練端即時同步'); }
     else { toast((r && r.error) || '儲存失敗，請重試', true); }
   };
 

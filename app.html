@@ -53,6 +53,10 @@
   .onboard-card .title { font-size:17px; font-weight:800; margin:6px 0; }
   .onboard-card .status { font-size:13px; }
   .onboard-card .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  .signup-welcome { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap;
+    background: rgba(34,197,94,.08); border: 1px solid rgba(34,197,94,.35); border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; }
+  .signup-welcome b { display:block; margin-bottom:4px; }
+  .signup-welcome .actions { display:flex; gap:8px; flex-wrap:wrap; }
   .upgrade-modal .modal-box { background:var(--panel); border:1px solid var(--line); }
   .upgrade-hero { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:10px; }
   .upgrade-badges { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0 12px; }
@@ -148,7 +152,7 @@
       <label>教練姓名</label><input id="suName" placeholder="王教練">
       <label class="consent-check" for="suAgree">
         <input type="checkbox" id="suAgree">
-        <span>我已閱讀並同意<a href="terms.html" target="_blank" rel="noopener">服務條款</a>與<a href="privacy.html" target="_blank" rel="noopener">隱私權政策</a>，並承諾不會反向工程、複製、改作或用於開發競爭性系統。</span>
+        <span>我已閱讀並同意<a href="terms.html" target="_blank" rel="noopener">服務條款</a>與<a href="privacy.html" target="_blank" rel="noopener">隱私權政策</a>。</span>
       </label>
     </div>
     <label>Email</label><input id="auEmail" type="email" placeholder="coach@example.com">
@@ -175,6 +179,17 @@
     <div style="display:flex;gap:8px;align-items:center;">
       <span class="muted" id="coachName" style="font-size:14px;"></span>
       <button class="btn btn-ghost btn-sm" id="btnLogout">登出</button>
+    </div>
+  </div>
+
+  <div id="signupWelcome" class="signup-welcome hidden">
+    <div>
+      <b>註冊完成</b>
+      <div class="muted" style="font-size:13px;">帳號已建立成功。下一步先建立第一個隊伍，之後再加入選手與分享連結。</div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-primary btn-sm" id="btnGoTeams">先建立隊伍</button>
+      <button class="btn btn-sm btn-ghost" id="btnDismissSignupWelcome">知道了</button>
     </div>
   </div>
 
@@ -619,6 +634,7 @@
   var authView = $('#authView'), appView = $('#appView');
   var mode = 'login';
   var state = { coach: null, teams: [], athletes: [], kpiMeta: {} };
+  var signupJustCompleted = false;
   var params = new URLSearchParams(location.search);
   var DEMO = params.get('demo') === '1';
   function localToday() {
@@ -784,35 +800,54 @@
     $('#authHint').textContent = (m === 'signup')
       ? '註冊即免費開通；示範資料使用獨立前端模式，不會寫入你的正式帳號。'
       : '';
+    requestAnimationFrame(function () {
+      if (m === 'signup') $('#suName').focus();
+      else $('#auEmail').focus();
+    });
   }
 
   $('#tabLogin').onclick = function () { setMode('login'); };
   $('#tabSignup').onclick = function () { setMode('signup'); };
   $('#cfgSave').onclick = function () { TP.setUrl($('#cfgUrl').value); toast('已儲存後端網址'); };
+  $('#btnGoTeams').onclick = function () { switchTab('teams'); $('#ntName').focus(); };
+  $('#btnDismissSignupWelcome').onclick = function () {
+    $('#signupWelcome').classList.add('hidden');
+    localStorage.setItem('teampro_signup_welcome_dismissed', '1');
+  };
 
   $('#authSubmit').onclick = async function () {
     if (!TP.getUrl()) { toast('請先在下方系統設定貼上後端網址', true); return; }
     var email = $('#auEmail').value.trim(), pw = $('#auPassword').value;
     if (!email || !pw) { toast('請輸入 email 與密碼', true); return; }
+    var btn = this;
     var r;
-    if (mode === 'signup') {
-      var name = $('#suName').value.trim();
-      if (!name) { toast('請輸入教練姓名', true); return; }
-      if (!$('#suAgree').checked) { toast('請先閱讀並勾選同意服務條款與隱私權政策', true); return; }
-      r = await TP.call('register', { email: email, password: pw, name: name });
-    } else {
-      r = await TP.call('login', { email: email, password: pw });
+    btn.disabled = true;
+    try {
+      if (mode === 'signup') {
+        var name = $('#suName').value.trim();
+        if (!name) { toast('請輸入教練姓名', true); return; }
+        if (!$('#suAgree').checked) { toast('請先閱讀並勾選同意服務條款與隱私權政策', true); return; }
+        r = await TP.call('register', { email: email, password: pw, name: name });
+      } else {
+        r = await TP.call('login', { email: email, password: pw });
+      }
+      if (!r.ok) { toast(r.error || '失敗', true); return; }
+      TP.setToken(r.token); state.coach = r.coach;
+      signupJustCompleted = (mode === 'signup');
+      toast(mode === 'signup' ? '註冊成功，歡迎！' : '登入成功');
+      showApp();
+    } finally {
+      btn.disabled = false;
     }
-    if (!r.ok) { toast(r.error || '失敗', true); return; }
-    TP.setToken(r.token); state.coach = r.coach;
-    toast(mode === 'signup' ? '註冊成功，歡迎！' : '登入成功');
-    showApp();
   };
 
   /* ---------- 主後台 ---------- */
   function showApp() {
     authView.classList.add('hidden'); appView.classList.remove('hidden');
     $('#coachName').textContent = state.coach.name + '（' + state.coach.email + '）';
+    var welcome = $('#signupWelcome');
+    var dismissed = localStorage.getItem('teampro_signup_welcome_dismissed') === '1';
+    welcome.classList.toggle('hidden', !(signupJustCompleted && !dismissed));
     $('#setName').value = state.coach.name || '';
     $('#setEmail').value = state.coach.email || '';
     if (coachSettings().lineUrl) TP.setLineUrl(coachSettings().lineUrl); // 跨裝置同步 LINE 連結
@@ -828,6 +863,7 @@
     $('#warDate').value = localToday();
     loadTeams().then(function () { loadAthletes(); loadWarroom(); loadTrialSummary(); });
     loadPrivacyRequests();
+    signupJustCompleted = false;
   }
 
   function renderPlan() {
@@ -986,7 +1022,7 @@
             '<button class="btn btn-sm" data-asst-set="' + t.teamId + '">變更 PIN</button>' +
             '<button class="btn btn-sm btn-danger" data-asst-clear="' + t.teamId + '">關閉</button>' +
           '</div>'
-        : '<button class="btn btn-sm" data-asst-set="' + t.teamId + '">開啟助教點名（設定 PIN）</button>';
+        : '<button class="btn btn-sm" data-asst-set="' + t.teamId + '">開啟助教點名＋回覆（設定 PIN）</button>';
       return '<div class="row" style="flex-direction:column;align-items:stretch;gap:8px;">' +
         '<div><b>' + esc(t.teamName) + '</b> <span class="muted">· ' + esc(t.sport) + (t.sportCategory ? ' · ' + esc(t.sportCategory) : '') + '</span></div>' +
         '<div class="link-box" style="flex:1;min-width:280px;">' +
@@ -996,7 +1032,7 @@
           '<button class="btn btn-sm btn-danger" data-del="' + t.teamId + '" data-name="' + esc(t.teamName) + '">刪除</button>' +
         '</div>' +
         '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
-          '<span class="muted" style="font-size:13px;white-space:nowrap;">🧑‍🏫 助教點名連結 · ' + (hasAsst ? '<span style="color:var(--green)">已開啟</span>' : '未開啟') + '</span>' +
+          '<span class="muted" style="font-size:13px;white-space:nowrap;">🧑‍🏫 助教點名＋回覆連結 · ' + (hasAsst ? '<span style="color:var(--green)">已開啟</span>' : '未開啟') + '</span>' +
           asstLine +
         '</div>' +
       '</div>';
@@ -1010,7 +1046,7 @@
         pin = String(pin).trim();
         if (!/^\d{4}$/.test(pin)) { toast('PIN 需為 4 位數字', true); return; }
         var r = await TP.callAuth('setAssistantPin', { teamId: b.dataset.asstSet, pin: pin });
-        if (r.ok) { toast('助教點名已開啟，把連結與 PIN 給助教即可'); loadTeams(); } else { toast(r.error, true); }
+        if (r.ok) { toast('助教點名＋回覆已開啟，把連結與 PIN 給助教即可'); loadTeams(); } else { toast(r.error, true); }
       };
     });
     TP.$all('[data-asst-clear]', box).forEach(function (b) {
@@ -1018,7 +1054,7 @@
         if (DEMO) { demoBlock(); return; }
         if (!confirm('關閉後，現有助教連結與 PIN 立即失效，助教將無法再點名。確定？')) return;
         var r = await TP.callAuth('setAssistantPin', { teamId: b.dataset.asstClear, clear: true });
-        if (r.ok) { toast('已關閉助教點名'); loadTeams(); } else { toast(r.error, true); }
+        if (r.ok) { toast('已關閉助教點名＋回覆'); loadTeams(); } else { toast(r.error, true); }
       };
     });
     TP.$all('[data-copy]', box).forEach(function (b) {
@@ -2578,7 +2614,7 @@
         '<button class="att-chip ' + m.s + '" data-chip="' + a.athleteId + '">' + attLabel(m.s) + ' ▾</button></div>' +
         '<div class="att-7day">最近7天 ' + att7day(a) + '</div>' +
         '<div class="att-picker" data-picker="' + a.athleteId + '">' + picker + '</div>' +
-        '<input class="att-note" data-note="' + a.athleteId + '" placeholder="備註（選填）" value="' + esc(m.n || '') + '">' +
+        '<input class="att-note" data-note="' + a.athleteId + '" placeholder="助教回覆／備註（選填）" value="' + esc(m.n || '') + '">' +
         '</div>';
     }).join('');
     var box = $('#atList');
