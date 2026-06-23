@@ -114,7 +114,7 @@
     </div>
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;">
-        <h2 style="margin:0;" id="kpiStepTitle">上週 KPI 評估</h2>
+        <h2 style="margin:0;" id="kpiStepTitle">上週狀態回報</h2>
         <button class="btn btn-sm hidden" id="btnPrefill">↺ 帶入上次</button>
       </div>
       <p class="muted" id="kpiPeriod" style="margin:6px 0 0;">每項 1–5 分，5 分代表最好。請回顧整個上週的實際表現。</p>
@@ -127,13 +127,13 @@
   <div id="step-body" class="step">
     <div class="card">
       <h2 style="margin-top:0;">今日輕量回報</h2>
-      <p class="muted">先完成今天的安全與恢復狀態；每週 KPI 會另外提示，不會擋住日報。</p>
+      <p class="muted">先完成今天的安全與恢復狀態；每週狀態回報會另外提示，不會擋住日報。</p>
       <label>回報日期</label><input id="recordDate" type="date">
       <label style="margin-top:10px;">這天是？</label>
       <select id="sessionType"><option value="training">訓練日</option><option value="rest">非訓練日</option></select>
       <details style="margin-top:12px;"><summary style="cursor:pointer;font-weight:700;">選填：今日訓練課表</summary>
         <div class="train-slot"><span class="slot-name">上午</span><input id="train_am" placeholder="例：晨操、跑步 30 分"><button type="button" class="notrain" data-for="train_am">無訓練</button></div>
-        <div class="train-slot"><span class="slot-name">下午</span><input id="train_pm" placeholder="例：踢靶 6 組、核心訓練"><button type="button" class="notrain" data-for="train_pm">無訓練</button></div>
+        <div class="train-slot"><span class="slot-name">下午</span><input id="train_pm" placeholder="例：專項訓練 6 組、核心訓練"><button type="button" class="notrain" data-for="train_pm">無訓練</button></div>
         <div class="train-slot"><span class="slot-name">晚上</span><input id="train_eve" placeholder="例：實戰 3 回合、收操伸展"><button type="button" class="notrain" data-for="train_eve">無訓練</button></div>
       </details>
     </div>
@@ -203,13 +203,13 @@
       <label>心情原因（選填）</label><input id="moodReason">
       <label>今天我想感謝的人事物（選填）</label><input id="gratitude">
       <label>想鼓勵的隊友（選填）</label><select id="encourageName"><option value="">—</option></select>
-      <label>想對他說的鼓勵（選填）</label><input id="encourageMsg" placeholder="例：今天你的旋踢超帥，繼續加油！">
+      <label>想對他說的鼓勵（選填）</label><input id="encourageMsg" placeholder="例：今天你表現超棒，繼續加油！">
     </div>
     <div class="card">
       <h2 style="margin-top:0;">訓練心得</h2>
       <label>今天的訓練心得（學到什麼、哪裡進步、哪裡卡關）</label>
-      <textarea id="trainingNotes" placeholder="例：今天旋踢轉胯更順，但實戰時防守反應還是慢半拍，下次想多練閃避。"></textarea>
-      <label>我想請教練幫忙的事（選填）</label><textarea id="reflection" placeholder="例：想加強旋踢落點、最近睡不好想調整課表、課業跟不上想請假補習…"></textarea>
+      <textarea id="trainingNotes" placeholder="例：今天動作更順，但實戰反應還是慢半拍，下次想多練。"></textarea>
+      <label>我想請教練幫忙的事（選填）</label><textarea id="reflection" placeholder="例：想加強某個動作、最近睡不好想調整課表、課業跟不上想請假補習…"></textarea>
     </div>
     <div class="card">
       <h2 style="margin-top:0;">🏆 比賽紀錄</h2>
@@ -791,11 +791,11 @@
     var light = r.status || 'green';
     $('#resScore').textContent = Number(r.totalScore).toFixed(1);
     $('#resScore').style.color = light === 'green' ? 'var(--green)' : (light === 'yellow' ? 'var(--yellow)' : 'var(--red)');
-    $('#resLight').innerHTML = '<span class="pill ' + light + '">今日 KPI · ' + TP.lightText(light) + '</span>' +
+    $('#resLight').innerHTML = '<span class="pill ' + light + '">今日狀態 · ' + TP.lightText(light) + '</span>' +
       (r.recoveryStatus && r.recoveryStatus !== 'green' ? ' <span class="pill ' + r.recoveryStatus + '">身體狀況需注意</span>' : '');
     $('#resDims').innerHTML = TP.KPI_DIMENSIONS.map(function (dm) { return esc(dm.name) + ' ' + Number(r.dimAvg[dm.key]).toFixed(1); }).join('　');
     $('#resAdvice').textContent = '今天的紀錄已送出，教練會看到你的狀態。明天記得再來填 💪';
-    var sum = '【' + ctx.name + ' 今日 KPI】總分 ' + Number(r.totalScore).toFixed(1) + '（' + TP.lightText(light) + '）';
+    var sum = '【' + ctx.name + ' 今日狀態】總分 ' + Number(r.totalScore).toFixed(1) + '（' + TP.lightText(light) + '）';
     $('#btnCopyStudent').onclick = function () { TP.copy(sum); };
     $('#btnCopyParent').onclick = function () { TP.copy('家長您好：' + ctx.name + ' 今天已完成訓練自評，整體狀態 ' + TP.lightText(light) + '。感謝您的陪伴 🙏'); };
     $('#btnWeeklyKpi').classList.add('hidden');
@@ -966,7 +966,7 @@
     }).join('');
     $('#perfBody').innerHTML =
       '<div class="center"><span class="pill ' + light + '">最近一次・' + TP.lightText(light) + '（' + esc(String(last.date)) + '）</span></div>' +
-      '<p class="muted center" style="font-size:12px;margin-top:6px;">目前顯示每日回報狀態；完成 KPI 後這裡會再加上分數與六大面向。</p>' +
+      '<p class="muted center" style="font-size:12px;margin-top:6px;">目前顯示每日回報狀態；完成狀態回報後這裡會再加上分數與六大面向。</p>' +
       feedbackCard(resp, daily) + perfExtras(resp) +
       '<h3 style="margin:16px 0 6px;">每日回報紀錄</h3>' + rows;
   }
@@ -1163,11 +1163,11 @@
     $('#btnWeeklyKpi').classList.toggle('hidden', !(ctx.kpiState && ctx.kpiState.kpiDue));
   }
 
-  function kpiTitle() { return (ctx.kpiState && ctx.kpiState.cadence === 'daily') ? '今日 KPI' : '上週 KPI'; }
+  function kpiTitle() { return (ctx.kpiState && ctx.kpiState.cadence === 'daily') ? '今日狀態回報' : '上週狀態回報'; }
   function applyKpiLabels() {
     var t = kpiTitle();
     var b = document.getElementById('btnWeeklyKpi'); if (b) b.textContent = '繼續填寫' + t + '（約 3–5 分鐘）';
-    var h = document.getElementById('kpiStepTitle'); if (h) h.textContent = t + ' 評估';
+    var h = document.getElementById('kpiStepTitle'); if (h) h.textContent = t;
   }
   async function kpiPin() {
     var creating = ctx.kpiState && !ctx.kpiState.hasPin;
