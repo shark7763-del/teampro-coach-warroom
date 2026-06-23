@@ -702,7 +702,7 @@
     if (!st.ok) {
       // 後端尚未支援 PIN（舊版未重部署）→ 暫時沿用舊行為，避免報錯；重部署後 PIN 即生效
       var r0 = await TP.call('myRecords', { t: shareToken, athleteId: id, limit: 14 });
-      renderPerf(ctx.name, (r0.ok && r0.records) ? r0.records : []);
+      renderPerf(ctx.name, (r0.ok && r0.records) ? r0.records : [], (r0.ok && r0.daily) ? r0.daily : []);
       return;
     }
     renderPinGate(id, ctx.name, st.hasPin);
@@ -712,7 +712,7 @@
   function renderPinGate(id, name, hasPin) {
     if (ctx.pin) {
       TP.call('myRecords', { t: shareToken, athleteId: id, pin: ctx.pin, limit: 14 }).then(function (r) {
-        if (r.ok) renderPerf(name, r.records || []);
+        if (r.ok) renderPerf(name, r.records || [], r.daily || []);
         else { ctx.pin = ''; renderPinGate(id, name, hasPin); }
       });
       return;
@@ -746,7 +746,7 @@
         toast(r.error || '載入失敗', true); return;
       }
       ctx.pin = pin;
-      renderPerf(name, r.records || []);
+      renderPerf(name, r.records || [], r.daily || []);
     };
   }
 
@@ -762,11 +762,31 @@
       '<polyline points="' + pts + '" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linejoin="round"/></svg>';
   }
 
-  function renderPerf(name, recs) {
-    if (!recs.length) {
+  function renderDailyPerf(name, daily) {
+    var asc = daily.slice().sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); });
+    var last = asc[asc.length - 1], light = last.status || 'green';
+    var rows = daily.slice().sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); }).map(function (r) {
+      var l = r.status || 'green', meta = [];
+      if (r.sleepDurationText) meta.push('睡 ' + r.sleepDurationText);
+      if (Number(r.painScore) > 0) meta.push('疼痛 ' + r.painScore);
+      return '<div class="row"><span><span class="dot ' + l + '"></span> ' + esc(String(r.date)) + '</span>' +
+        '<span class="muted" style="font-size:12px;">' + esc(meta.join('・')) + '</span></div>';
+    }).join('');
+    var fb = last.coachComment && String(last.coachComment).trim();
+    $('#perfBody').innerHTML =
+      '<div class="center"><span class="pill ' + light + '">最近一次・' + TP.lightText(light) + '（' + esc(String(last.date)) + '）</span></div>' +
+      '<p class="muted center" style="font-size:12px;margin-top:6px;">目前顯示每日回報狀態；完成每週 KPI 後，這裡會再加上 KPI 分數與六大面向趨勢。</p>' +
+      (fb ? '<div class="card" style="background:rgba(34,197,94,.08);border-color:var(--brand);margin-top:12px;"><b style="color:var(--brand);">👨‍🏫 教練回饋</b><div style="margin-top:4px;white-space:pre-wrap;">' + esc(last.coachComment) + '</div></div>' : '') +
+      '<h3 style="margin:14px 0 6px;">每日回報紀錄</h3>' + rows;
+  }
+
+  function renderPerf(name, recs, daily) {
+    daily = daily || [];
+    if (!recs.length && !daily.length) {
       $('#perfBody').innerHTML = '<p class="muted">' + esc(name) + ' 還沒有任何回報紀錄，今天填第一筆吧！</p>';
       return;
     }
+    if (!recs.length) { renderDailyPerf(name, daily); return; }
     var asc = recs.slice().sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); });
     var last = asc[asc.length - 1];
     var total = Number(last.totalScore) || 0, light = last.status || TP.lightOf(total);

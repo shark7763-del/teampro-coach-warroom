@@ -1502,10 +1502,19 @@ function myRecords(d) {
   if (!a) return { ok: false, error: '選手不屬於此團隊' };
   if (!athleteHasPin(a)) return { ok: false, noPin: true, error: '尚未設定 PIN' };
   if (!pinOk(a, d.pin)) return { ok: false, pinRequired: true, error: 'PIN 不正確' };
+  var lim = Number(d.limit || 14);
   var recs = weeklyKpisCompat(t.coachId, t.teamId, aId, '', '').map(function (r) {
     r.date = r.weekStart; return r;
   });
-  return { ok: true, records: recs.slice(0, Number(d.limit || 14)) };
+  // 每日輕量回報：讓沒填週 KPI 的選手也看得到近期狀態（燈號/睡眠/疼痛/教練回饋）
+  var daily = readAll(SHEETS.records).filter(function (r) {
+    return String(r.teamId) === String(t.teamId) && String(r.athleteId) === aId;
+  }).sort(function (x, y) { return String(y.date).localeCompare(String(x.date)); }).slice(0, lim).map(function (r) {
+    return { date: r.date, status: r.status || riskStatus('green', r.painRisk, r.sleepRisk, r.hydrationRisk),
+      coachComment: r.coachComment || '', sleepDurationText: r.sleepDurationText || '',
+      painScore: r.painScore || '', hydrationRisk: r.hydrationRisk || '' };
+  });
+  return { ok: true, records: recs.slice(0, lim), daily: daily };
 }
 
 function weeklyScoreOf(scores) {
