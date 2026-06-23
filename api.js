@@ -294,9 +294,9 @@
     var name = (opts.name && String(opts.name).trim()) || '孩子';
     if (opts.private) return '本週' + name + '有部分訓練狀態已由教練關心追蹤，詳細內容將由教練視情況與家長溝通。';
     var light = opts.light || 'green';
-    if (light === 'green') return name + '近期訓練出席穩定，態度表現良好。教練將持續協助加強技術細節與訓練節奏。';
-    if (light === 'yellow') return name + '近期訓練狀態大致穩定，教練會持續關心訓練節奏與恢復狀況，建議家長以鼓勵和陪伴為主。';
-    return name + '近期訓練狀態需要支持，教練會持續關心與調整訓練安排，建議家長以鼓勵和陪伴為主。';
+    if (light === 'green') return name + '近期出席穩定、訓練態度良好。教練會持續協助加強技術細節與訓練節奏；家長可以多給孩子肯定與鼓勵。';
+    if (light === 'yellow') return name + '近期訓練狀態大致穩定，睡眠或恢復可以再留意一下。教練會協助調整訓練節奏；家長可以協助孩子規律作息、充足休息。';
+    return name + '近期需要多一點支持。教練會持續關心並調整訓練安排；家長可以以鼓勵和陪伴為主，必要時再與教練聯繫，我們一起幫孩子。';
   }
 
   global.TP = {

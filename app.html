@@ -222,7 +222,7 @@
   <div class="plan-banner">
     <div>
       <b id="planLabel">免費版</b>
-      <span class="muted" id="planQuota"> · 點名 0 / 10 · KPI 追蹤 5</span>
+      <span class="muted" id="planQuota"> · 點名 0 / 10 · 狀態追蹤 5</span>
       <div class="quota-bar"><i id="quotaFill" style="width:0%"></i></div>
     </div>
     <div id="planExpiryNote" class="muted" style="font-size:13px;"></div>
@@ -241,7 +241,8 @@
     <div class="onboard-head">
       <div>
         <div class="eyebrow">新手導引</div>
-        <h2 style="margin:4px 0 0;">5 分鐘完成第一次設定</h2>
+        <h2 style="margin:4px 0 0;">第一次使用，先完成這 5 步就好</h2>
+        <p class="muted" style="margin:4px 0 0;font-size:13px;">不用一次設定完整系統，先從點名開始，資料會慢慢累積成報告。</p>
       </div>
       <button class="btn btn-sm btn-ghost" id="btnHideOnboard">先隱藏</button>
     </div>
@@ -278,13 +279,13 @@
       </ol>
     </div>
     <div style="margin-bottom:14px;">
-      <h2 style="margin:0 0 4px;">今天教練只要做 3 件事</h2>
-      <p class="muted" style="margin:0;">3 分鐘掌握誰需要關心、誰還沒填，以及要傳什麼給家長。</p>
+      <h2 style="margin:0 0 4px;">今天只看這裡，就知道全隊狀況。</h2>
+      <p class="muted" style="margin:0;">不用追表、不用整理，系統幫你抓出需要關心的人。教練少做行政，多花時間在訓練。</p>
     </div>
     <div class="today-steps">
-      <div class="today-step"><span class="step-no">第一件事</span><b>先關心今日需要關心的選手</b><span class="muted" id="taskRed">—</span></div>
-      <div class="today-step"><span class="step-no">第二件事</span><b>提醒尚未完成回報</b><span class="muted" id="taskMissing">—</span></div>
-      <div class="today-step"><span class="step-no">第三件事</span><b>複製家長通知</b><button class="btn btn-sm" id="btnParentNotify" style="margin-top:5px;">複製家長通知</button></div>
+      <div class="today-step"><span class="step-no">今天誰要關心</span><b>狀態異常先看他</b><span class="muted" id="taskRed">—</span></div>
+      <div class="today-step"><span class="step-no">今天誰還沒回報</span><b>一鍵提醒他補回報</b><span class="muted" id="taskMissing">—</span></div>
+      <div class="today-step"><span class="step-no">今天傳給家長</span><b>系統幫你寫好，一鍵複製</b><button class="btn btn-sm" id="btnParentNotify" style="margin-top:5px;">複製家長通知</button></div>
     </div>
     <div class="war-context-bar">
       <select id="warTeam"></select>
@@ -313,7 +314,7 @@
       <span class="war-lights"><b id="stGreen">0</b> 綠 · <b id="stYellow">0</b> 黃 · <b id="stRed">0</b> 紅</span>
     </div>
     <div class="war-kpi-nudge" id="weeklyKpiCard">
-      <span class="war-kpi-label">📋 <span id="kpiNudgeTitle">上週 KPI 評估</span> <b id="weeklyKpiProgress">—</b></span>
+      <span class="war-kpi-label">📋 <span id="kpiNudgeTitle">上週狀態整理</span> <b id="weeklyKpiProgress">—</b></span>
       <span class="muted" id="weeklyKpiRange">—</span>
     </div>
     <div class="card" style="margin-bottom:16px;">
@@ -354,14 +355,15 @@
   <!-- 快速點名中心 -->
   <section id="tab-attendance" class="hidden">
     <div class="card">
-      <h3 style="margin-top:0;">📋 快速點名中心</h3>
+      <h3 style="margin-top:0;">📋 快速點名（每天 10 秒）</h3>
+      <p class="muted" style="margin:-2px 0 10px;font-size:13px;">先從點名開始，不用一次用完整套系統。每天 10 秒點名，資料會自動整理成出席統計與月報。</p>
       <div class="att-setup">
         <div><label>隊伍</label><select id="atTeam"></select></div>
         <div><label>日期</label><input id="atDate" type="date"></div>
         <div><label>課程 / 訓練項目</label><select id="atCourse"></select></div>
       </div>
       <div class="att-setup">
-        <div style="flex:2;"><label>＋新增課程 / 訓練項目</label><input id="atNewCourse" placeholder="例：踢靶課、品勢課、籃球分組對抗"></div>
+        <div style="flex:2;"><label>＋新增課程 / 訓練項目</label><input id="atNewCourse" placeholder="例：晨操、專長訓練、體能課、分組對抗"></div>
         <div style="flex:0 0 auto;"><button class="btn" id="atAddCourse">＋新增</button></div>
       </div>
       <div class="att-quickbar">
@@ -374,7 +376,7 @@
         <select id="atBatch" class="btn btn-sm" style="width:auto;"><option value="">批次設為…</option></select>
         <button class="btn btn-sm" id="atViewToggle">🔲 棋盤</button>
       </div>
-      <div id="atList"><div class="empty-state">請先在上方選擇隊伍，名單就會出現在這裡。</div></div>
+      <div id="atList"><div class="empty-state">先在上方選擇隊伍，名單就會出現。接著按「✅ 全員出席」，再把少數沒到的改掉就好——10 秒完成。</div></div>
       <button class="btn btn-primary btn-block" id="atSave" style="margin-top:6px;">💾 儲存點名</button>
     </div>
     <div class="card hidden" id="atSummaryCard">
@@ -392,7 +394,7 @@
       </div>
       <div id="atMonth" class="muted" style="margin-top:10px;">點「產生本月統計」查看每位選手本月出席率（升級可解鎖 PDF 月報與批次家長通知）。</div>
     </div>
-    <p class="muted" style="font-size:12px;margin-top:10px;">免費版可使用基本點名與最近 7 天紀錄；月出席統計、PDF 月報、批次家長通知、多教練、多班別為升級功能。</p>
+    <p class="muted" style="font-size:12px;margin-top:10px;">免費版可以先從點名與 5 位狀態追蹤開始，完整體驗每日狀態與紅黃綠燈。升級後解鎖全隊狀態追蹤、PDF 月報、批次家長通知與多班別管理——你不用整理資料，系統自動幫你生成月報。</p>
   </section>
 
   <!-- 選手管理 -->
@@ -486,8 +488,8 @@
     <div class="card no-print report-composer">
       <div class="composer-head">
         <div class="eyebrow-sm">成果輸出</div>
-        <h3>產生一份能交出去的報告</h3>
-        <p class="muted">給家長、給校方、或專任教練訪視——選類型與期間，加一句評語就能印成 PDF。</p>
+        <h3>月底不用補資料，報告自動整理好</h3>
+        <p class="muted">平常只要點名與簡短回報，出席、狀態、關心紀錄、家長通知，月底自動整理成一份能交出去的報告。不用再翻 LINE、不用補 Excel、不用重打紀錄——選類型與期間、加一句評語就能印成 PDF。</p>
       </div>
       <div class="composer-fields">
         <div class="field"><label>報告類型</label>
@@ -590,7 +592,7 @@
         <img src="assets/line-qr.jpg" alt="TeamPro 官方 LINE QR Code">
         <div class="muted" style="font-size:13px;">這張 QR 可直接放在簡報、海報或家長通知裡。</div>
       </div>
-      <label>KPI 評估方式</label>
+      <label>狀態回報方式</label>
       <div class="link-box" style="margin-top:0;">
         <select id="kpiVersion" style="max-width:300px;">
           <option value="v1">經典版：30 題滑桿（1–5 分）</option>
@@ -599,7 +601,7 @@
       </div>
       <p class="muted" style="font-size:12px;margin:4px 0 12px;">新版＝選手每天填 15 題，每題用「選最像我的那句」白話錨點（戰術依運動分類自動換題、恢復題併入每日），破解「都打 3 分」。切換不影響歷史資料。</p>
       <div id="kpiCadenceWrap">
-      <label>KPI 評估頻率（經典版適用）</label>
+      <label>狀態回報頻率（經典版適用）</label>
       <div class="link-box" style="margin-top:0;">
         <select id="kpiCadence" style="max-width:240px;">
           <option value="weekly">每週一次（預設，選手負擔低）</option>
@@ -655,14 +657,14 @@
     </div>
     <div class="goal-coach">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-        <label style="color:var(--brand);font-weight:700;margin:0;">🎯 AI 成長目標</label>
-        <button class="btn btn-sm" id="goalGenBtn">生成本週成長目標</button>
+        <label style="color:var(--brand);font-weight:700;margin:0;">🎯 AI 助理：本週重點</label>
+        <button class="btn btn-sm" id="goalGenBtn">幫我整理本週重點</button>
       </div>
-      <p class="muted" style="font-size:12px;margin:4px 0 0;">依這位選手的 KPI 趨勢、出席/回報、睡眠、疼痛、水分自動分析，產出一個可執行的本週目標。成長導向、不評斷。</p>
+      <p class="muted" style="font-size:12px;margin:4px 0 0;">AI 幫教練先整理重點：依這位選手的狀態趨勢、出席/回報、睡眠、疼痛、水分，整理出一個可執行的本週方向。AI 是助教，不是取代教練。</p>
       <div id="goalCoachOut" style="margin-top:8px;"></div>
     </div>
-    <label style="color:var(--accent);font-weight:700;">🤖 AI 教練助手</label>
-    <p class="muted" style="font-size:12px;margin:0 0 6px;">點任一情境，AI 依這位選手今日資料生成回饋草稿，你再潤飾即可。</p>
+    <label style="color:var(--accent);font-weight:700;">🤖 AI 教練助理草稿</label>
+    <p class="muted" style="font-size:12px;margin:0 0 6px;">AI 幫你先寫好回饋草稿（給教練看的重點、給家長看的溫和摘要、給選手看的鼓勵），教練確認後再使用。點任一情境即可生成。</p>
     <div class="ai-modules" id="aiModules"></div>
     <p class="muted" style="font-size:12px;margin:2px 0 0;">AI 回饋僅供教練撰寫參考，送出前請由教練確認內容，不作為醫療、心理診斷或專業治療建議；提供給家長時會自動套用家長摘要規則。</p>
     <label>給這位選手的回饋 / 建議<span id="aiDraftBadge" class="ai-draft-badge hidden">🤖 AI 草稿・請潤飾後送出</span></label>
@@ -1067,7 +1069,7 @@
     var c = state.coach;
     var cfg = planCfg();
     $('#planLabel').textContent = c.planName + (c.expired ? '（已到期，暫以免費版限制）' : '');
-    $('#planQuota').textContent = ' · 點名 ' + c.activeAthletes + ' / ' + cfg.maxAthletes + ' · KPI 追蹤 ' + cfg.kpiAthletes;
+    $('#planQuota').textContent = ' · 點名 ' + c.activeAthletes + ' / ' + cfg.maxAthletes + ' · 狀態追蹤 ' + cfg.kpiAthletes;
     var pct = Math.min(100, Math.round(c.activeAthletes / cfg.maxAthletes * 100));
     var fill = $('#quotaFill'); fill.style.width = pct + '%';
     fill.className = pct >= 100 ? 'full' : (pct >= 80 ? 'warn' : '');
@@ -1103,6 +1105,7 @@
     return {
       team: state.teams.length > 0,
       athlete: state.athletes.filter(function (a) { return String(a.active) !== 'false' && a.active !== false; }).length > 0,
+      rollcall: taskDone('rollcall'),
       link: taskDone('link'),
       firstReport: taskDone('first_report') || Number(localStorage.getItem(coachLS('first_report_seen')) || 0) > 0,
       report7: taskDone('report7')
@@ -1116,11 +1119,11 @@
     }
     var st = onboardingState();
     var tasks = [
-      { key: 'team', title: '建立第一個隊伍', desc: '先把隊伍建立起來，後面才能新增選手與分享連結。', done: st.team, btn: '去建立隊伍', action: function () { switchTab('teams'); $('#ntName').focus(); } },
-      { key: 'athlete', title: '新增至少 1 位選手', desc: '讓系統先看到一筆實際名單，戰情室才會開始運作。', done: st.athlete, btn: '新增選手', action: function () { switchTab('athletes'); $('#naName').focus(); } },
-      { key: 'link', title: '複製選手填寫連結', desc: '把選手專屬填寫連結貼給家長或選手本人。', done: st.link, btn: '複製連結', action: function () { switchTab('teams'); copyFirstTeamLink(); } },
-      { key: 'firstReport', title: '收到第一筆選手回報', desc: '看到第一筆回報後，今日戰情室就開始有意義。', done: st.firstReport, btn: '查看戰情室', action: function () { switchTab('warroom'); } },
-      { key: 'report7', title: '產生第一份 7 日報告', desc: '先看一次報告範本，之後就能拿去給家長或校方。', done: st.report7, btn: '產生報告', action: function () { switchTab('report'); $('#rpRange').value = '7'; $('#rpType').value = 'athlete'; $('#rpType').onchange(); $('#btnGenReport').click(); } }
+      { key: 'team', title: '第一步：建立隊伍', desc: '先建一隊（籃球隊、田徑隊、游泳隊、跆拳道隊都可以），不用一次設定完整系統。', done: st.team, btn: '去建立隊伍', action: function () { switchTab('teams'); $('#ntName').focus(); } },
+      { key: 'athlete', title: '第二步：新增選手', desc: '把名單建起來，免費版先放 5 位也能完整體驗。', done: st.athlete, btn: '新增選手', action: function () { switchTab('athletes'); $('#naName').focus(); } },
+      { key: 'rollcall', title: '第三步：今天先點一次名', desc: '每天 10 秒點名，先從點名開始就好，資料會自動累積成報告。', done: st.rollcall, btn: '開始 10 秒點名', action: function () { switchTab('attendance'); } },
+      { key: 'link', title: '第四步：把回報連結貼給選手／家長', desc: '選手每天花 1 分鐘回報狀態，教練不用追問也能掌握。', done: st.link, btn: '複製回報連結', action: function () { switchTab('teams'); copyFirstTeamLink(); } },
+      { key: 'report7', title: '第五步：看一次報告範例', desc: '平常點名與回報，月底自動整理成報告，先看一次效果。', done: st.report7, btn: '看報告範例', action: function () { switchTab('report'); $('#rpRange').value = '7'; $('#rpType').value = 'athlete'; $('#rpType').onchange(); $('#btnGenReport').click(); } }
     ];
     $('#onboardGrid').innerHTML = tasks.map(function (t) {
       return '<div class="onboard-card' + (t.done ? ' done' : '') + '">' +
@@ -1365,7 +1368,7 @@
     state.athletes = (r.ok && r.athletes) || [];
     state.kpiMeta = r.ok ? r : {};
     if (r.ok && state.coach) {
-      $('#planQuota').textContent = ' · 點名 ' + state.coach.activeAthletes + ' / ' + planCfg().maxAthletes + ' · KPI 追蹤 ' + r.kpiUsed + ' / ' + r.kpiLimit;
+      $('#planQuota').textContent = ' · 點名 ' + state.coach.activeAthletes + ' / ' + planCfg().maxAthletes + ' · 狀態追蹤 ' + r.kpiUsed + ' / ' + r.kpiLimit;
       $('#planUsagePretty').textContent = '點名 ' + state.coach.activeAthletes + ' / ' + planCfg().maxAthletes + '　KPI ' + r.kpiUsed + ' / ' + r.kpiLimit;
     }
     renderAthletes();
@@ -1401,7 +1404,7 @@
         ' <a href="https://docs.google.com/forms/d/e/1FAIpQLSc2WhGQP1BQhWMgTJFtnR_gznolKA-KDqYVqXzBEfuxZI7OHA/viewform" target="_blank" rel="noopener">填寫升級申請表</a></div>';
     } else {
       var used = Number(state.kpiMeta.kpiUsed || 0), limit = Number(state.kpiMeta.kpiLimit || cfg.kpiAthletes);
-      box.innerHTML = '<div class="upgrade"><b>KPI 追蹤 ' + used + '/' + limit + '</b>：全隊每日做輕量回報，只有開啟追蹤的選手每週多做一次完整 KPI。</div>';
+      box.innerHTML = '<div class="upgrade"><b>狀態追蹤 ' + used + '/' + limit + '</b>：全隊每日做輕量回報，只有開啟追蹤的選手每週多做一次完整狀態回報。</div>';
     }
     $('#btnAddAthlete').disabled = c.activeAthletes >= cfg.maxAthletes;
   }
@@ -1502,9 +1505,9 @@
       b.onclick = async function () {
         if (DEMO) { demoBlock(); return; }
         var want = b.dataset.enabled !== 'true';
-        if (want && !confirm('開啟後，此選手每週會多一份 KPI 評估。確定開啟？')) return;
+        if (want && !confirm('開啟後，此選手每週會多一份 狀態回報。確定開啟？')) return;
         var r = await TP.callAuth('setKpiTracking', { athleteId: b.dataset.kpi, enabled: want });
-        if (r.ok) { toast(want ? '已開啟 KPI 追蹤' : '已停止 KPI 追蹤，歷史資料保留'); loadAthletes(); loadWarroom(); }
+        if (r.ok) { toast(want ? '已開啟 狀態追蹤' : '已停止 狀態追蹤，歷史資料保留'); loadAthletes(); loadWarroom(); }
         else if (r.error === 'kpi_limit_reached') openUpgradeModal({ reason: 'kpi', toPlan: 'coach', message: r.message });
         else toast(r.message || r.error, true);
       };
@@ -1533,11 +1536,11 @@
     if (DEMO) { demoBlock(); return; }
     var ids = selectedKpiAthleteIds();
     if (!ids.length) { toast('請先勾選選手', true); return; }
-    if (!enabled && !confirm('確定停止這 ' + ids.length + ' 位選手的 KPI 追蹤？\n歷史 KPI 不會被刪除。')) return;
+    if (!enabled && !confirm('確定停止這 ' + ids.length + ' 位選手的狀態追蹤？\n歷史狀態紀錄不會被刪除。')) return;
     if (enabled) {
       var addCount = state.athletes.filter(function (a) { return ids.indexOf(String(a.athleteId)) !== -1 && !a.kpiEnabled; }).length;
       if (Number(state.kpiMeta.kpiUsed || 0) + addCount > Number(state.kpiMeta.kpiLimit || planCfg().kpiAthletes)) {
-        toast('這次會超過 KPI 追蹤上限，請減少勾選人數。', true); return;
+        toast('這次會超過 狀態追蹤上限，請減少勾選人數。', true); return;
       }
     }
     var r = await TP.callAuth('setKpiTrackingBulk', { athleteIds: ids, enabled: enabled });
@@ -1552,7 +1555,7 @@
       r = failed ? { ok: false, error: failed } : { ok: true, changed: changed };
     }
     if (r.ok) {
-      toast((enabled ? '已批量開啟 ' : '已批量停止 ') + r.changed + ' 位選手 KPI');
+      toast((enabled ? '已批量開啟 ' : '已批量停止 ') + r.changed + ' 位選手狀態追蹤');
       await loadAthletes(); loadWarroom();
     } else if (r.error === 'kpi_limit_reached') openUpgradeModal({ reason: 'kpi', toPlan: 'coach', message: r.message });
     else toast(r.message || r.error, true);
@@ -1682,11 +1685,11 @@
     $('#taskMissing').textContent = r.missingCount ? (r.missingCount + ' 位尚未完成') : '今天全員已完成';
     var wk = r.weeklyKpi || {};
     var daily = wk.cadence === 'daily';
-    $('#kpiNudgeTitle').textContent = daily ? '今日 KPI' : '上週 KPI 評估';
+    $('#kpiNudgeTitle').textContent = daily ? '今日 KPI' : '上週 狀態回報';
     $('#weeklyKpiProgress').textContent = (wk.completed || 0) + '/' + (wk.total || 0);
     $('#weeklyKpiRange').textContent = wk.weekStart
       ? ((daily ? '今日 ' + wk.weekStart : '評估週 ' + wk.weekStart + ' ～ ' + wk.weekEnd) + (wk.missing ? '，尚有 ' + wk.missing + ' 位未完成' : '，已全數完成'))
-      : '尚未開啟 KPI 追蹤';
+      : '尚未開啟 狀態追蹤';
 
     var priority = r.priority || {};
     renderPriority('#priorityRed', priority.red || r.submitted.filter(function (s) { return s.status === 'red'; }), '✅ 今天沒有人亮紅燈，全隊狀態穩');
@@ -1748,7 +1751,7 @@
         ? '<span>回報時間：' + esc(submittedAt) + '</span>'
         : '';
       return '<div class="athlete-risk-card" data-fb="' + s.athleteId + '" data-rec="' + (s.recordId || '') + '" data-name="' + esc(s.name) + '">' +
-        '<div class="risk-head"><b><span class="dot ' + l + '"></span> ' + esc(s.name) + '</b><span class="pill ' + l + '">' + TP.lightText(l) + (Number(s.totalScore) > 0 ? ' · 最近 KPI ' + Number(s.totalScore).toFixed(1) : '') + '</span></div>' +
+        '<div class="risk-head"><b><span class="dot ' + l + '"></span> ' + esc(s.name) + '</b><span class="pill ' + l + '">' + TP.lightText(l) + (Number(s.totalScore) > 0 ? ' · 最近狀態 ' + Number(s.totalScore).toFixed(1) : '') + '</span></div>' +
         '<div class="risk-meta"><span>睡眠：' + esc(sleep) + '</span><span>疼痛：' + esc(pain) + '</span><span>資料品質：' + esc(quality) + '</span></div>' +
         '<div class="risk-meta"><span class="pill ' + esc(s.hydrationRisk || 'green') + '">' + esc(hydrationLabel) + '</span>' +
         '<span>喝水：' + esc(waterLabels[s.waterAmount] || '未填') + '</span><span>流汗：' + esc(sweatLabels[s.sweatAmount] || '未填') + '</span><span>尿液：' + esc(urineLabels[s.urineColor] || '未填') + '</span>' + urineTime + '</div>' +
@@ -1971,7 +1974,7 @@
       if (r.painScore !== '' && r.painScore != null && String(r.painScore) !== '0') bits.push('疼痛指數 ' + esc(r.painScore));
       if (r.injuryAreas && r.injuryAreas !== '無受傷') bits.push('傷勢：' + esc(r.injuryAreas) + (r.injuryNote ? '（' + esc(r.injuryNote) + '）' : ''));
       var t = num(r.totalScore);
-      if (t > 0) { var l = r.status || TP.lightOf(t); bits.push('當日 KPI ' + t.toFixed(1) + '（' + TP.lightText(l) + '）'); }
+      if (t > 0) { var l = r.status || TP.lightOf(t); bits.push('當日狀態 ' + t.toFixed(1) + '（' + TP.lightText(l) + '）'); }
       return bits.length ? bits.join('；') : '當日無身體狀況回報';
     }
 
@@ -2077,9 +2080,9 @@
     }
     var T = {
       '1-1': {
-        short: '已為 ' + vs.athleteCount + ' 位選手建置訓練歷程，累積 ' + vs.reportCount + ' 筆每日回報與 ' + (vs.weeklyKpiCount || 0) + ' 筆週 KPI。',
+        short: '已為 ' + vs.athleteCount + ' 位選手建置訓練歷程，累積 ' + vs.reportCount + ' 筆每日回報與 ' + (vs.weeklyKpiCount || 0) + ' 筆週狀態。',
         formal: '本隊已為 ' + vs.athleteCount + ' 位選手建立訓練歷程，期間累積 ' + vs.reportCount + ' 筆每日安全與恢復回報，另有 ' + (vs.weeklyKpiCount || 0) + ' 筆每週表現評估，可分開呈現日常風險與中期成長趨勢。',
-        evidence: '佐證：選手名單 ' + vs.athleteCount + ' 人；每日回報 ' + vs.reportCount + ' 筆；週 KPI ' + (vs.weeklyKpiCount || 0) + ' 筆。'
+        evidence: '佐證：選手名單 ' + vs.athleteCount + ' 人；每日回報 ' + vs.reportCount + ' 筆；週狀態 ' + (vs.weeklyKpiCount || 0) + ' 筆。'
       },
       '1-2': {
         short: '本期點名 ' + vs.trainingDays + ' 天，涵蓋 ' + (vs.courses.length) + ' 種訓練課程，平均到課率 ' + vs.attendanceRate + '%。',
@@ -2128,7 +2131,7 @@
         '<div class="rp-comment" style="white-space:normal;">' + esc(visitText(it[0], vs, ver)) + '</div></div>';
     }).join('');
 
-    var evidence = ['每日訓練回報 ' + vs.reportCount + ' 筆、週 KPI ' + (vs.weeklyKpiCount || 0) + ' 筆', '點名紀錄 ' + vs.trainingDays + ' 天、課程 ' + (vs.courses.length) + ' 種',
+    var evidence = ['每日訓練回報 ' + vs.reportCount + ' 筆、週狀態 ' + (vs.weeklyKpiCount || 0) + ' 筆', '點名紀錄 ' + vs.trainingDays + ' 天、課程 ' + (vs.courses.length) + ' 種',
       '到課率 ' + vs.attendanceRate + '%、選手回報率 ' + vs.reportRate + '%', '教練回饋 ' + vs.feedbackCount + ' 則',
       '傷勢追蹤 ' + vs.injuryAthletes + ' 人次、睡眠/水分提醒 ' + (vs.sleepShort + vs.hydrationFlag) + ' 人次'];
 
@@ -2292,7 +2295,7 @@
       '<div class="rp-grid">' +
         '<div class="rp-stat"><div class="n">' + avg.toFixed(1) + '</div><div class="l">平均總分</div></div>' +
         '<div class="rp-stat"><div class="n">' + deltaTag(last - first) + '</div><div class="l">期間進步</div></div>' +
-        '<div class="rp-stat"><div class="n">' + rate + '%</div><div class="l">週 KPI 完成率 (' + filled + '/' + expectedWeeks + '週)</div></div>' +
+        '<div class="rp-stat"><div class="n">' + rate + '%</div><div class="l">週狀態 完成率 (' + filled + '/' + expectedWeeks + '週)</div></div>' +
         '<div class="rp-stat"><div class="n">' + filled + '</div><div class="l">有效週評估</div></div>' +
       '</div>' +
 
@@ -2360,10 +2363,10 @@
         '<div class="rp-stat"><div class="n">' + num(tr.teamAvg).toFixed(1) + '</div><div class="l">全隊平均總分</div></div>' +
         '<div class="rp-stat"><div class="n">' + tr.completionRate + '%</div><div class="l">每日回報率 (' + tr.totalReports + '/' + tr.expectedReports + ')</div></div>' +
         '<div class="rp-stat"><div class="n">' + tr.athleteCount + '</div><div class="l">選手人數</div></div>' +
-        '<div class="rp-stat"><div class="n">' + (tr.weeklyKpiReports || 0) + '</div><div class="l">週 KPI 筆數</div></div>' +
+        '<div class="rp-stat"><div class="n">' + (tr.weeklyKpiReports || 0) + '</div><div class="l">週狀態 筆數</div></div>' +
       '</div>' +
 
-      '<div class="rp-section"><h3>全隊每週 KPI 趨勢</h3>' + sparkline(trendVals) + '</div>' +
+      '<div class="rp-section"><h3>全隊每週狀態 趨勢</h3>' + sparkline(trendVals) + '</div>' +
 
       '<div class="rp-section"><h3>六大面向（全隊平均）</h3>' +
         Object.keys(dimMap).map(function (k) {
@@ -2383,7 +2386,7 @@
       (attention.length ? '<div class="rp-section"><h3>🎯 需要關心（最近紅燈或平均偏低）</h3>' +
         attention.map(function (a) { return '<span class="rp-light red" style="margin:2px;">' + esc(a.name) + ' ' + num(a.avgTotal).toFixed(1) + '</span>'; }).join(' ') + '</div>' : '') +
 
-      '<div class="rp-section"><h3>選手週 KPI 摘要</h3>' +
+      '<div class="rp-section"><h3>選手週狀態 摘要</h3>' +
         '<table style="width:100%;border-collapse:collapse;font-size:13px;">' +
         '<tr style="border-bottom:1px solid #d6dce4;color:#5b6675;"><th style="text-align:left;padding:6px;">選手</th><th>有效週數</th><th>個人平均</th><th>變化</th><th>最近狀態</th></tr>' +
         rows.map(function (a) {
@@ -2548,7 +2551,7 @@
     fbCtx.record = rec; fbCtx.recordId = rec.recordId || recordId; fbCtx.records = (r.records || []);
     setCoachObs(rec.coachObservation || '');
     var light = rec.status || TP.lightOf(rec.totalScore);
-    $('#fbMeta').innerHTML = esc(rec.date) + (Number(rec.totalScore) > 0 ? '　最近 KPI <b>' + Number(rec.totalScore).toFixed(1) + '</b>' : '　今日輕量回報') + ' <span class="pill ' + light + '">' + TP.lightText(light) + '</span>';
+    $('#fbMeta').innerHTML = esc(rec.date) + (Number(rec.totalScore) > 0 ? '　最近狀態 <b>' + Number(rec.totalScore).toFixed(1) + '</b>' : '　今日輕量回報') + ' <span class="pill ' + light + '">' + TP.lightText(light) + '</span>';
     var bits = [];
     if (rec.fatigue) bits.push('疲勞 ' + rec.fatigue + '/10');
     if (rec.sleepDurationText || rec.sleepHours) bits.push('睡眠 ' + (rec.sleepDurationText || rec.sleepHours + 'h'));
@@ -2701,7 +2704,7 @@
     if (DEMO) { $('#kpiCadence').value = 'weekly'; demoBlock(); return; }
     var v = $('#kpiCadence').value === 'daily' ? 'daily' : 'weekly';
     await saveCoachSettings({ kpiCadence: v });
-    toast(v === 'daily' ? '已切換為每天 KPI，選手今天起每天可填' : '已切換為每週 KPI');
+    toast(v === 'daily' ? '已切換為每天回報，選手今天起每天可填' : '已切換為每週狀態');
     if (typeof loadWarroom === 'function' && !$('#tab-warroom').classList.contains('hidden')) loadWarroom();
   };
   $('#setLineCopy').onclick = function () { TP.copy(TP.getLineUrl()); };
@@ -3109,7 +3112,7 @@
     var btn = this; btn.disabled = true; btn.textContent = '儲存中…';
     var r = await TP.callAuth('saveAttendance', { teamId: atState.teamId, date: atState.date, course: atState.course, marks: atState.marks });
     btn.disabled = false; btn.textContent = '💾 儲存點名';
-    if (r.ok) { toast('點名已儲存'); renderAttSummary(); } else { toast(r.error || '儲存失敗', true); }
+    if (r.ok) { toast('點名已儲存'); markTask('rollcall', true); renderOnboarding(); renderAttSummary(); } else { toast(r.error || '儲存失敗', true); }
   };
   $('#atCopyLine').onclick = function () { if (atState.lineText) TP.copy(atState.lineText); else toast('請先儲存點名'); };
   $('#atMonthBtn').onclick = renderAttMonth;
