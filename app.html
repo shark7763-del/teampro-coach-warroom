@@ -916,20 +916,63 @@
     return base;
   }
 
+  function asstUrl(token) {
+    var publicBase = 'https://shark7763-del.github.io/teampro-coach-warroom/';
+    var base = location.protocol === 'file:'
+      ? publicBase + 'assistant.html'
+      : new URL('assistant.html', location.href).href;
+    return base + '?t=' + encodeURIComponent(token);
+  }
+
   function renderTeams() {
     var box = $('#teamList');
     if (!state.teams.length) { box.innerHTML = '<p class="muted">目前尚無團隊，請先建立團隊，再分享填寫連結給選手。</p>'; return; }
     box.innerHTML = state.teams.map(function (t) {
       var url = shareUrl(t.shareToken);
-      return '<div class="row" style="flex-wrap:wrap;">' +
+      var aurl = asstUrl(t.shareToken);
+      var hasAsst = t.hasAsstPin === true || t.hasAsstPin === 'true';
+      var asstLine = hasAsst
+        ? '<div class="link-box" style="flex:1;min-width:280px;">' +
+            '<input readonly value="' + esc(aurl) + '">' +
+            '<button class="btn btn-sm" data-asst-copy="' + esc(aurl) + '">複製</button>' +
+            '<button class="btn btn-sm" data-asst-set="' + t.teamId + '">變更 PIN</button>' +
+            '<button class="btn btn-sm btn-danger" data-asst-clear="' + t.teamId + '">關閉</button>' +
+          '</div>'
+        : '<button class="btn btn-sm" data-asst-set="' + t.teamId + '">開啟助教點名（設定 PIN）</button>';
+      return '<div class="row" style="flex-direction:column;align-items:stretch;gap:8px;">' +
         '<div><b>' + esc(t.teamName) + '</b> <span class="muted">· ' + esc(t.sport) + (t.sportCategory ? ' · ' + esc(t.sportCategory) : '') + '</span></div>' +
         '<div class="link-box" style="flex:1;min-width:280px;">' +
           '<input readonly value="' + esc(url) + '">' +
           '<button class="btn btn-sm" data-copy="' + esc(url) + '">複製</button>' +
           '<button class="btn btn-sm btn-danger" data-reset="' + t.teamId + '">重設連結</button>' +
           '<button class="btn btn-sm btn-danger" data-del="' + t.teamId + '" data-name="' + esc(t.teamName) + '">刪除</button>' +
-        '</div></div>';
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+          '<span class="muted" style="font-size:13px;white-space:nowrap;">🧑‍🏫 助教點名連結 · ' + (hasAsst ? '<span style="color:var(--green)">已開啟</span>' : '未開啟') + '</span>' +
+          asstLine +
+        '</div>' +
+      '</div>';
     }).join('');
+    TP.$all('[data-asst-copy]', box).forEach(function (b) { b.onclick = function () { TP.copy(b.dataset.asstCopy); }; });
+    TP.$all('[data-asst-set]', box).forEach(function (b) {
+      b.onclick = async function () {
+        if (DEMO) { demoBlock(); return; }
+        var pin = prompt('設定 4 位數助教 PIN（助教用這組 PIN 開啟連結點名）：');
+        if (pin == null) return;
+        pin = String(pin).trim();
+        if (!/^\d{4}$/.test(pin)) { toast('PIN 需為 4 位數字', true); return; }
+        var r = await TP.callAuth('setAssistantPin', { teamId: b.dataset.asstSet, pin: pin });
+        if (r.ok) { toast('助教點名已開啟，把連結與 PIN 給助教即可'); loadTeams(); } else { toast(r.error, true); }
+      };
+    });
+    TP.$all('[data-asst-clear]', box).forEach(function (b) {
+      b.onclick = async function () {
+        if (DEMO) { demoBlock(); return; }
+        if (!confirm('關閉後，現有助教連結與 PIN 立即失效，助教將無法再點名。確定？')) return;
+        var r = await TP.callAuth('setAssistantPin', { teamId: b.dataset.asstClear, clear: true });
+        if (r.ok) { toast('已關閉助教點名'); loadTeams(); } else { toast(r.error, true); }
+      };
+    });
     TP.$all('[data-copy]', box).forEach(function (b) {
       b.onclick = function () {
         TP.copy(b.dataset.copy);

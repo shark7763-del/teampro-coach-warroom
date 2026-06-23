@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>助教點名｜TeamPro</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .wrap { max-width: 560px; margin: 0 auto; padding-bottom: 96px; }
+  .asst-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .pin-input { letter-spacing: 8px; font-size: 22px; text-align: center; font-weight: 800; }
+  .asst-row { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 11px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .asst-row .nm { font-weight: 700; }
+  .asst-row .nm .gc { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 6px; }
+  .asst-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .asst-chips .att-chip { font-size: 13px; padding: 7px 12px; }
+  .sticky-save { position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel);
+    border-top: 1px solid var(--line); padding: 12px; }
+  .sticky-save .inner { width: min(560px, 92vw); margin: 0 auto; display: flex; gap: 8px; align-items: center; }
+  .asst-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .asst-meta select, .asst-meta input { max-width: 220px; }
+  .count-pill { font-size: 13px; color: var(--muted); white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<div class="wrap container">
+  <div class="topbar"><div class="logo"><img class="logo-img" src="assets/logo.png" alt="TeamPro logo">TeamPro</div><span class="muted" id="teamName"></span></div>
+
+  <div id="loading" class="card center"><p class="muted">載入中…</p></div>
+  <div id="errorBox" class="card center hidden"><p id="errorMsg" style="color:var(--red)"></p></div>
+
+  <!-- 步驟 1：輸入 PIN -->
+  <div id="step-pin" class="card hidden">
+    <div class="asst-eyebrow">助教點名</div>
+    <h2 style="margin:4px 0 6px;" id="pinTeam">—</h2>
+    <p class="muted" style="margin:0 0 12px;">請輸入教練給你的 4 位數助教 PIN，即可開始幫這一隊點名。</p>
+    <label>助教 PIN</label>
+    <input id="pinInput" class="pin-input" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="off">
+    <p class="muted" id="pinErr" style="color:var(--red);font-size:13px;margin:8px 0 0;min-height:18px;"></p>
+    <button class="btn btn-primary btn-block" id="pinNext" style="margin-top:6px;">開始點名 →</button>
+    <p class="muted" style="font-size:12px;margin:12px 0 0;">🔒 你只能對這一隊點名，看不到設定、方案、名單管理與選手回饋等資料。</p>
+  </div>
+
+  <!-- 步驟 2：點名 -->
+  <div id="step-roll" class="card hidden">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+      <h2 style="margin:0;">快速點名</h2>
+      <span class="count-pill" id="countPill"></span>
+    </div>
+    <div class="asst-meta" style="margin-top:10px;">
+      <div style="flex:1;min-width:150px;"><label>日期</label><input id="rollDate" type="date"></div>
+      <div style="flex:1;min-width:150px;"><label>課程 / 訓練項目</label>
+        <input id="rollCourse" list="courseList" placeholder="例：晨操、踢靶課">
+        <datalist id="courseList"></datalist>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
+      <button class="btn btn-sm btn-primary" id="allPresent">✅ 全員出席</button>
+      <button class="btn btn-sm btn-ghost" id="reloadDay">↻ 重新載入</button>
+    </div>
+    <div id="rollList"></div>
+  </div>
+</div>
+
+<div class="sticky-save hidden" id="saveBar">
+  <div class="inner">
+    <span class="count-pill" id="saveHint"></span>
+    <button class="btn btn-primary" id="saveBtn" style="flex:1;">💾 儲存點名</button>
+  </div>
+</div>
+
+<script src="api.js"></script>
+<script>
+(function () {
+  var $ = TP.$, esc = TP.esc, toast = TP.toast;
+  var STATUSES = [
+    { v: 'present', label: '出席', cls: 'present' },
+    { v: 'late', label: '遲到', cls: 'late' },
+    { v: 'leave', label: '請假', cls: 'leave' },
+    { v: 'absent', label: '缺席', cls: 'absent' }
+  ];
+  var state = { token: '', pin: '', roster: [], marks: {}, courses: [] };
+
+  function qs(k) { return new URLSearchParams(location.search).get(k) || ''; }
+  function only(id) {
+    ['loading', 'errorBox', 'step-pin', 'step-roll'].forEach(function (s) {
+      document.getElementById(s).classList.toggle('hidden', s !== id);
+    });
+    document.getElementById('saveBar').classList.toggle('hidden', id !== 'step-roll');
+  }
+  function fail(msg) { document.getElementById('errorMsg').textContent = msg; only('errorBox'); }
+  function localToday() {
+    var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  async function init() {
+    state.token = qs('t');
+    if (!state.token) { fail('連結不完整，請向教練索取助教點名連結。'); return; }
+    var r = await TP.call('asstInfo', { t: state.token });
+    if (!r.ok) { fail(r.error || '連結無效'); return; }
+    document.getElementById('teamName').textContent = r.teamName || '';
+    document.getElementById('pinTeam').textContent = r.teamName || '助教點名';
+    only('step-pin');
+    setTimeout(function () { var p = $('#pinInput'); if (p) p.focus(); }, 100);
+  }
+
+  $('#pinInput').addEventListener('input', function () {
+    this.value = this.value.replace(/\D/g, '').slice(0, 4);
+    $('#pinErr').textContent = '';
+  });
+  $('#pinInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('#pinNext').click(); });
+
+  $('#pinNext').onclick = async function () {
+    var pin = $('#pinInput').value;
+    if (!/^\d{4}$/.test(pin)) { $('#pinErr').textContent = 'PIN 需為 4 位數字'; return; }
+    this.disabled = true;
+    var r = await TP.call('asstInfo', { t: state.token, pin: pin });
+    this.disabled = false;
+    if (!r.ok) { $('#pinErr').textContent = r.error || 'PIN 不正確'; return; }
+    state.pin = pin;
+    state.roster = r.roster || [];
+    state.courses = r.courses || [];
+    if (!state.team) state.team = r.team || {};
+    $('#courseList').innerHTML = state.courses.map(function (c) { return '<option value="' + esc(c) + '">'; }).join('');
+    $('#rollDate').value = localToday();
+    if (state.courses[0]) $('#rollCourse').value = state.courses[0];
+    only('step-roll');
+    await loadDay();
+  };
+
+  async function loadDay() {
+    state.marks = {};
+    var date = $('#rollDate').value || localToday();
+    $('#rollList').innerHTML = '<div class="empty-state">載入中…</div>';
+    var g = await TP.call('asstGetAttendance', { t: state.token, pin: state.pin, date: date });
+    if (g && g.ok && g.found) {
+      Object.keys(g.marks || {}).forEach(function (id) { state.marks[id] = { s: (g.marks[id] || {}).s || 'present' }; });
+      if (g.course) $('#rollCourse').value = g.course;
+    }
+    state.roster.forEach(function (a) { if (!state.marks[a.athleteId]) state.marks[a.athleteId] = { s: 'present' }; });
+    renderRoster();
+  }
+
+  function renderRoster() {
+    if (!state.roster.length) {
+      $('#rollList').innerHTML = '<div class="empty-state">這一隊目前沒有啟用中的選手，請教練先新增或啟用。</div>';
+      updateCounts(); return;
+    }
+    $('#rollList').innerHTML = state.roster.map(function (a) {
+      var cur = (state.marks[a.athleteId] || {}).s || 'present';
+      var chips = STATUSES.map(function (s) {
+        return '<button class="att-chip ' + (cur === s.v ? s.cls : '') + '" data-aid="' + esc(a.athleteId) + '" data-st="' + s.v + '">' + s.label + '</button>';
+      }).join('');
+      return '<div class="asst-row"><div class="nm">' + esc(a.name) +
+        (a.gradeClass ? '<span class="gc">' + esc(a.gradeClass) + '</span>' : '') +
+        '</div><div class="asst-chips">' + chips + '</div></div>';
+    }).join('');
+    TP.$all('[data-aid]', $('#rollList')).forEach(function (b) {
+      b.onclick = function () {
+        state.marks[b.dataset.aid] = { s: b.dataset.st };
+        renderRoster();
+      };
+    });
+    updateCounts();
+  }
+
+  function updateCounts() {
+    var c = { present: 0, late: 0, leave: 0, absent: 0 };
+    state.roster.forEach(function (a) { var s = (state.marks[a.athleteId] || {}).s || 'present'; if (c[s] != null) c[s]++; });
+    var txt = '出席 ' + c.present + '・遲到 ' + c.late + '・請假 ' + c.leave + '・缺席 ' + c.absent;
+    $('#countPill').textContent = txt;
+    $('#saveHint').textContent = state.roster.length + ' 人';
+  }
+
+  $('#allPresent').onclick = function () {
+    state.roster.forEach(function (a) { state.marks[a.athleteId] = { s: 'present' }; });
+    renderRoster();
+  };
+  $('#reloadDay').onclick = loadDay;
+  $('#rollDate').addEventListener('change', loadDay);
+
+  $('#saveBtn').onclick = async function () {
+    if (!state.roster.length) { toast('沒有可點名的選手', true); return; }
+    this.disabled = true;
+    var r = await TP.call('asstSaveAttendance', {
+      t: state.token, pin: state.pin,
+      date: $('#rollDate').value || localToday(),
+      course: $('#rollCourse').value || '',
+      marks: state.marks
+    });
+    this.disabled = false;
+    if (r && r.ok) { toast('✅ 點名已儲存，教練端即時同步'); }
+    else { toast((r && r.error) || '儲存失敗，請重試', true); }
+  };
+
+  init();
+})();
+</script>
+</body>
+</html>

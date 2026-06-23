@@ -37,7 +37,7 @@ var SHEETS = {
 var H = {
   coaches:  ['coachId', 'email', 'passwordHash', 'salt', 'name', 'plan', 'planExpiry', 'status', 'createdAt', 'lastLogin', 'paymentNote', 'settings'],
   sessions: ['token', 'coachId', 'expiresAt'],
-  teams:    ['teamId', 'coachId', 'teamName', 'sport', 'shareToken', 'status', 'createdAt', 'competitionSystem', 'sportCategory', 'memberTerm'],
+  teams:    ['teamId', 'coachId', 'teamName', 'sport', 'shareToken', 'status', 'createdAt', 'competitionSystem', 'sportCategory', 'memberTerm', 'asstPinHash', 'asstPinSalt'],
   athletes: ['athleteId', 'coachId', 'teamId', 'name', 'gradeClass', 'grp', 'active', 'createdAt', 'lastPerformanceVisibility', 'perfPinHash', 'perfPinSalt', 'kpiEnabled', 'kpiEnabledAt'],
   audit:    ['time', 'actor', 'action', 'target', 'detail'],
   contacts: ['time', 'topic', 'name', 'email', 'message'],
@@ -220,6 +220,13 @@ function handle(action, d) {
     case 'saveAttendance':  return jsonOut(withCoach(d, saveAttendance));
     case 'getAttendance':   return jsonOut(withCoach(d, getAttendance));
     case 'attendanceRange': return jsonOut(withCoach(d, attendanceRange));
+    case 'setAssistantPin': return jsonOut(withCoach(d, setAssistantPin));
+    case 'assistantPinStatus': return jsonOut(withCoach(d, assistantPinStatus));
+
+    /* ---- 助教點名（團隊 token + PIN 授權，只能碰那一隊的點名） ---- */
+    case 'asstInfo':          return jsonOut(asstInfo(d));
+    case 'asstGetAttendance': return jsonOut(withAssistant(d, getAttendance));
+    case 'asstSaveAttendance':return jsonOut(withAssistant(d, saveAttendance));
 
     /* ---- 戰情室 / 報告 ---- */
     case 'warroom':         return jsonOut(withCoach(d, warroom));
@@ -603,7 +610,13 @@ function countActiveAthletes(coachId) {
    團隊
    ============================================================ */
 function listTeams(c) {
-  var teams = readAll(SHEETS.teams).filter(function (t) { return String(t.coachId) === String(c.coachId); });
+  var teams = readAll(SHEETS.teams).filter(function (t) { return String(t.coachId) === String(c.coachId); })
+    .map(function (t) {
+      var has = teamHasAsstPin(t);
+      var o = {}; Object.keys(t).forEach(function (k) { if (k !== 'asstPinHash' && k !== 'asstPinSalt') o[k] = t[k]; });
+      o.hasAsstPin = has; // 給教練端顯示「助教 PIN 已設/未設」，不外洩 hash/salt
+      return o;
+    });
   return { ok: true, teams: teams };
 }
 
@@ -1035,6 +1048,76 @@ function attendanceRange(c, d) {
     return { date: a.date, teamId: a.teamId, course: a.course, marks: marks };
   }).sort(function (x, y) { return String(x.date).localeCompare(String(y.date)); });
   return { ok: true, records: rows };
+}
+
+/* ============================================================
+   助教點名授權：團隊 shareToken + 4 位 PIN
+   - 助教只能對「token 對應的那一隊」點名，看不到設定/方案/名單管理/KPI/回饋。
+   - 認證後合成 coach context（沿用主教練 coachId 寫入），並強制 teamId = 該團隊。
+   ============================================================ */
+function teamHasAsstPin(t) { return !!(t && t.asstPinHash && String(t.asstPinHash).length); }
+
+function withAssistant(d, fn) {
+  var t = teamFromShareToken(d.t || d.shareToken);
+  if (!t) return { ok: false, error: '連結無效或已被重設，請向教練索取新連結' };
+  if (!teamHasAsstPin(t)) return { ok: false, error: '教練尚未開啟此隊的助教點名' };
+  var pin = String(d.pin == null ? '' : d.pin);
+  if (!pin || hashPassword(pin, t.asstPinSalt) !== String(t.asstPinHash))
+    return { ok: false, error: 'PIN 不正確' };
+  var c = { coachId: t.coachId, email: 'assistant:' + t.teamId };
+  d.teamId = t.teamId; // 強制只能碰這一隊，忽略前端任何 teamId
+  return fn(c, d);
+}
+
+function asstInfo(d) {
+  var t = teamFromShareToken(d.t || d.shareToken);
+  if (!t) return { ok: false, error: '連結無效或已被重設，請向教練索取新連結' };
+  if (!teamHasAsstPin(t)) return { ok: false, error: '教練尚未開啟此隊的助教點名' };
+  var pin = String(d.pin == null ? '' : d.pin);
+  if (!pin) return { ok: true, needPin: true, teamName: t.teamName }; // 未帶 PIN：不洩漏名單
+  if (hashPassword(pin, t.asstPinSalt) !== String(t.asstPinHash))
+    return { ok: false, error: 'PIN 不正確' };
+  var roster = readAll(SHEETS.athletes).filter(function (a) {
+    return String(a.teamId) === String(t.teamId) && String(a.active) !== 'false' && a.active !== false;
+  }).map(function (a) { return { athleteId: a.athleteId, name: a.name, gradeClass: a.gradeClass || '' }; });
+  var courses = {};
+  readAll(SHEETS.attendance).forEach(function (r) {
+    if (String(r.teamId) === String(t.teamId) && r.course) courses[r.course] = true;
+  });
+  return { ok: true, needPin: false,
+    team: { teamName: t.teamName, sport: t.sport, memberTerm: t.memberTerm || '選手' },
+    roster: roster, courses: Object.keys(courses), statuses: ATT_STATUSES };
+}
+
+/* 教練：設定／變更／清除該隊助教 PIN */
+function setAssistantPin(c, d) {
+  var teamId = String(d.teamId || '');
+  var row = findRow(SHEETS.teams, 'teamId', teamId);
+  if (row === -1 || String(readAll(SHEETS.teams)[row - 2].coachId) !== String(c.coachId))
+    return { ok: false, error: '找不到團隊或無權限' };
+  var s = sheet(SHEETS.teams);
+  if (d.clear === true || d.clear === 'true') {
+    s.getRange(row, H.teams.indexOf('asstPinHash') + 1).setValue('');
+    s.getRange(row, H.teams.indexOf('asstPinSalt') + 1).setValue('');
+    audit(c.email, 'clearAssistantPin', teamId, '');
+    return { ok: true, hasPin: false };
+  }
+  var pin = String(d.pin || '');
+  if (!/^\d{4}$/.test(pin)) return { ok: false, error: 'PIN 需為 4 位數字' };
+  var salt = uid('a_');
+  s.getRange(row, H.teams.indexOf('asstPinSalt') + 1).setValue(salt);
+  s.getRange(row, H.teams.indexOf('asstPinHash') + 1).setValue(hashPassword(pin, salt));
+  audit(c.email, 'setAssistantPin', teamId, '');
+  return { ok: true, hasPin: true };
+}
+
+/* 教練：查該隊是否已設助教 PIN */
+function assistantPinStatus(c, d) {
+  var teamId = String(d.teamId || '');
+  var row = findRow(SHEETS.teams, 'teamId', teamId);
+  if (row === -1 || String(readAll(SHEETS.teams)[row - 2].coachId) !== String(c.coachId))
+    return { ok: false, error: '找不到團隊或無權限' };
+  return { ok: true, hasPin: teamHasAsstPin(readAll(SHEETS.teams)[row - 2]) };
 }
 
 /* ============================================================
