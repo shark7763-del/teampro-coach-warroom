@@ -815,7 +815,7 @@
     if (!st.ok) {
       // 後端尚未支援 PIN（舊版未重部署）→ 暫時沿用舊行為，避免報錯；重部署後 PIN 即生效
       var r0 = await TP.call('myRecords', { t: shareToken, athleteId: id, limit: 14 });
-      renderPerf(ctx.name, (r0.ok && r0.records) ? r0.records : [], (r0.ok && r0.daily) ? r0.daily : []);
+      renderPerf(ctx.name, r0 || {});
       return;
     }
     renderPinGate(id, ctx.name, st.hasPin);
@@ -825,7 +825,7 @@
   function renderPinGate(id, name, hasPin) {
     if (ctx.pin) {
       TP.call('myRecords', { t: shareToken, athleteId: id, pin: ctx.pin, limit: 14 }).then(function (r) {
-        if (r.ok) renderPerf(name, r.records || [], r.daily || []);
+        if (r.ok) renderPerf(name, r);
         else { ctx.pin = ''; renderPinGate(id, name, hasPin); }
       });
       return;
@@ -859,7 +859,7 @@
         toast(r.error || '載入失敗', true); return;
       }
       ctx.pin = pin;
-      renderPerf(name, r.records || [], r.daily || []);
+      renderPerf(name, r);
     };
   }
 
@@ -919,7 +919,42 @@
     }).join('');
   }
 
-  function renderDailyPerf(name, daily) {
+  // 教練回饋卡（後端 latestFeedback 優先，舊後端則掃 daily）
+  function feedbackCard(resp, daily) {
+    var fb = (resp.latestFeedback && String(resp.latestFeedback.msg).trim()) ? String(resp.latestFeedback.msg).trim() : '';
+    var fbDate = fb ? String(resp.latestFeedback.date) : '';
+    if (!fb) {
+      for (var i = 0; i < daily.length; i++) {
+        if (daily[i].coachComment && String(daily[i].coachComment).trim()) { fb = String(daily[i].coachComment).trim(); fbDate = String(daily[i].date); break; }
+      }
+    }
+    if (!fb) return '';
+    return '<div class="card" style="background:rgba(34,197,94,.08);border-color:var(--brand);margin-top:12px;">' +
+      '<b style="color:var(--brand);">👨‍🏫 教練回饋</b>' + (fbDate ? '<span class="muted" style="font-size:12px;margin-left:6px;">' + esc(fbDate) + '</span>' : '') +
+      '<div style="margin-top:4px;white-space:pre-wrap;">' + esc(fb) + '</div></div>';
+  }
+  // 近期比賽 + 隊友鼓勵
+  function perfExtras(resp) {
+    var html = '', comps = resp.competitions || [], enc = resp.encourages || [];
+    if (comps.length) {
+      html += '<h3 style="margin:16px 0 6px;">🏆 近期比賽</h3>' + comps.map(function (c) {
+        return '<div class="row"><span><b>' + esc(String(c.date)) + '</b> ' + esc(c.name) + (c.result ? '・' + esc(c.result) : '') + '</span>' +
+          (c.award ? '<span class="pill green">🏅 ' + esc(c.award) + '</span>' : '') + '</div>' +
+          (c.reflection ? '<div class="muted" style="font-size:12px;margin:2px 0 8px;">心得：' + esc(c.reflection) + '</div>' : '');
+      }).join('');
+    }
+    if (enc.length) {
+      html += '<h3 style="margin:16px 0 6px;">💬 隊友的鼓勵</h3>' + enc.map(function (e) {
+        return '<div class="card" style="background:rgba(56,189,248,.08);border-color:var(--accent);margin:6px 0;padding:10px 12px;">' +
+          '<b>' + esc(e.from) + '</b> <span class="muted" style="font-size:12px;">' + esc(String(e.date)) + '</span>' +
+          '<div style="margin-top:2px;">' + esc(e.msg) + '</div></div>';
+      }).join('');
+    }
+    return html;
+  }
+
+  function renderDailyPerf(name, resp) {
+    var daily = resp.daily || [];
     var asc = daily.slice().sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); });
     var last = asc[asc.length - 1], light = last.status || 'green';
     var rows = daily.slice().sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); }).map(function (r) {
@@ -929,52 +964,40 @@
       return '<div class="row"><span><span class="dot ' + l + '"></span> ' + esc(String(r.date)) + '</span>' +
         '<span class="muted" style="font-size:12px;">' + esc(meta.join('・')) + '</span></div>';
     }).join('');
-    var fb = last.coachComment && String(last.coachComment).trim();
     $('#perfBody').innerHTML =
       '<div class="center"><span class="pill ' + light + '">最近一次・' + TP.lightText(light) + '（' + esc(String(last.date)) + '）</span></div>' +
-      '<p class="muted center" style="font-size:12px;margin-top:6px;">目前顯示每日回報狀態；完成每週 KPI 後，這裡會再加上 KPI 分數與六大面向趨勢。</p>' +
-      (fb ? '<div class="card" style="background:rgba(34,197,94,.08);border-color:var(--brand);margin-top:12px;"><b style="color:var(--brand);">👨‍🏫 教練回饋</b><div style="margin-top:4px;white-space:pre-wrap;">' + esc(last.coachComment) + '</div></div>' : '') +
-      '<h3 style="margin:14px 0 6px;">每日回報紀錄</h3>' + rows;
+      '<p class="muted center" style="font-size:12px;margin-top:6px;">目前顯示每日回報狀態；完成 KPI 後這裡會再加上分數與六大面向。</p>' +
+      feedbackCard(resp, daily) + perfExtras(resp) +
+      '<h3 style="margin:16px 0 6px;">每日回報紀錄</h3>' + rows;
   }
 
-  function renderPerf(name, recs, daily) {
-    daily = daily || [];
+  function renderPerf(name, resp) {
+    resp = resp || {};
+    var recs = resp.records || [], daily = resp.daily || [];
     if (!recs.length && !daily.length) {
       $('#perfBody').innerHTML = '<p class="muted">' + esc(name) + ' 還沒有任何回報紀錄，今天填第一筆吧！</p>';
       return;
     }
-    if (!recs.length) { renderDailyPerf(name, daily); return; }
+    if (!recs.length) { renderDailyPerf(name, resp); return; }
     var asc = recs.slice().sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); });
     var last = asc[asc.length - 1];
     var prev = asc.length >= 2 ? asc[asc.length - 2] : null;
     var total = Number(last.totalScore) || 0, light = last.status || TP.lightOf(total);
     var totals = asc.map(function (r) { return Number(r.totalScore) || 0; });
-
-    var listDesc = recs.slice().sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
-    var rows = listDesc.map(function (r) {
+    var rows = recs.slice().sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); }).map(function (r) {
       var t = Number(r.totalScore) || 0, l = r.status || TP.lightOf(t);
       return '<div class="row"><span><span class="dot ' + l + '"></span> ' + esc(String(r.date)) + '</span>' +
         '<span class="pill ' + l + '">' + t.toFixed(1) + '</span></div>';
     }).join('');
-
-    // 教練回饋寫在每日紀錄上（週 KPI 無此欄）→ 從每日資料取最新一則
-    var fb = last.coachComment && String(last.coachComment).trim();
-    var fbDate = fb ? String(last.date) : '';
-    if (!fb) {
-      for (var i = 0; i < daily.length; i++) {
-        if (daily[i].coachComment && String(daily[i].coachComment).trim()) { fb = String(daily[i].coachComment).trim(); fbDate = String(daily[i].date); break; }
-      }
-    }
     $('#perfBody').innerHTML =
       '<div class="center"><div style="font-size:40px;font-weight:800;color:' +
         (light === 'green' ? 'var(--green)' : light === 'yellow' ? 'var(--yellow)' : 'var(--red)') + ';">' + total.toFixed(1) + '</div>' +
         '<span class="pill ' + light + '">最近一次・' + TP.lightText(light) + '（' + esc(String(last.date)) + '）</span></div>' +
-      (fb ? '<div class="card" style="background:rgba(34,197,94,.08);border-color:var(--brand);margin-top:12px;">' +
-        '<b style="color:var(--brand);">👨‍🏫 教練回饋</b>' + (fbDate ? '<span class="muted" style="font-size:12px;margin-left:6px;">' + esc(fbDate) + '</span>' : '') +
-        '<div style="margin-top:4px;white-space:pre-wrap;">' + esc(fb) + '</div></div>' : '') +
+      feedbackCard(resp, daily) +
       '<h3 style="margin:16px 0 0;">六大面向' + (prev ? '（本次 vs 上次）' : '') + '</h3>' + radarChart(last, prev) +
       (totals.length >= 2 ? '<h3 style="margin:16px 0 0;">總分趨勢</h3>' + miniSpark(totals) : '') +
       '<h3 style="margin:16px 0 6px;">各面向走勢</h3>' + dimTrends(asc) +
+      perfExtras(resp) +
       '<h3 style="margin:16px 0 6px;">歷史紀錄</h3>' + rows;
   }
 

@@ -1554,15 +1554,36 @@ function myRecords(d) {
   var recs = weeklyKpisCompat(t.coachId, t.teamId, aId, '', '').map(function (r) {
     r.date = r.weekStart; return r;
   });
+  var allRecs = readAll(SHEETS.records);
+  var byDate = function (x, y) { return String(y.date).localeCompare(String(x.date)); };
   // 每日輕量回報：讓沒填週 KPI 的選手也看得到近期狀態（燈號/睡眠/疼痛/教練回饋）
-  var daily = readAll(SHEETS.records).filter(function (r) {
+  var daily = allRecs.filter(function (r) {
     return String(r.teamId) === String(t.teamId) && String(r.athleteId) === aId;
-  }).sort(function (x, y) { return String(y.date).localeCompare(String(x.date)); }).slice(0, lim).map(function (r) {
+  }).sort(byDate).slice(0, lim).map(function (r) {
     return { date: r.date, status: r.status || riskStatus('green', r.painRisk, r.sleepRisk, r.hydrationRisk),
       coachComment: r.coachComment || '', sleepDurationText: r.sleepDurationText || '',
       painScore: r.painScore || '', hydrationRisk: r.hydrationRisk || '' };
   });
-  return { ok: true, records: recs.slice(0, lim), daily: daily };
+  // 最近一則教練回饋（不限是不是最新那筆）
+  var latestFeedback = null;
+  for (var fi = 0; fi < daily.length; fi++) {
+    if (daily[fi].coachComment && String(daily[fi].coachComment).trim()) { latestFeedback = { msg: daily[fi].coachComment, date: daily[fi].date }; break; }
+  }
+  // 隊友鼓勵：別人填的回報中 encourageName == 這位選手
+  var encourages = allRecs.filter(function (r) {
+    return String(r.teamId) === String(t.teamId) && String(r.athleteId) !== aId &&
+      String(r.encourageName || '').trim() === String(a.name).trim() && String(r.encourageMsg || '').trim();
+  }).sort(byDate).slice(0, 8).map(function (r) { return { from: r.name, msg: r.encourageMsg, date: r.date }; });
+  // 近期比賽
+  var competitions = allRecs.filter(function (r) {
+    return String(r.athleteId) === aId && String(r.compName || '').trim();
+  }).sort(function (x, y) { return String(y.compDate || y.date).localeCompare(String(x.compDate || x.date)); })
+    .slice(0, 6).map(function (r) {
+      return { name: r.compName, date: r.compDate || r.date, result: r.compResult || '',
+        reflection: r.compReflection || '', award: r.compAward || '', awardLink: r.compAwardLink || '' };
+    });
+  return { ok: true, records: recs.slice(0, lim), daily: daily, latestFeedback: latestFeedback,
+    encourages: encourages, competitions: competitions };
 }
 
 function weeklyScoreOf(scores) {
