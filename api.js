@@ -27,7 +27,7 @@
   };
 
   // 若你已部署好固定後端，可在這裡填預設 /exec 網址，使用者就不必自己貼。
-  var DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbxPk4FqX_xuzL3bTaNFCpCt5JKW0uGTRuhiL0FcMCaRsK3LjURenSd0VYSjXprReYw-7A/exec';
+  var DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbxyPgaXgpOA4oyRVxswOWkyvWv5iLC6QTkzOPUSIDl20wE1hBFVXAaSamy3cmvDz_LW/exec';
 
   function getUrl() { return (localStorage.getItem(LS_URL) || DEFAULT_URL || '').trim(); }
   function setUrl(u) { localStorage.setItem(LS_URL, (u || '').trim()); }
