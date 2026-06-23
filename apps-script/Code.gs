@@ -2367,8 +2367,10 @@ function demoInputs_(key, offset) {
   }
   if (key === 'chen') {
     var acute = (offset === 0);
+    // 傷勢影響表現：KPI 隨 recency 遞減 → 連週下滑（戰情室「近期需要支持」，且今日有回報才會被列入）
+    var cb = Math.min(4.2, +(2.9 + offset * 0.06).toFixed(2));
     return {
-      kpi: demoKpi_(4, 4, 3, 4, 4, 3), bed: acute ? '00:30' : '23:30', wake: '06:00',
+      kpi: demoKpi_(cb, cb, +(cb - 0.2).toFixed(2), cb, cb, +(cb - 0.2).toFixed(2)), bed: acute ? '00:30' : '23:30', wake: '06:00',
       painStatus: offset <= 1 ? 'new' : 'old', painScore: acute ? 7 : (offset === 1 ? 5 : 3),
       painImpact: acute ? 'power_down' : 'high_intensity',
       injuryAreas: '右大腿後側拉傷（Demo）', injuryNote: '踢擊後緊繃，下壓會痛',
