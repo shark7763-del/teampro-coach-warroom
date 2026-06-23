@@ -551,6 +551,7 @@ function register(d) {
 function login(d) {
   var email = String(d.email || '').trim().toLowerCase();
   var password = String(d.password || '');
+  if (email === DEMO_COACH.email) demoAutoProvision_();   // demo 首次登入自動建立＋種資料（免進編輯器）
   var row = findRow(SHEETS.coaches, 'email', email);
   if (row === -1) return { ok: false, error: 'email 或密碼錯誤' };
   var c = readAll(SHEETS.coaches)[row - 2];
@@ -2503,6 +2504,14 @@ function demoRebuild_(coachId) {
   });
   demoSeedAttendance_(coachId, team, athletes, dates);
   return { ok: true, teamId: team.teamId, shareToken: team.shareToken, athletes: athletes.length, days: dates.length };
+}
+
+/* demo 首次登入自動供裝：確保帳號存在；若尚無團隊則種一次完整資料（不覆蓋既有展示資料） */
+function demoAutoProvision_() {
+  var coachId = demoEnsureCoach_();
+  var hasTeam = readAll(SHEETS.teams).some(function (t) { return String(t.coachId) === String(coachId); });
+  if (!hasTeam) demoRebuild_(coachId);
+  return coachId;
 }
 
 /* 編輯器一鍵：建立／重建 Demo 帳號與完整展示資料 */
