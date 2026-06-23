@@ -244,6 +244,20 @@ input[type="range"]::-moz-range-track { height: 8px; border-radius: 999px; backg
 @keyframes aiFade { from { opacity: .25; } to { opacity: 1; } }
 .ai-fade { animation: aiFade .35s ease; }
 @media (prefers-reduced-motion: reduce) { .ai-fade { animation: none; } }
+/* AI 成長目標卡（規則引擎輸出） */
+.goal-coach { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin: 6px 0 14px; background: var(--panel-2); }
+.goal-state { display: inline-block; font-weight: 800; font-size: 13px; padding: 3px 12px; border-radius: 999px; margin-bottom: 8px; }
+.goal-state.goal-green { background: rgba(34,197,94,.16); color: #86efac; }
+.goal-state.goal-brand { background: rgba(34,197,94,.12); color: var(--brand); }
+.goal-state.goal-yellow { background: rgba(245,158,11,.16); color: #fcd34d; }
+.goal-state.goal-red { background: rgba(239,68,68,.16); color: #fca5a5; }
+.goal-row { display: flex; gap: 10px; margin: 7px 0; font-size: 13.5px; line-height: 1.6; }
+.goal-row .goal-k { flex: 0 0 76px; color: var(--muted); font-weight: 700; font-size: 12px; padding-top: 2px; }
+.goal-target { background: rgba(34,197,94,.08); border-radius: 8px; padding: 8px 10px; margin: 8px 0; }
+.goal-target .goal-k { color: var(--brand); }
+.goal-target span:last-child { font-weight: 700; color: var(--text); }
+.goal-mot { text-align: center; color: var(--muted); font-style: italic; margin: 10px 0 2px; font-size: 13px; }
+.goal-actions { display: flex; gap: 8px; margin-top: 8px; }
 
 /* ===== 快速點名中心（只新增，不動既有變數/色票/卡片） ===== */
 .att-setup { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 12px; }
