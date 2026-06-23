@@ -163,7 +163,10 @@
 <!-- ===== 登入 / 註冊 ===== -->
 <div id="authView" class="container hidden">
   <div class="topbar"><div class="logo"><img class="logo-img" src="assets/logo.png" alt="TeamPro logo">TeamPro <span class="mark">教練戰情室</span></div>
-    <a class="btn btn-ghost btn-sm" href="index.html">回首頁</a></div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span class="muted" style="font-size:12px;">版本 <span id="appVersionAuth"></span></span>
+      <a class="btn btn-ghost btn-sm" href="index.html">回首頁</a>
+    </div></div>
   <div class="auth-wrap card">
     <div class="auth-tabs">
       <button class="btn" id="tabLogin">登入</button>
@@ -198,6 +201,7 @@
   <div class="topbar">
     <div class="logo"><img class="logo-img" src="assets/logo.png" alt="TeamPro logo">TeamPro <span class="mark">教練戰情室</span></div>
     <div style="display:flex;gap:8px;align-items:center;">
+      <span class="muted" style="font-size:12px;">版本 <span id="appVersion"></span></span>
       <span class="muted" id="coachName" style="font-size:14px;"></span>
       <button class="btn btn-ghost btn-sm" id="btnLogout">登出</button>
     </div>
@@ -379,6 +383,17 @@
   <!-- 選手管理 -->
   <section id="tab-athletes" class="hidden">
     <div class="card">
+      <div style="padding:14px 16px;border:1px solid rgba(56,189,248,.4);border-radius:12px;background:rgba(56,189,248,.06);margin-bottom:14px;">
+        <div class="eyebrow-sm" style="margin-bottom:6px;">批次匯入</div>
+        <h3 style="margin:0 0 6px;">用 Excel 一次匯入整批選手</h3>
+        <p class="muted" style="font-size:13px;margin:0 0 10px;">先下載範本，在 Excel 填好後再匯入。欄位：`teamName`、`name`、`gradeClass`、`grp`、`lastPerformanceVisibility`。</p>
+        <div class="composer-actions" style="margin-top:0;">
+          <button class="btn btn-sm" id="btnDownloadAthleteTemplate">下載範本</button>
+          <button class="btn btn-sm btn-primary" id="btnPickAthleteImport">選擇檔案並匯入</button>
+          <input id="athleteImportFile" type="file" accept=".xlsx,.xls,.csv,.tsv" class="hidden">
+          <span id="athleteImportHint" class="muted" style="font-size:12px;"></span>
+        </div>
+      </div>
       <h3 style="margin-top:0;">新增選手</h3>
       <div id="quotaWarn"></div>
       <div class="composer-fields">
@@ -661,13 +676,15 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="api.js"></script>
 <script>
 (function () {
   var $ = TP.$, esc = TP.esc, toast = TP.toast;
+  var APP_VERSION = 'v2026-06-23-bulk-import-1';
   var authView = $('#authView'), appView = $('#appView');
   var mode = 'login';
-  var state = { coach: null, teams: [], athletes: [], kpiMeta: {} };
+  var state = { coach: null, teams: [], athletes: [], kpiMeta: {}, importRows: [], importFileName: '' };
   var signupJustCompleted = false;
   var params = new URLSearchParams(location.search);
   var DEMO = params.get('demo') === '1';
@@ -693,6 +710,119 @@
     state.coach.settings = Object.assign({}, coachSettings(), patch);
     var r = await TP.callAuth('saveSettings', { settings: state.coach.settings });
     if (r && r.ok && r.settings) state.coach.settings = r.settings;
+  }
+  function importHint(text, isErr) {
+    var box = $('#athleteImportHint');
+    if (!box) return;
+    box.textContent = text || '';
+    box.style.color = isErr ? 'var(--red)' : 'var(--muted)';
+  }
+  function athleteImportTemplateRows() {
+    return [
+      ['teamName', 'name', 'gradeClass', 'grp', 'lastPerformanceVisibility'],
+      ['跆拳道隊', '陳柏宇', '八年級', 'A', 'self_coach_only'],
+      ['跆拳道隊', '林冠廷', '八年級', 'A', 'coach_assistant']
+    ];
+  }
+  function downloadBlob(name, blob) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = name; a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () {
+      URL.revokeObjectURL(url);
+      a.remove();
+    }, 0);
+  }
+  function downloadAthleteTemplate() {
+    if (!window.XLSX) {
+      var csv = athleteImportTemplateRows().map(function (row) {
+        return row.map(function (cell) {
+          var s = String(cell == null ? '' : cell);
+          if (/[",\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+          return s;
+        }).join(',');
+      }).join('\n');
+      downloadBlob('TeamPro選手名單範本.csv', new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+      toast('已下載 CSV 範本，可直接用 Excel 開啟');
+      return;
+    }
+    var wb = XLSX.utils.book_new();
+    var ws = XLSX.utils.aoa_to_sheet(athleteImportTemplateRows());
+    XLSX.utils.book_append_sheet(wb, ws, '選手名單');
+    var note = XLSX.utils.aoa_to_sheet([
+      ['TeamPro 選手匯入範本'],
+      ['請保留第一列欄位名稱。'],
+      ['teamName 請填團隊名稱，name 請填選手姓名。'],
+      ['lastPerformanceVisibility 可留空，預設為 self_coach_only。']
+    ]);
+    XLSX.utils.book_append_sheet(wb, note, '說明');
+    var out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    downloadBlob('TeamPro選手名單範本.xlsx', new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+  }
+  function readFileAsArrayBuffer(file) {
+    return new Promise(function (resolve, reject) {
+      var fr = new FileReader();
+      fr.onload = function () { resolve(fr.result); };
+      fr.onerror = function () { reject(fr.error || new Error('讀檔失敗')); };
+      fr.readAsArrayBuffer(file);
+    });
+  }
+  function readFileAsText(file) {
+    return new Promise(function (resolve, reject) {
+      var fr = new FileReader();
+      fr.onload = function () { resolve(fr.result); };
+      fr.onerror = function () { reject(fr.error || new Error('讀檔失敗')); };
+      fr.readAsText(file, 'utf-8');
+    });
+  }
+  function normalizeImportRow(row, rowNo) {
+    row = row || {};
+    var pick = function () {
+      for (var i = 0; i < arguments.length; i++) {
+        var key = arguments[i];
+        if (row[key] != null && String(row[key]).trim() !== '') return String(row[key]).trim();
+      }
+      return '';
+    };
+    return {
+      rowNo: rowNo,
+      teamName: pick('teamName', 'team', '團隊名稱', '所屬團隊'),
+      teamId: pick('teamId', '團隊ID'),
+      name: pick('name', 'athleteName', '姓名', '選手姓名'),
+      gradeClass: pick('gradeClass', 'grade', '年級班級', '班級'),
+      grp: pick('grp', 'group', '組別'),
+      lastPerformanceVisibility: pick('lastPerformanceVisibility', 'visibility', '上次表現可見')
+    };
+  }
+  async function parseAthleteImportFile(file) {
+    if (!file) return [];
+    var ext = (file.name.split('.').pop() || '').toLowerCase();
+    if (window.XLSX && ['xlsx', 'xls'].indexOf(ext) !== -1) {
+      var data = await readFileAsArrayBuffer(file);
+      var wb = XLSX.read(data, { type: 'array' });
+      var sheet = wb.Sheets[wb.SheetNames[0]];
+      var rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+      return rows.map(function (r, idx) { return normalizeImportRow(r, idx + 2); });
+    }
+    if (window.XLSX && ['csv', 'tsv'].indexOf(ext) !== -1) {
+      var txt = await readFileAsText(file);
+      var wb2 = XLSX.read(txt, { type: 'string' });
+      var sheet2 = wb2.Sheets[wb2.SheetNames[0]];
+      var rows2 = XLSX.utils.sheet_to_json(sheet2, { defval: '' });
+      return rows2.map(function (r, idx) { return normalizeImportRow(r, idx + 2); });
+    }
+    var text = await readFileAsText(file);
+    var lines = text.split(/\r?\n/).filter(function (ln) { return String(ln).trim() !== ''; });
+    if (!lines.length) return [];
+    var header = lines.shift().split(',').map(function (s) { return s.trim(); });
+    return lines.map(function (line, idx) {
+      var cols = line.split(',');
+      var obj = {};
+      header.forEach(function (k, i) { obj[k] = (cols[i] || '').trim(); });
+      return normalizeImportRow(obj, idx + 2);
+    });
   }
   function unlockedFeatures(cfg) {
     return [
@@ -823,6 +953,7 @@
 
   function showAuth() {
     authView.classList.remove('hidden'); appView.classList.add('hidden');
+    $('#appVersionAuth').textContent = APP_VERSION;
     $('#cfgUrl').value = TP.getUrl();
     setMode(mode);
   }
@@ -879,6 +1010,7 @@
   /* ---------- 主後台 ---------- */
   function showApp() {
     authView.classList.add('hidden'); appView.classList.remove('hidden');
+    $('#appVersion').textContent = APP_VERSION;
     document.body.classList.toggle('assistant-mode', isAssistantMode());
     $('#coachName').textContent = state.coach.name + '（' + state.coach.email + '）';
     $('#assistantBanner').classList.toggle('hidden', !isAssistantMode());
@@ -904,6 +1036,9 @@
     $('#kpiCadenceWrap').classList.toggle('hidden', coachSettings().kpiVersion === 'v2');
     $('#tab-settings').classList.toggle('hidden', isAssistantMode());
     $('#btnPrint').classList.toggle('hidden', isAssistantMode());
+    state.importRows = [];
+    state.importFileName = '';
+    importHint('');
     renderPlan();
     $('#warDate').value = localToday();
     loadTeams().then(function () { loadAthletes(); loadWarroom(); loadTrialSummary(); });
@@ -1426,6 +1561,61 @@
       toast(r.message || '已達方案上限', true); await refreshMe(); renderQuotaWarn();
     } else { toast(r.error, true); }
     btn.disabled = false;
+  };
+
+  $('#btnDownloadAthleteTemplate').onclick = function () {
+    if (DEMO) { demoBlock(); return; }
+    downloadAthleteTemplate();
+  };
+  $('#btnPickAthleteImport').onclick = function () {
+    if (DEMO) { demoBlock(); return; }
+    var f = $('#athleteImportFile');
+    if (f) f.click();
+  };
+  $('#athleteImportFile').onchange = async function () {
+    if (DEMO) { demoBlock(); this.value = ''; return; }
+    var file = this.files && this.files[0];
+    this.value = '';
+    if (!file) return;
+    if (!window.XLSX && !/\.(csv|tsv)$/i.test(file.name)) {
+      toast('瀏覽器尚未載入 Excel 解析套件，請稍後再試', true);
+      return;
+    }
+    importHint('讀取中…');
+    try {
+      var rows = await parseAthleteImportFile(file);
+      state.importRows = rows;
+      state.importFileName = file.name;
+      var valid = rows.filter(function (r) { return r.name && (r.teamName || r.teamId); }).length;
+      var msg = '已讀取 ' + rows.length + ' 筆。有效候選 ' + valid + ' 筆。';
+      importHint(msg);
+      if (!rows.length) { toast('檔案裡沒有可匯入的資料', true); return; }
+      if (!confirm('已讀取 ' + rows.length + ' 筆，現在要匯入嗎？')) return;
+      var btn = $('#btnPickAthleteImport');
+      btn.disabled = true; btn.textContent = '匯入中…';
+      var r = await TP.callAuth('bulkAddAthletes', { rows: rows });
+      btn.disabled = false; btn.textContent = '選擇檔案並匯入';
+      if (r.ok) {
+        var extra = r.skipped ? '，跳過 ' + r.skipped + ' 筆' : '';
+        importHint('完成：新增 ' + r.created + ' 筆' + extra + '。', false);
+        if (r.skippedRows && r.skippedRows.length) {
+          importHint('完成：新增 ' + r.created + ' 筆，跳過 ' + r.skipped + ' 筆（' + r.skippedRows.slice(0, 3).map(function (x) { return '第' + x.rowNo + '列 ' + x.reason; }).join('；') + '）', false);
+        }
+        state.importRows = [];
+        state.importFileName = '';
+        toast('已批次新增 ' + r.created + ' 位選手');
+        await refreshMe(); loadAthletes();
+      } else if (r.error === 'plan_limit_reached') {
+        importHint(r.message || '已達方案上限', true);
+        toast(r.message || '已達方案上限', true);
+      } else {
+        importHint(r.message || r.error || '匯入失敗', true);
+        toast(r.message || r.error || '匯入失敗', true);
+      }
+    } catch (err) {
+      importHint('讀取失敗：' + err.message, true);
+      toast('讀取失敗：' + err.message, true);
+    }
   };
 
   /* ---------- 戰情室 ---------- */

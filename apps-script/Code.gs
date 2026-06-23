@@ -282,6 +282,7 @@ function handle(action, d) {
     /* ---- 選手 ---- */
     case 'listAthletes':    return jsonOut(withCoach(d, listAthletes));
     case 'addAthlete':      return jsonOut(withCoach(d, addAthlete));
+    case 'bulkAddAthletes':  return jsonOut(withCoach(d, bulkAddAthletes));
     case 'setAthleteActive':return jsonOut(withCoach(d, setAthleteActive));
     case 'updateAthlete':   return jsonOut(withCoach(d, updateAthlete));
     case 'setKpiTracking':  return jsonOut(withCoach(d, setKpiTracking));
@@ -921,6 +922,84 @@ function addAthlete(c, d) {
     appendObj(SHEETS.athletes, a);
     audit(c.email, 'addAthlete', a.athleteId, name);
     return { ok: true, athlete: a, activeCount: countActiveAthletes(c.coachId), max: max };
+  } finally { lock.releaseLock(); }
+}
+
+function bulkAddAthletes(c, d) {
+  var input = Array.isArray(d.rows) ? d.rows : [];
+  if (!input.length) return { ok: false, error: '請提供匯入資料' };
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var teams = readAll(SHEETS.teams).filter(function (t) { return String(t.coachId) === String(c.coachId); });
+    var teamMap = {};
+    teams.forEach(function (t) {
+      teamMap[String(t.teamId)] = t;
+      teamMap[String(t.teamName).trim().toLowerCase()] = t;
+    });
+
+    var all = readAll(SHEETS.athletes);
+    var plan = effectivePlan(c);
+    var max = PLANS[plan].maxAthletes;
+    var activeCount = countActiveAthletes(c.coachId);
+    var remaining = max - activeCount;
+    if (remaining <= 0) {
+      return { ok: false, error: 'plan_limit_reached', limit: max, plan: plan,
+        message: '已達 ' + PLANS[plan].name + ' 點名上限，無法再批次新增。' };
+    }
+
+    var seen = {};
+    var create = [];
+    var skipped = [];
+
+    input.forEach(function (raw, idx) {
+      var rowNo = Number(raw && raw.rowNo ? raw.rowNo : idx + 1);
+      var name = String((raw && (raw.name || raw.athleteName)) || '').trim();
+      var teamName = String((raw && (raw.teamName || raw.team)) || '').trim();
+      var teamId = String((raw && raw.teamId) || '').trim();
+      var gradeClass = String((raw && raw.gradeClass) || '').trim();
+      var grp = String((raw && raw.grp) || '').trim();
+      var vis = normVisibility((raw && raw.lastPerformanceVisibility) || '');
+      if (!name) { skipped.push({ rowNo: rowNo, reason: '姓名空白' }); return; }
+      var team = null;
+      if (teamId && teamMap[teamId]) team = teamMap[teamId];
+      if (!team && teamName) team = teamMap[teamName.toLowerCase()];
+      if (!team) { skipped.push({ rowNo: rowNo, reason: '找不到團隊「' + teamName + '」' }); return; }
+
+      var key = String(team.teamId) + '|' + name.toLowerCase();
+      if (seen[key]) { skipped.push({ rowNo: rowNo, reason: '檔案內重複姓名' }); return; }
+      if (create.length >= remaining) { skipped.push({ rowNo: rowNo, reason: '已達方案上限' }); return; }
+
+      var dup = all.some(function (a) {
+        return String(a.coachId) === String(c.coachId) && String(a.teamId) === String(team.teamId) &&
+               String(a.name).trim().toLowerCase() === name.toLowerCase() &&
+               (String(a.active) !== 'false' && a.active !== false);
+      });
+      if (dup) { skipped.push({ rowNo: rowNo, reason: '同團隊已有同名選手' }); return; }
+
+      seen[key] = true;
+      create.push({
+        athleteId: uid('a_'), coachId: c.coachId, teamId: String(team.teamId), name: name,
+        gradeClass: gradeClass, grp: grp, active: true, createdAt: now(),
+        lastPerformanceVisibility: vis, kpiEnabled: false, kpiEnabledAt: ''
+      });
+    });
+
+    if (!create.length) {
+      return { ok: false, error: 'no_valid_rows', message: '沒有可匯入的有效資料', skipped: skipped };
+    }
+
+    create.forEach(function (a) { appendObj(SHEETS.athletes, a); });
+    audit(c.email, 'bulkAddAthletes', String(create.length), JSON.stringify({ skipped: skipped.length }));
+    return {
+      ok: true,
+      created: create.length,
+      skipped: skipped.length,
+      skippedRows: skipped,
+      activeCount: countActiveAthletes(c.coachId),
+      max: max
+    };
   } finally { lock.releaseLock(); }
 }
 
