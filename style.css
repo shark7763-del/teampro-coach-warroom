@@ -266,6 +266,8 @@ input[type="range"]::-moz-range-track { height: 8px; border-radius: 999px; backg
 .obs-btns button.obs-clear { min-width: auto; padding: 8px 12px; color: var(--muted); font-weight: 400; }
 .obs-btns button:hover { border-color: var(--muted); }
 .obs-btns button.sel { border-color: var(--brand); background: rgba(34,197,94,.15); }
+/* 專項 KPI 題目範本快速帶入 */
+.kpi-templates { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
 
 /* ===== 快速點名中心（只新增，不動既有變數/色票/卡片） ===== */
 .att-setup { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 12px; }

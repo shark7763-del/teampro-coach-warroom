@@ -521,7 +521,13 @@
       </div>
       <p class="muted" style="font-size:12px;margin:4px 0 12px;">每天＝選手每天填 30 項 KPI、你在戰情室即時看到當日表現（負擔較高）；每週＝一週評一次。切換後當下週期重新計算，歷史資料不受影響。</p>
       <label>自訂 KPI 題目</label>
-      <textarea id="customKpiText" placeholder="團隊版以上可自訂，例如：節奏感、爆發起跑、收操完成度…"></textarea>
+      <p class="muted" style="font-size:12px;margin:0 0 6px;">填 6 個詞，依序對應 6 大面向（技術／戰術／體能／心理／態度／生理）。可一鍵帶入專項範本再微調：</p>
+      <div class="kpi-templates">
+        <button type="button" class="btn btn-sm" data-kpitpl="wushu_taolu">🥋 武術（套路）</button>
+        <button type="button" class="btn btn-sm" data-kpitpl="wushu_sanda">🥊 武術（散打）</button>
+        <button type="button" class="btn btn-sm btn-ghost" data-kpitpl="default">↺ 還原 6 大面向</button>
+      </div>
+      <textarea id="customKpiText" placeholder="團隊版以上可自訂，例如：動作規格、編排節奏、體能爆發、臨場穩定、訓練投入、恢復狀態"></textarea>
       <div class="link-box" style="margin-top:8px;">
         <button class="btn" id="btnSaveKpi">儲存 KPI 題目</button>
         <span class="muted" id="customKpiHint" style="font-size:13px;align-self:center;"></span>
@@ -2284,6 +2290,18 @@
     localStorage.setItem(coachLS('custom_kpi'), $('#customKpiText').value.trim());
     toast('KPI 題目已儲存');
   };
+  var KPI_TEMPLATES = {
+    wushu_taolu: ['動作規格', '編排節奏', '體能爆發', '臨場穩定', '訓練投入', '恢復狀態'],
+    wushu_sanda: ['拳腿技術', '距離戰術', '體能抗打', '抗壓膽識', '訓練投入', '降重恢復'],
+    'default': ['技術執行', '戰術理解', '體能負荷', '心理狀態', '訓練態度', '生理恢復']
+  };
+  TP.$all('[data-kpitpl]').forEach(function (b) {
+    b.onclick = function () {
+      if (!planCfg().customKpi) { openUpgradeModal({ reason: 'customKpi', message: '團隊版以上才可自訂 KPI 題目。' }); return; }
+      $('#customKpiText').value = KPI_TEMPLATES[b.dataset.kpitpl].join('、');
+      toast('已帶入範本，確認後按「儲存 KPI 題目」');
+    };
+  });
   $('#btnHideOnboard').onclick = function () {
     localStorage.setItem(coachLS('onboard_hidden'), '1');
     $('#onboardWrap').classList.add('hidden');
