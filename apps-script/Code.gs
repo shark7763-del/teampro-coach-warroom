@@ -301,6 +301,7 @@ function handle(action, d) {
     case 'asstGetAttendance': return jsonOut(withAssistant(d, getAttendance));
     case 'asstSaveAttendance':return jsonOut(withAssistant(d, saveAttendance));
     case 'asstLogin':         return jsonOut(asstLogin(d));   // 助教全開：PIN→主教練 token
+    case 'resetDemo':         return jsonOut(withCoach(d, resetDemoAction));  // Demo 帳號重置展示資料
 
     /* ---- 戰情室 / 報告 ---- */
     case 'warroom':         return jsonOut(withCoach(d, warroom));
@@ -2265,4 +2266,252 @@ function deleteRowsByCoach(name, colKey, idSet) {
   toDelete.sort(function (a, b) { return b - a; }); // 由下往上刪
   toDelete.forEach(function (r) { s.deleteRow(r); });
   return toDelete.length;
+}
+
+/* ============================================================
+   Demo 展示資料種子（簡報用）
+   - 在 Apps Script 編輯器直接執行 seedDemoAccount() 即可建立／重建。
+   - 帳號 demo@teampro.tw / TeamPro2026，固定可登入、長期保留。
+   - 展示前可按 App 內「重置 Demo 資料」或重跑此函式，讓 7 天資料永遠落在「今天」結尾。
+   - 只動 Demo 教練自己的資料（用其 coachId 過濾），不影響任何正式帳號。
+   - 重用真實引擎（sleep/pain/hydration/quality/riskStatus）計算燈號，確保戰情室呈現一致。
+   ============================================================ */
+var DEMO_COACH = { email: 'demo@teampro.tw', password: 'TeamPro2026', name: 'TeamPro Demo 教練' };
+var DEMO_TEAM_NAME = 'TeamPro 展示隊｜青少年運動 Demo';
+var DEMO_SCHOOL = 'TeamPro 示範學校（Demo）';
+
+function demoFindCoachId_() {
+  var row = findRow(SHEETS.coaches, 'email', DEMO_COACH.email);
+  return row === -1 ? '' : String(readAll(SHEETS.coaches)[row - 2].coachId);
+}
+
+/* 建立或更新 Demo 教練帳號（pro 永不過期＝解鎖全功能展示；仍只放 5 位選手） */
+function demoEnsureCoach_() {
+  var row = findRow(SHEETS.coaches, 'email', DEMO_COACH.email);
+  var salt = uid('s_');
+  if (row !== -1) {
+    var c = readAll(SHEETS.coaches)[row - 2];
+    var s = sheet(SHEETS.coaches);
+    s.getRange(row, H.coaches.indexOf('salt') + 1).setValue(salt);
+    s.getRange(row, H.coaches.indexOf('passwordHash') + 1).setValue(hashPassword(DEMO_COACH.password, salt));
+    s.getRange(row, H.coaches.indexOf('name') + 1).setValue(DEMO_COACH.name);
+    s.getRange(row, H.coaches.indexOf('plan') + 1).setValue('pro');
+    s.getRange(row, H.coaches.indexOf('planExpiry') + 1).setValue('2099-12-31');
+    s.getRange(row, H.coaches.indexOf('status') + 1).setValue('active');
+    var ex = parseSettings(c.settings); ex.isDemo = true; ex.school = DEMO_SCHOOL; ex.kpiCadence = 'weekly'; ex.kpiVersion = 'v1';
+    s.getRange(row, H.coaches.indexOf('settings') + 1).setValue(JSON.stringify(ex));
+    return String(c.coachId);
+  }
+  var coachId = uid('c_');
+  appendObj(SHEETS.coaches, {
+    coachId: coachId, email: DEMO_COACH.email, passwordHash: hashPassword(DEMO_COACH.password, salt), salt: salt,
+    name: DEMO_COACH.name, plan: 'pro', planExpiry: '2099-12-31', status: 'active',
+    createdAt: now(), lastLogin: '', paymentNote: 'DEMO 展示帳號（請勿刪除）',
+    settings: JSON.stringify({ isDemo: true, school: DEMO_SCHOOL, kpiCadence: 'weekly', kpiVersion: 'v1' })
+  });
+  return coachId;
+}
+
+/* 清掉 Demo 教練所有資料（只此 coachId，不碰正式資料） */
+function demoWipe_(coachId) {
+  var idSet = {}; idSet[String(coachId)] = true;
+  deleteRowsByCoach(SHEETS.records, 'coachId', idSet);
+  deleteRowsByCoach(SHEETS.attendance, 'coachId', idSet);
+  deleteRowsByCoach(SHEETS.weeklyKpi, 'coachId', idSet);
+  deleteRowsByCoach(SHEETS.competitions, 'coachId', idSet);
+  deleteRowsByCoach(SHEETS.athletes, 'coachId', idSet);
+  deleteRowsByCoach(SHEETS.teams, 'coachId', idSet);
+}
+
+function demoKpi_(a, b, c, d, e, f) {
+  return { technical: a, tactical: b, physical: c, mental: d, attitude: e, physiological: f };
+}
+
+/* 依角色＋天數位移（0=今天）回傳當日回報輸入 */
+function demoInputs_(key, offset) {
+  var FB0 = {
+    wang: '你這週的技術穩定度很好，代表平常訓練有累積出成果。不過壓力分數偏高，接下來我們先把目標放在「穩定完成每一組動作」，不要急著追求完美。',
+    lin: '這週回報看起來比較簡短，教練不會責備你，但希望你可以多寫一句今天遇到的困難。只要你願意誠實回報，我們就比較知道怎麼幫你。',
+    chen: '今天疼痛分數偏高，訓練先以低衝擊與技術修正為主，不急著衝強度。你的任務是把身體照顧好，這也是選手成熟的一部分。',
+    hsu: '今天流汗量高但水分補充不足，這會影響專注力與恢復。明天訓練前先完成基本補水，訓練後也要觀察尿液顏色。',
+    chang: '你這幾天的態度很穩，完成度也有提升。這種穩定累積就是進步的關鍵，接下來可以挑戰更高品質的動作細節。'
+  };
+  var FB3 = {
+    wang: '這幾天的訓練紀律維持得很好。記得高壓時用呼吸調節，讓表現更穩定，不用每一下都追求滿分。',
+    lin: '今天願意多寫一點，很好。教練看得到你的努力，明天我們一起設一個小目標，先求有做到再求做好。',
+    chen: '恢復期照表操課，疼痛有下降就是好訊號。先把基礎動作做扎實，回到強度時會更穩。',
+    hsu: '補水有改善，繼續保持訓練前中後分次喝水的習慣。身體狀態穩定，技術才能練得上去。',
+    chang: '動作細節又更乾淨了，這種穩定進步很難得。下週可以挑戰把節奏再提一點，保持這個態度。'
+  };
+  var fdays = key === 'lin' ? [2, 4] : [0, 3];   // 林子棠今日未回報，回饋放在 day2/day4
+  var fb = offset === fdays[0] ? FB0[key] : (offset === fdays[1] ? FB3[key] : '');
+
+  if (key === 'wang') return {
+    kpi: demoKpi_(5, 4, 4, 4, 5, 4), bed: '23:30', wake: '06:30',
+    painStatus: 'none', painScore: 0, painImpact: 'none',
+    water: 'enough', sweat: 'normal', urine: 'pale_yellow', fatigue: 3, mood: offset === 0 ? 2 : 3,
+    am: '晨操：核心與動態暖身 30 分', pm: '專長訓練：品勢與腳法修正、踢靶 10 組', eve: '晚自習：影像複盤',
+    notes: offset === 0 ? '今天動作很順，但比賽快到了有點緊張，壓力比較大。' : '訓練完成度高，腳法越來越穩定。',
+    coachComment: fb
+  };
+  if (key === 'lin') {
+    var hard = (offset === 1);
+    return {
+      kpi: demoKpi_(3, 3, 3, 3, 3, 3), bed: hard ? '02:00' : '00:30', wake: hard ? '05:30' : '06:30',
+      sleepQuality: hard ? 'good' : '', painStatus: 'none', painScore: 0, painImpact: 'none',
+      water: 'normal', sweat: 'normal', urine: 'yellow', fatigue: 5, mood: 3,
+      am: '晨操：慢跑', pm: '專長訓練：基本動作', eve: '',
+      notes: '普通', coachComment: fb
+    };
+  }
+  if (key === 'chen') {
+    var acute = (offset === 0);
+    return {
+      kpi: demoKpi_(4, 4, 3, 4, 4, 3), bed: acute ? '00:30' : '23:30', wake: '06:00',
+      painStatus: offset <= 1 ? 'new' : 'old', painScore: acute ? 7 : (offset === 1 ? 5 : 3),
+      painImpact: acute ? 'power_down' : 'high_intensity',
+      injuryAreas: '右大腿後側拉傷（Demo）', injuryNote: '踢擊後緊繃，下壓會痛',
+      water: 'normal', sweat: 'normal', urine: 'pale_yellow', fatigue: acute ? 6 : 4, mood: 3,
+      am: '晨操：低衝擊伸展', pm: acute ? '下午訓練：技術修正為主，暫停高強度對打' : '專長訓練：踢靶與步法', eve: '',
+      notes: acute ? '右大腿後側拉傷還是會痛，今天踢擊力量出不太來。' : '拉傷部位有比較好一點，訓練有保留。',
+      coachComment: fb
+    };
+  }
+  if (key === 'hsu') {
+    var dehy = (offset === 0);
+    return {
+      kpi: demoKpi_(4, 3, 4, 3, 4, 4), bed: '23:30', wake: dehy ? '05:30' : '06:30',
+      painStatus: 'none', painScore: 0, painImpact: 'none',
+      water: dehy ? 'very_little' : 'normal', sweat: dehy ? 'very_high' : 'high',
+      urine: dehy ? 'dark' : 'yellow', fatigue: dehy ? 7 : 5, mood: 3,
+      am: '晨操：間歇跑', pm: '專長訓練：高強度對打 5 回合', eve: '',
+      notes: dehy ? '今天流好多汗，比較懶得喝水，下午有點頭暈。' : '訓練流汗多，會記得補水。',
+      coachComment: fb
+    };
+  }
+  // chang：穩定進步（KPI 逐日提升），今日輕微睡眠黃燈
+  var base = Math.min(5, Math.max(3, +(4.4 - offset * 0.13).toFixed(2)));
+  return {
+    kpi: demoKpi_(base, base, base, base, Math.min(5, +(base + 0.2).toFixed(2)), base),
+    bed: offset === 0 ? '00:00' : '23:30', wake: '06:30',
+    painStatus: 'none', painScore: 0, painImpact: 'none',
+    water: 'enough', sweat: 'normal', urine: 'pale_yellow', fatigue: 3, mood: 4,
+    am: '晨操：技術暖身', pm: '專長訓練：動作品質與節奏', eve: '晚自習：自主伸展',
+    notes: '今天狀態不錯，動作細節有抓到，會繼續保持。', coachComment: fb
+  };
+}
+
+/* 用真實引擎把一筆 Demo 回報組成完整 record（含安全燈號與 KPI 雙軌） */
+function demoBuildRecord_(coachId, team, a, date, inp, prev) {
+  var sleep = sleepMetrics(inp.bed, inp.wake);
+  var pain = painMetrics(inp.painStatus || 'none', inp.painScore || 0, inp.painImpact || 'none');
+  var hydration = hydrationMetrics({ date: date, waterAmount: inp.water, sweatAmount: inp.sweat, urineColor: inp.urine, fatigue: inp.fatigue }, prev, sleep);
+  var quality = qualityMetrics({ trainingNotes: inp.notes, painImpact: pain.impact, sleepQuality: inp.sleepQuality || '' }, {}, '', {}, [], pain, sleep);
+  var status = riskStatus('green', pain.risk, sleep.risk, hydration.risk);
+  var dims = inp.kpi;
+  var total = dims ? +(['technical', 'tactical', 'physical', 'mental', 'attitude', 'physiological']
+    .reduce(function (s, k) { return s + Number(dims[k]); }, 0) / 6).toFixed(2) : '';
+  var rec = {
+    recordId: uid('r_'), coachId: coachId, teamId: team.teamId, athleteId: a.athleteId, name: a.name,
+    date: date, timestamp: date + 'T18:30:00.000Z', sessionType: 'training',
+    technicalAvg: dims ? dims.technical : '', tacticalAvg: dims ? dims.tactical : '', physicalAvg: dims ? dims.physical : '',
+    mentalAvg: dims ? dims.mental : '', attitudeAvg: dims ? dims.attitude : '', physiologicalAvg: dims ? dims.physiological : '',
+    totalScore: total, status: status,
+    moodIndex: inp.mood || '', reflection: inp.notes || '',
+    trainingAM: inp.am || '', trainingPM: inp.pm || '', trainingEve: inp.eve || '', trainingNotes: inp.notes || '',
+    sleepHours: sleep.minutes !== '' ? +(sleep.minutes / 60).toFixed(2) : '',
+    fatigue: inp.fatigue || '', injuryAreas: inp.injuryAreas || '', injuryNote: inp.injuryNote || '',
+    sleepBedTime: inp.bed || '', wakeTime: inp.wake || '', sleepQuality: inp.sleepQuality || '',
+    sleepDurationMinutes: sleep.minutes, sleepDurationText: sleep.text, sleepRisk: sleep.risk,
+    painStatus: pain.status, painAreas: pain.status === 'none' ? '' : (inp.injuryAreas || ''),
+    painScore: pain.score, painImpact: pain.impact, painNote: inp.injuryNote || '', painRisk: pain.risk,
+    waterAmount: hydration.water, sweatAmount: hydration.sweat, urineColor: hydration.urine,
+    hydrationRisk: hydration.risk, hydrationAdvice: hydration.advice, hydrationFlags: hydration.flags.join(','),
+    reportQualityScore: quality.score, reportQualityLabel: quality.label, reportQualityReasons: quality.reasons.join('、'),
+    coachSuggestion: '', coachComment: inp.coachComment || '', coachFeedbackAt: inp.coachComment ? now() : ''
+  };
+  rec.coachSuggestion = coachSuggestionFor(rec);
+  return rec;
+}
+
+/* 7 天點名：每日一種課程輪替，狀態依角色變化（今日留異常給戰情室展示） */
+function demoSeedAttendance_(coachId, team, athletes, dates) {
+  var courses = ['晨操', '專長訓練', '晚自習', '自主訓練', '晨操', '專長訓練', '晚自習'];
+  var patt = {
+    'Demo 王柏鈞': ['present', 'present', 'present', 'present', 'present', 'present', 'present'],
+    'Demo 林子棠': ['present', 'late', 'absent', 'present', 'leave', 'late', 'absent'],
+    'Demo 陳希恩': ['present', 'present', 'present', 'injured_watch', 'present', 'present', 'injured_watch'],
+    'Demo 許晨熙': ['present', 'present', 'late', 'present', 'present', 'late', 'present'],
+    'Demo 張晏慈': ['present', 'present', 'present', 'present', 'present', 'present', 'present']
+  };
+  dates.forEach(function (date, i) {
+    var marks = {};
+    athletes.forEach(function (a) {
+      var arr = patt[a.name] || [];
+      marks[String(a.athleteId)] = { s: arr[i] || 'present', n: '' };
+    });
+    appendObj(SHEETS.attendance, {
+      attId: uid('at_'), coachId: coachId, teamId: team.teamId, date: date,
+      course: courses[i] || '專長訓練', marks: JSON.stringify(marks), updatedAt: now()
+    });
+  });
+}
+
+/* 重建 Demo 團隊＋5 選手＋7 天回報＋點名（資料永遠落在今天結尾） */
+function demoRebuild_(coachId) {
+  demoWipe_(coachId);
+  var team = {
+    teamId: uid('tm_'), coachId: coachId, teamName: DEMO_TEAM_NAME,
+    sport: '跆拳道 / 綜合運動示範', shareToken: uid('sh_'), status: 'active', createdAt: now(),
+    competitionSystem: '全中運項目', sportCategory: '技擊武道', memberTerm: '選手', asstPinHash: '', asstPinSalt: ''
+  };
+  appendObj(SHEETS.teams, team);
+  var defs = [
+    { key: 'wang', name: 'Demo 王柏鈞', gradeClass: '701' },
+    { key: 'lin', name: 'Demo 林子棠', gradeClass: '702' },
+    { key: 'chen', name: 'Demo 陳希恩', gradeClass: '801' },
+    { key: 'hsu', name: 'Demo 許晨熙', gradeClass: '802' },
+    { key: 'chang', name: 'Demo 張晏慈', gradeClass: '901' }
+  ];
+  var athletes = defs.map(function (d) {
+    var a = {
+      athleteId: uid('a_'), coachId: coachId, teamId: team.teamId, name: d.name, gradeClass: d.gradeClass,
+      grp: '', active: true, createdAt: now(), lastPerformanceVisibility: 'self_coach_only',
+      perfPinHash: '', perfPinSalt: '', kpiEnabled: true, kpiEnabledAt: now()
+    };
+    appendObj(SHEETS.athletes, a);
+    a._key = d.key;
+    return a;
+  });
+  var today = todayStr();
+  var dates = []; for (var i = 6; i >= 0; i--) dates.push(addDateDays(today, -i));
+  athletes.forEach(function (a) {
+    var prev = null;
+    dates.forEach(function (date, di) {
+      var offset = 6 - di; // di=6 → offset 0 = 今天
+      if (a._key === 'lin' && offset === 0) return; // 林子棠今日未回報（展示尚未回報）
+      var inp = demoInputs_(a._key, offset);
+      var rec = demoBuildRecord_(coachId, team, a, date, inp, prev);
+      appendObj(SHEETS.records, rec);
+      prev = rec;
+    });
+  });
+  demoSeedAttendance_(coachId, team, athletes, dates);
+  return { ok: true, teamId: team.teamId, shareToken: team.shareToken, athletes: athletes.length, days: dates.length };
+}
+
+/* 編輯器一鍵：建立／重建 Demo 帳號與完整展示資料 */
+function seedDemoAccount() {
+  var coachId = demoEnsureCoach_();
+  var r = demoRebuild_(coachId);
+  Logger.log('Demo seeded: ' + JSON.stringify(r));
+  return r;
+}
+
+/* App 內「重置 Demo 資料」用：只有 Demo 帳號可呼叫 */
+function resetDemoAction(c, d) {
+  if (String(c.email) !== DEMO_COACH.email) return { ok: false, error: '只有 Demo 帳號可以重置展示資料' };
+  var r = demoRebuild_(c.coachId);
+  audit(c.email, 'resetDemo', c.coachId, 'rebuild ' + r.athletes + ' athletes');
+  return { ok: true, message: 'Demo 展示資料已重置（7 天資料已更新到今天）', summary: r };
 }

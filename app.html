@@ -262,6 +262,21 @@
 
   <!-- 戰情室 -->
   <section id="tab-warroom">
+    <div id="demoGuide" class="card hidden" style="border-color:var(--accent);background:rgba(56,189,248,.07);margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+        <b style="font-size:15px;">🎬 展示模式｜TeamPro Demo 教練</b>
+        <button class="btn btn-sm btn-danger" id="btnResetDemo">🔄 重置 Demo 資料</button>
+      </div>
+      <p class="muted" style="font-size:12.5px;margin:8px 0 6px;">這是展示用假資料（選手皆標示 Demo），不影響任何正式帳號。簡報前按「重置」可讓 7 天資料更新到今天。</p>
+      <ol style="margin:0;padding-left:20px;font-size:13px;line-height:1.9;color:var(--text);">
+        <li><b>今日戰情室</b>：看完成率、紅黃綠燈、今日需要關心的選手。</li>
+        <li><b>快速點名</b>：示範晨操／專長訓練點名，並複製 LINE 回報。</li>
+        <li><b>選手管理</b>：示範新增選手與查看選手狀態。</li>
+        <li><b>團隊與連結</b>：示範複製選手回報連結。</li>
+        <li><b>教練回饋</b>：示範 AI 教練草稿，修改後送出。</li>
+        <li><b>成果報告</b>：產生個人／團隊／家長報告，列印成 PDF。</li>
+      </ol>
+    </div>
     <div style="margin-bottom:14px;">
       <h2 style="margin:0 0 4px;">今天教練只要做 3 件事</h2>
       <p class="muted" style="margin:0;">3 分鐘掌握誰需要關心、誰還沒填，以及要傳什麼給家長。</p>
@@ -705,6 +720,7 @@
   /* 教練跨裝置設定（自訂課程清單、LINE 連結…）：存後端 coaches.settings */
   function coachSettings() { return (state.coach && state.coach.settings) || {}; }
   function isAssistantMode() { return !!(state.coach && state.coach.isAsst); }
+  function isDemoMode() { return !!(state.coach && (state.coach.email === 'demo@teampro.tw' || (state.coach.settings && state.coach.settings.isDemo))); }
   async function saveCoachSettings(patch) {
     if (DEMO || isAssistantMode()) return;
     state.coach.settings = Object.assign({}, coachSettings(), patch);
@@ -1036,6 +1052,7 @@
     $('#kpiCadenceWrap').classList.toggle('hidden', coachSettings().kpiVersion === 'v2');
     $('#tab-settings').classList.toggle('hidden', isAssistantMode());
     $('#btnPrint').classList.toggle('hidden', isAssistantMode());
+    $('#demoGuide').classList.toggle('hidden', !isDemoMode());
     state.importRows = [];
     state.importFileName = '';
     importHint('');
@@ -1146,6 +1163,15 @@
   $('#btnLogout').onclick = async function () {
     if (DEMO) { location.href = 'index.html'; return; }
     await TP.callAuth('logout'); TP.clearToken(); location.reload();
+  };
+
+  $('#btnResetDemo').onclick = async function () {
+    if (!confirm('這只會重置 Demo 測試資料，不會影響正式資料，是否繼續？')) return;
+    this.disabled = true; var old = this.textContent; this.textContent = '重置中…';
+    var r = await TP.callAuth('resetDemo');
+    this.disabled = false; this.textContent = old;
+    if (r && r.ok) { toast('Demo 資料已重置，重新載入中…'); setTimeout(function () { location.reload(); }, 800); }
+    else { toast((r && r.error) || '重置失敗', true); }
   };
 
   // tabs
