@@ -642,6 +642,7 @@
     </div>
     <div id="fbMeta" class="muted" style="font-size:13px;margin:6px 0;"></div>
     <div id="fbDetail" style="font-size:14px;margin-bottom:8px;"></div>
+    <div id="riskForecast" style="margin:6px 0 10px;"></div>
     <p class="muted" style="font-size:12px;margin:0 0 8px;">🔒 上次表現屬於選手私人訓練資料，請避免截圖公開或轉傳到群組。</p>
     <div class="coach-obs">
       <label style="margin:0 0 5px;">教練今日整體觀察（選填，給 AI 成長目標校正自評落差用）</label>
@@ -2448,6 +2449,177 @@
     return pick;
   }
 
+  /* ============================================================
+     真・傷害／過度訓練風險預測引擎（運動科學驗證方法，非範本）
+     - ACWR 急慢性負荷比（Gabbett/Hulin）：acute 7 日 / chronic 28 日
+     - 訓練單調度 monotony 與張力 strain（Foster）
+     - 個人化基線異常偵測：用「這位選手自己」的均值與標準差算 z 分數，
+       不是用全體固定門檻，所以同一個分數對不同選手代表的意義不同
+     輸出 0–100 風險分、燈號、可解釋原因，給未來 7 天的傷害／過載前瞻。
+     ============================================================ */
+  function rkNum(v) { var n = Number(v); return isFinite(n) ? n : null; }
+  function rkMean(a) { return a.length ? a.reduce(function (x, y) { return x + y; }, 0) / a.length : 0; }
+  function rkSd(a) {
+    if (a.length < 2) return 0;
+    var m = rkMean(a);
+    return Math.sqrt(a.reduce(function (s, x) { return s + (x - m) * (x - m); }, 0) / (a.length - 1));
+  }
+  // 線性回歸斜率（趨勢）：x = 0,1,2,…
+  function rkSlope(a) {
+    var n = a.length; if (n < 2) return 0;
+    var mx = (n - 1) / 2, my = rkMean(a), num = 0, den = 0;
+    for (var i = 0; i < n; i++) { num += (i - mx) * (a[i] - my); den += (i - mx) * (i - mx); }
+    return den ? num / den : 0;
+  }
+  function rkSleepHrs(rec) {
+    var m = rkNum(rec.sleepDurationMinutes); if (m != null && m > 0) return m / 60;
+    var h = rkNum(rec.sleepHours); return (h != null && h > 0) ? h : null;
+  }
+  // 內部訓練負荷代理 = 當日訓練時段數 × 疲勞(當作 session-RPE)；非訓練日=0
+  function rkDaySessions(rec) {
+    var slots = [rec.trainingAM, rec.trainingPM, rec.trainingEve], any = false, n = 0;
+    slots.forEach(function (s) {
+      if (s != null && String(s).trim() !== '') { any = true; if (String(s).trim() !== '無訓練') n++; }
+    });
+    if (!any) return rec.sessionType === 'rest' ? 0 : 1;   // 沒填時段：用是否訓練日推估
+    return n;
+  }
+  function rkDayLoad(rec) {
+    var sessions = rkDaySessions(rec); if (sessions === 0) return 0;
+    var rpe = rkNum(rec.fatigue); if (rpe == null || rpe <= 0) rpe = 5;   // 疲勞缺值給中位
+    return sessions * rpe;
+  }
+  function rkDateStr(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  // 主引擎：records = 該選手紀錄（新到舊或舊到新皆可），回傳風險物件或 null（資料太少）
+  function riskEngine(records) {
+    var recs = (records || []).filter(function (r) { return r && r.date; })
+      .slice().sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); });
+    if (recs.length < 3) return { insufficient: true, days: recs.length };
+
+    // 以「最後一筆日期」為今天，往回 28 天建立每日負荷（沒紀錄的日子＝休息=0）
+    var byDate = {}; recs.forEach(function (r) { byDate[String(r.date)] = r; });
+    var today = new Date(String(recs[recs.length - 1].date) + 'T00:00:00');
+    var loads = [];                       // index 0 = 27天前 … 27 = 今天
+    for (var i = 27; i >= 0; i--) {
+      var d = new Date(today.getTime()); d.setDate(d.getDate() - i);
+      var r = byDate[rkDateStr(d)];
+      loads.push(r ? rkDayLoad(r) : 0);
+    }
+    var last7 = loads.slice(-7), last28 = loads;
+    var acute = rkMean(last7), chronic = rkMean(last28);
+    var acwr = chronic > 0 ? acute / chronic : null;
+    // Foster monotony/strain（用近 7 日有訓練的負荷，避免休息日把 SD 灌大）
+    var sd7 = rkSd(last7), monotony = sd7 > 0 ? acute / sd7 : (acute > 0 ? 2.5 : 0);
+    var strain = last7.reduce(function (x, y) { return x + y; }, 0) * monotony;
+
+    // 睡眠（近 7 個有填的日子）
+    var sleepArr = recs.slice(-7).map(rkSleepHrs).filter(function (x) { return x != null; });
+    var avgSleep = sleepArr.length ? rkMean(sleepArr) : null;
+    var lowSleepDays = sleepArr.filter(function (h) { return h < 7; }).length;
+
+    // 疼痛趨勢（近 7 筆）
+    var painArr = recs.slice(-7).map(function (r) { return rkNum(r.painScore) || 0; });
+    var curPain = painArr.length ? painArr[painArr.length - 1] : 0;
+    var painSlope = rkSlope(painArr);
+    var latest = recs[recs.length - 1];
+    var injuryReported = latest.injuryAreas && latest.injuryAreas !== '無受傷';
+
+    // 個人化基線異常偵測：用這位選手自己的 totalScore 均值/標準差算 z 分數
+    var scoreSeries = recs.map(function (r) { return rkNum(r.totalScore); }).filter(function (x) { return x != null && x > 0; });
+    var baseMean = scoreSeries.length ? rkMean(scoreSeries) : null;
+    var baseSd = scoreSeries.length >= 3 ? rkSd(scoreSeries) : 0;
+    var curScore = scoreSeries.length ? scoreSeries[scoreSeries.length - 1] : null;
+    var scoreZ = (baseSd > 0 && curScore != null) ? (curScore - baseMean) / baseSd : 0;
+
+    // ---- 風險合成 0–100，每條都附可解釋原因 ----
+    var risk = 0, reasons = [];
+    if (acwr != null) {
+      if (acwr > 1.5) { risk += 35; reasons.push({ w: 35, t: '急慢性負荷比 ' + acwr.toFixed(2) + '（>1.5 高受傷風險區）— 近期訓練量相對暴增' }); }
+      else if (acwr > 1.3) { risk += 20; reasons.push({ w: 20, t: '急慢性負荷比 ' + acwr.toFixed(2) + '（1.3–1.5 偏高，留意加量速度）' }); }
+      else if (acwr < 0.8 && chronic > 0) { risk += 10; reasons.push({ w: 10, t: '急慢性負荷比 ' + acwr.toFixed(2) + '（<0.8 訓練量偏低，體能與抗傷能力可能流失）' }); }
+    }
+    if (monotony >= 4) { risk += 20; reasons.push({ w: 20, t: '訓練單調度 ' + monotony.toFixed(1) + '（≥4 過高）— 每天都差不多、缺乏輕重變化，過度訓練風險升高' }); }
+    else if (monotony >= 3) { risk += 10; reasons.push({ w: 10, t: '訓練單調度 ' + monotony.toFixed(1) + '（偏高，建議安排明顯的輕／重日交替）' }); }
+    if (avgSleep != null) {
+      if (avgSleep < 6) { risk += 22; reasons.push({ w: 22, t: '近 7 天平均睡眠 ' + avgSleep.toFixed(1) + ' 小時（<6，恢復嚴重不足）' }); }
+      else if (avgSleep < 7) { risk += 11; reasons.push({ w: 11, t: '近 7 天平均睡眠 ' + avgSleep.toFixed(1) + ' 小時（<7，恢復偏不足）' }); }
+    }
+    if (lowSleepDays >= 3) { risk += 8; reasons.push({ w: 8, t: '近 7 天有 ' + lowSleepDays + ' 天睡眠不足 7 小時，睡眠債累積' }); }
+    if (curPain >= 7) { risk += 32; reasons.push({ w: 32, t: '目前疼痛 ' + curPain + '/10（高，靜止時可能也痛，不建議專項訓練）' }); }
+    else if (curPain >= 4) { risk += 20; reasons.push({ w: 20, t: '目前疼痛 ' + curPain + '/10（中度，動作出力受影響）' }); }
+    if (painSlope >= 0.5 && curPain > 0) { risk += 10; reasons.push({ w: 10, t: '疼痛近期呈上升趨勢（每次回報平均 +' + painSlope.toFixed(1) + '）— 可能是累積性傷害前兆' }); }
+    if (injuryReported) { risk += 8; reasons.push({ w: 8, t: '最近一次回報有不適部位：' + latest.injuryAreas }); }
+    if (scoreZ <= -1.5) { risk += 12; reasons.push({ w: 12, t: '個人化基線異常：目前狀態明顯低於這位選手平時水準（z=' + scoreZ.toFixed(1) + '）' }); }
+    else if (scoreZ <= -1) { risk += 7; reasons.push({ w: 7, t: '個人化基線：目前狀態略低於平時水準（z=' + scoreZ.toFixed(1) + '）' }); }
+
+    // 安全底線：急性高疼痛或新報傷一律至少紅燈（傷害預防寧可過度警覺，不可漏接）
+    if (curPain >= 7) risk = Math.max(risk, 65);
+    else if (curPain >= 4 && injuryReported) risk = Math.max(risk, 60);
+    risk = Math.max(0, Math.min(100, Math.round(risk)));
+    reasons.sort(function (a, b) { return b.w - a.w; });
+    var light = risk >= 60 ? 'red' : (risk >= 35 ? 'yellow' : 'green');
+
+    // 主因 → 對應的可執行建議
+    var action;
+    if (curPain >= 4 || injuryReported) action = '優先處理疼痛/不適部位：今天降載或改恢復性訓練，必要時就醫評估後再恢復強度。';
+    else if (acwr != null && acwr > 1.5) action = '近期加量太快：未來幾天先把訓練量拉回（約降 10–20%），用 1–2 天輕鬆日讓身體追上。';
+    else if (monotony >= 3) action = '課表太單調：安排明顯的輕／重日交替，給身體高低起伏才能適應。';
+    else if (avgSleep != null && avgSleep < 7) action = '恢復不足的根源是睡眠：本週把睡眠拉到平均 7 小時以上，比加練更有效。';
+    else if (light === 'green') action = '各項指標在安全區，維持目前節奏即可，繼續穩定累積。';
+    else action = '多項指標輕微偏高，本週安排一次完整恢復、留意睡眠與訓練量平衡。';
+
+    return {
+      risk: risk, light: light,
+      acwr: acwr, monotony: monotony, strain: strain,
+      avgSleep: avgSleep, curPain: curPain, painSlope: painSlope,
+      scoreZ: scoreZ, days: recs.length, reasons: reasons, action: action
+    };
+  }
+
+  function renderRiskForecast(records) {
+    var box = $('#riskForecast'); if (!box) return;
+    var rk = riskEngine(records);
+    if (!rk || rk.insufficient) {
+      box.innerHTML = '<div style="border:1px solid var(--line);border-radius:12px;padding:12px;font-size:13px;color:var(--muted);">' +
+        '🔮 <b>AI 傷害風險預測</b>：目前只有 ' + ((rk && rk.days) || 0) + ' 天紀錄，至少累積 3 天才能建立基線並預測。再填幾天就會出現。</div>';
+      return;
+    }
+    var label = rk.light === 'red' ? '偏高' : (rk.light === 'yellow' ? '需留意' : '安全');
+    var color = rk.light === 'red' ? 'var(--red)' : (rk.light === 'yellow' ? 'var(--yellow)' : 'var(--green)');
+    var chips = [];
+    if (rk.acwr != null) chips.push('急慢性負荷比 ' + rk.acwr.toFixed(2));
+    chips.push('單調度 ' + rk.monotony.toFixed(1));
+    if (rk.avgSleep != null) chips.push('睡眠 ' + rk.avgSleep.toFixed(1) + 'h');
+    if (rk.curPain > 0) chips.push('疼痛 ' + rk.curPain + '/10');
+    var reasonHtml = rk.reasons.length
+      ? rk.reasons.slice(0, 4).map(function (x) { return '<li style="margin:2px 0;">' + esc(x.t) + '</li>'; }).join('')
+      : '<li style="margin:2px 0;color:var(--green);">各項指標都在安全區。</li>';
+    box.innerHTML =
+      '<div style="border:1px solid ' + color + ';border-radius:12px;padding:12px;background:rgba(127,127,127,.04);">' +
+        '<div style="display:flex;align-items:center;gap:12px;">' +
+          '<div style="text-align:center;min-width:74px;">' +
+            '<div style="font-size:30px;font-weight:800;line-height:1;color:' + color + ';">' + rk.risk + '</div>' +
+            '<div style="font-size:11px;color:var(--muted);">風險分</div>' +
+          '</div>' +
+          '<div style="flex:1;">' +
+            '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+              '<b style="font-size:14px;">🔮 AI 未來 7 天傷害／過載風險</b>' +
+              '<span class="pill ' + rk.light + '">' + esc(label) + '</span></div>' +
+            '<div style="height:7px;background:var(--panel-2);border-radius:999px;margin:7px 0;overflow:hidden;">' +
+              '<div style="height:100%;width:' + rk.risk + '%;background:' + color + ';"></div></div>' +
+            '<div style="font-size:11px;color:var(--muted);">' + esc(chips.join('　·　')) + '　·　基於 ' + rk.days + ' 天個人化基線</div>' +
+          '</div>' +
+        '</div>' +
+        '<ul style="margin:10px 0 0;padding-left:18px;font-size:12.5px;line-height:1.5;">' + reasonHtml + '</ul>' +
+        '<div style="margin-top:8px;font-size:13px;background:rgba(56,189,248,.1);border-radius:8px;padding:8px 10px;">' +
+          '<b>建議行動：</b>' + esc(rk.action) + '</div>' +
+        '<div style="margin-top:6px;font-size:11px;color:var(--muted);">方法：ACWR 急慢性負荷比（Gabbett）＋ 訓練單調度／張力（Foster）＋ 個人化基線異常偵測。供訓練決策參考，非醫療診斷。</div>' +
+      '</div>';
+  }
+
   /* ---- AI 成長目標：規則引擎（成長導向、單一可量化週目標、零 API） ---- */
   function gcSleepHrs(rec) {
     if (rec.sleepDurationMinutes) return Number(rec.sleepDurationMinutes) / 60;
@@ -2537,18 +2709,25 @@
   }
 
   async function openFeedback(athleteId, name, recordId) {
-    if (DEMO) { demoBlock(); return; }
     fbCtx = { recordId: recordId || '', record: null, records: [], coachObs: '' };
     $('#fbTitle').textContent = '回饋給 ' + name;
     $('#fbMeta').textContent = '—…';
-    $('#fbDetail').innerHTML = ''; $('#fbText').value = ''; $('#goalCoachOut').innerHTML = ''; setCoachObs('');
+    $('#fbDetail').innerHTML = ''; $('#fbText').value = ''; $('#goalCoachOut').innerHTML = ''; $('#riskForecast').innerHTML = ''; setCoachObs('');
     $('#fbModal').classList.remove('hidden');
-    // 取該選手紀錄，找到這筆（或最新）
-    var r = await TP.callAuth('athleteRecords', { athleteId: athleteId, limit: 30 });
-    var rec = null;
-    if (r.ok && r.records.length) rec = recordId ? (r.records.filter(function (x) { return x.recordId === recordId; })[0] || r.records[0]) : r.records[0];
-    if (!rec) { $('#fbMeta').textContent = '查無紀錄'; return; }
-    fbCtx.record = rec; fbCtx.recordId = rec.recordId || recordId; fbCtx.records = (r.records || []);
+    // 取該選手紀錄；示範模式用合成的 28 天歷史展示 AI 風險預測（送出時才提示註冊）
+    var rec = null, recList = [];
+    if (DEMO) {
+      var ds = DEMO_DATA.warroom.submitted.filter(function (x) { return x.athleteId === athleteId; })[0] || { athleteId: athleteId, name: name, totalScore: 3.8 };
+      recList = demoRecordsFor(ds);
+      rec = recList[recList.length - 1];
+    } else {
+      var r = await TP.callAuth('athleteRecords', { athleteId: athleteId, limit: 30 });
+      if (r.ok && r.records.length) rec = recordId ? (r.records.filter(function (x) { return x.recordId === recordId; })[0] || r.records[0]) : r.records[0];
+      if (!rec) { $('#fbMeta').textContent = '查無紀錄'; return; }
+      recList = r.records || [];
+    }
+    fbCtx.record = rec; fbCtx.recordId = rec.recordId || recordId; fbCtx.records = recList;
+    renderRiskForecast(fbCtx.records);
     setCoachObs(rec.coachObservation || '');
     var light = rec.status || TP.lightOf(rec.totalScore);
     $('#fbMeta').innerHTML = esc(rec.date) + (Number(rec.totalScore) > 0 ? '　最近狀態 <b>' + Number(rec.totalScore).toFixed(1) + '</b>' : '　今日輕量回報') + ' <span class="pill ' + light + '">' + TP.lightText(light) + '</span>';
@@ -2606,6 +2785,7 @@
   $('#fbClose').onclick = function () { $('#fbModal').classList.add('hidden'); };
   $('#fbModal').onclick = function (e) { if (e.target === $('#fbModal')) $('#fbModal').classList.add('hidden'); };
   $('#fbSend').onclick = async function () {
+    if (DEMO) { demoBlock(); return; }
     if (!fbCtx.recordId) { toast('找不到紀錄 id（可能是舊資料）', true); return; }
     var btn = this; btn.disabled = true;
     var r = await TP.callAuth('coachFeedback', { recordId: fbCtx.recordId, feedback: $('#fbText').value.trim(), coachObservation: fbCtx.coachObs || '' });
@@ -2739,6 +2919,55 @@
      示範模式（demo=1）：免註冊、唯讀、塞範例資料
      ============================================================ */
   function demoBlock() { toast('這是示範模式，免費註冊後即可實際操作 🙂'); }
+
+  /* Demo 用：替每位示範選手合成 28 天訓練歷史，讓 AI 傷害風險預測在示範模式也能完整展示。
+     劇本對應戰情室既有情境：d8 急性踝傷、d3/d12 過度訓練、d13 睡眠債、d2 中度疼痛。 */
+  var DEMO_RISK_STORY = { d8: 'injury', d3: 'overload', d12: 'overload', d13: 'sleep', d2: 'pain' };
+  function dr1(n) { return Math.round(n * 10) / 10; }
+  function demoRecordsFor(s) {
+    s = s || {};
+    var story = DEMO_RISK_STORY[s.athleteId] || 'stable';
+    var todayScore = Number(s.totalScore) || 3.8, out = [], base = new Date();
+    for (var i = 27; i >= 0; i--) {
+      var d = new Date(base.getTime()); d.setDate(d.getDate() - i);
+      var ds = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      var rest = d.getDay() === 0, ago = i;
+      var rec = {
+        date: ds, sessionType: rest ? 'rest' : 'training',
+        trainingAM: rest ? '無訓練' : '晨操', trainingPM: rest ? '無訓練' : '專項', trainingEve: '',
+        fatigue: rest ? 3 : 5, sleepDurationMinutes: 450, painScore: 0, injuryAreas: '無受傷',
+        totalScore: dr1(todayScore + Math.sin(i) * 0.15)
+      };
+      if (story === 'injury') {
+        var ramp = [8, 6, 4, 3, 2];
+        if (ago <= 4) rec.painScore = ramp[ago];
+        if (ago <= 1) rec.injuryAreas = '腳踝';
+        if (ago <= 2) rec.sleepDurationMinutes = 300;
+        if (ago <= 4) rec.totalScore = dr1(3.4 - (4 - ago) * 0.15);
+      } else if (story === 'overload') {
+        if (ago <= 7 && !rest) { rec.trainingEve = '實戰'; rec.fatigue = 9; rec.sleepDurationMinutes = 330; }
+        if (ago <= 7) rec.totalScore = dr1(4.0 - (7 - ago) * 0.06);
+      } else if (story === 'sleep') {
+        rec.sleepDurationMinutes = rest ? 380 : 315;
+        // 前期維持平時水準、近 7 天明顯下滑 → 製造「低於自己基線」的個人化異常
+        rec.totalScore = ago > 6 ? dr1(3.5 + Math.sin(i) * 0.1) : dr1(3.3 - (6 - ago) * 0.13);
+      } else if (story === 'pain') {
+        if (ago <= 3) rec.painScore = 5;
+        if (ago === 0) rec.injuryAreas = '右膝';
+      }
+      out.push(rec);
+    }
+    // 最後一天對齊戰情室今日快照（疼痛/睡眠/分數），讓 demo 前後一致
+    var last = out[out.length - 1];
+    if (s.painScore != null && s.painScore !== '') last.painScore = Number(s.painScore);
+    if (s.painAreas) { last.painAreas = s.painAreas; if (Number(last.painScore) > 0) last.injuryAreas = s.painAreas; }
+    if (Number(s.sleepDurationMinutes) > 0) last.sleepDurationMinutes = Number(s.sleepDurationMinutes);
+    if (s.sleepDurationText) last.sleepDurationText = s.sleepDurationText;
+    last.totalScore = todayScore;
+    last.status = s.status || TP.lightOf(todayScore);
+    last.recordId = 'demo-' + (s.athleteId || 'x');
+    return out;
+  }
 
   var DEMO_DATA = {
     coach: { name: '示範教練', email: 'demo', plan: 'pro', effectivePlan: 'pro',
