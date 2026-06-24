@@ -83,15 +83,36 @@
   <!-- Step 0：選身分 -->
   <div id="step-who" class="step card">
     <h2 style="margin-top:0;">我是哪一位？</h2>
-    <p class="muted">選擇你的名字開始今天的回報。</p>
-    <label>選手</label>
-    <select id="whoSelect"></select>
-    <div class="consent">
-      <input type="checkbox" id="consent">
-      <label for="consent" style="margin:0;">我同意填寫並由教練查看我的訓練與身體狀態資料（未滿 18 歲已取得家長同意）。</label>
+
+    <!-- 回頭客：這支手機記得上次的身分，直接確認本人，避免回報到別人的紀錄 -->
+    <div id="whoWelcome" class="hidden">
+      <p class="muted" style="margin-top:0;">確認是你本人後再開始，避免回報到別人的紀錄。</p>
+      <div style="background:rgba(34,197,94,.1);border:1px solid var(--brand);border-radius:12px;padding:18px;text-align:center;margin-bottom:14px;">
+        <div style="font-size:14px;color:var(--muted);">👋 歡迎回來</div>
+        <div id="whoWelcomeName" style="font-size:26px;font-weight:800;margin-top:4px;">—</div>
+      </div>
+      <div class="consent">
+        <input type="checkbox" id="consentW">
+        <label for="consentW" style="margin:0;">我同意填寫並由教練查看我的訓練與身體狀態資料（未滿 18 歲已取得家長同意）。</label>
+      </div>
+      <button class="btn btn-primary btn-block" id="whoWelcomeGo" style="margin-top:14px;">✅ 這就是我，開始填寫 →</button>
+      <button class="btn btn-block" id="whoWelcomePerf" style="margin-top:8px;">📈 看我的近期表現</button>
+      <button class="btn btn-block" id="whoSwitch" style="margin-top:8px;color:var(--muted);">不是我，換一位 ↺</button>
     </div>
-    <button class="btn btn-primary btn-block" id="whoNext" style="margin-top:14px;">開始填寫 →</button>
-    <button class="btn btn-block" id="whoPerf" style="margin-top:8px;">📈 看我的近期表現</button>
+
+    <!-- 第一次 / 換人：從名單選一次，選完這支手機就會記住 -->
+    <div id="whoPicker">
+      <p class="muted">選擇你的名字開始今天的回報。<span style="color:var(--brand);">選好後這支手機會記住你，下次打開直接是你，不用再選。</span></p>
+      <label>選手</label>
+      <select id="whoSelect"></select>
+      <div class="consent">
+        <input type="checkbox" id="consent">
+        <label for="consent" style="margin:0;">我同意填寫並由教練查看我的訓練與身體狀態資料（未滿 18 歲已取得家長同意）。</label>
+      </div>
+      <button class="btn btn-primary btn-block" id="whoNext" style="margin-top:14px;">開始填寫 →</button>
+      <button class="btn btn-block" id="whoPerf" style="margin-top:8px;">📈 看我的近期表現</button>
+    </div>
+
     <p class="muted" style="font-size:12px;text-align:center;margin:12px 0 0;"><a href="privacy.html" target="_blank" rel="noopener">隱私權與資料使用說明</a></p>
   </div>
 
@@ -321,7 +342,41 @@
       : '<option value="">（教練尚未建立選手）</option>';
     buildKpi();
     initExtras();
+    applyRememberedWho();
     show('who');
+  }
+
+  /* ---------- 記住這支手機的身分（避免回報到別人的紀錄） ---------- */
+  function rememberKey() { return 'tp_who_' + shareToken; }
+  function saveWho(id, name) {
+    try { localStorage.setItem(rememberKey(), JSON.stringify({ id: id, name: name })); } catch (e) {}
+  }
+  function loadWho() {
+    try { return JSON.parse(localStorage.getItem(rememberKey()) || 'null'); } catch (e) { return null; }
+  }
+  function clearWho() { try { localStorage.removeItem(rememberKey()); } catch (e) {} }
+
+  // 開頁時：若這支手機記得上次身分，且該選手仍在隊上，就顯示「歡迎回來」確認卡；否則顯示名單
+  function applyRememberedWho() {
+    var saved = loadWho();
+    var match = saved && ctx.athletes.filter(function (a) { return a.athleteId === saved.id; })[0];
+    if (match) {
+      $('#whoSelect').value = match.athleteId;   // 讓既有的近期表現流程也能沿用
+      $('#whoWelcomeName').textContent = match.name;
+      $('#whoWelcome').classList.remove('hidden');
+      $('#whoPicker').classList.add('hidden');
+    } else {
+      if (saved) clearWho();   // 記錄到已不存在的選手（例如已被移除）→ 清掉
+      $('#whoWelcome').classList.add('hidden');
+      $('#whoPicker').classList.remove('hidden');
+    }
+  }
+
+  // 切換成由名單重選（共用平板或記錯人時）
+  function switchWho() {
+    clearWho();
+    $('#whoWelcome').classList.add('hidden');
+    $('#whoPicker').classList.remove('hidden');
   }
 
   function showError(msg) {
@@ -633,12 +688,10 @@
   }
 
   /* ---------- 選身分 ---------- */
-  $('#whoNext').onclick = async function () {
-    var id = $('#whoSelect').value;
-    if (!id) { toast('請選擇選手', true); return; }
-    if (!$('#consent').checked) { toast('請先勾選同意', true); return; }
+  async function startFill(id, name) {
     ctx.athleteId = id;
-    ctx.name = $('#whoSelect').options[$('#whoSelect').selectedIndex].text;
+    ctx.name = name;
+    saveWho(id, name);   // 記住這支手機的身分，下次直接進入
     // 鼓勵隊友下拉：同隊其他人
     $('#encourageName').innerHTML = '<option value="">—</option>' + ctx.athletes
       .filter(function (a) { return a.athleteId !== id; })
@@ -652,7 +705,26 @@
     TP.call('kpiFormState', { t: shareToken, athleteId: id, date: localToday(), pin: ctx.pin }).then(function (r) {
       ctx.kpiState = r; applyKpiLabels();
     });
+  }
+
+  $('#whoNext').onclick = function () {
+    var id = $('#whoSelect').value;
+    if (!id) { toast('請選擇選手', true); return; }
+    if (!$('#consent').checked) { toast('請先勾選同意', true); return; }
+    startFill(id, $('#whoSelect').options[$('#whoSelect').selectedIndex].text);
   };
+
+  // 回頭客：「這就是我，開始填寫」
+  $('#whoWelcomeGo').onclick = function () {
+    var saved = loadWho();
+    if (!saved) { switchWho(); return; }
+    if (!$('#consentW').checked) { toast('請先勾選同意', true); return; }
+    startFill(saved.id, saved.name);
+  };
+  // 「不是我，換一位」→ 清掉記憶、回到名單
+  $('#whoSwitch').onclick = switchWho;
+  // 歡迎卡的「看我的近期表現」沿用名單版邏輯（whoSelect 已指向本人）
+  $('#whoWelcomePerf').onclick = function () { $('#whoPerf').onclick(); };
 
   // 填表頁上方卡片：專業版→近 7 日折線趨勢圖（PIN 保護）；非專業版→升級解鎖賣點
   function renderLastPerfOnFill() {
