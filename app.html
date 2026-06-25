@@ -665,7 +665,8 @@
       <div id="goalCoachOut" style="margin-top:8px;"></div>
     </div>
     <label style="color:var(--accent);font-weight:700;">🤖 AI 教練助理草稿</label>
-    <p class="muted" style="font-size:12px;margin:0 0 6px;">AI 幫你先寫好回饋草稿（給教練看的重點、給家長看的溫和摘要、給選手看的鼓勵），教練確認後再使用。點任一情境即可生成。</p>
+    <p class="muted" style="font-size:12px;margin:0 0 6px;">AI 幫你先寫好回饋草稿（給教練看的重點、給家長看的溫和摘要、給選手看的鼓勵），教練確認後再使用。下方「真 AI」會依這位選手的實際數據與風險生成；範本情境則是離線即時可用。</p>
+    <button class="btn btn-block" id="aiRealGen" style="margin:0 0 8px;background:rgba(56,189,248,.12);border-color:var(--accent);color:#7dd3fc;font-weight:700;">✨ 用真 AI 生成回饋（Claude）</button>
     <div class="ai-modules" id="aiModules"></div>
     <p class="muted" style="font-size:12px;margin:2px 0 0;">AI 回饋僅供教練撰寫參考，送出前請由教練確認內容，不作為醫療、心理診斷或專業治療建議；提供給家長時會自動套用家長摘要規則。</p>
     <label>給這位選手的回饋 / 建議<span id="aiDraftBadge" class="ai-draft-badge hidden">🤖 AI 草稿・請潤飾後送出</span></label>
@@ -2726,7 +2727,7 @@
       if (!rec) { $('#fbMeta').textContent = '查無紀錄'; return; }
       recList = r.records || [];
     }
-    fbCtx.record = rec; fbCtx.recordId = rec.recordId || recordId; fbCtx.records = recList;
+    fbCtx.record = rec; fbCtx.recordId = rec.recordId || recordId; fbCtx.records = recList; fbCtx.name = name;
     renderRiskForecast(fbCtx.records);
     setCoachObs(rec.coachObservation || '');
     var light = rec.status || TP.lightOf(rec.totalScore);
@@ -2784,6 +2785,35 @@
   $('#fbText').addEventListener('input', function () { $('#aiDraftBadge').classList.add('hidden'); });
   $('#fbClose').onclick = function () { $('#fbModal').classList.add('hidden'); };
   $('#fbModal').onclick = function (e) { if (e.target === $('#fbModal')) $('#fbModal').classList.add('hidden'); };
+  // 真 AI 生成（路線 B）：把該選手實際數據＋風險引擎結果交給後端 Claude 生成回饋草稿
+  $('#aiRealGen').onclick = async function () {
+    if (DEMO) { demoBlock(); return; }
+    if (!fbCtx.record) { toast('尚未載入選手資料', true); return; }
+    var btn = this, orig = btn.textContent;
+    btn.disabled = true; btn.textContent = '✨ AI 生成中…';
+    var rec = fbCtx.record, rk = riskEngine(fbCtx.records || []);
+    var payload = {
+      athleteName: fbCtx.name || '這位選手',
+      record: {
+        date: rec.date, totalScore: rec.totalScore, fatigue: rec.fatigue,
+        sleep: rec.sleepDurationText || (rec.sleepHours ? rec.sleepHours + ' 小時' : ''),
+        painScore: rec.painScore, painAreas: rec.painAreas || rec.injuryAreas,
+        hydrationRisk: rec.hydrationRisk, trainingNotes: rec.trainingNotes, reflection: rec.reflection
+      },
+      risk: (rk && !rk.insufficient) ? {
+        score: rk.risk, light: rk.light,
+        reasons: rk.reasons.slice(0, 4).map(function (x) { return x.t; }), action: rk.action
+      } : null
+    };
+    var r = await TP.callAuth('aiCoachDraft', payload);
+    btn.disabled = false; btn.textContent = orig;
+    if (!r || !r.ok) { toast((r && r.error) || 'AI 生成失敗，可改用下方範本', true); return; }
+    var t = $('#fbText');
+    t.value = r.draft;
+    t.classList.remove('ai-fade'); void t.offsetWidth; t.classList.add('ai-fade');
+    $('#aiDraftBadge').classList.remove('hidden');
+  };
+
   $('#fbSend').onclick = async function () {
     if (DEMO) { demoBlock(); return; }
     if (!fbCtx.recordId) { toast('找不到紀錄 id（可能是舊資料）', true); return; }
