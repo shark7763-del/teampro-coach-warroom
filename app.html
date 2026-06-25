@@ -342,6 +342,7 @@
       <span class="war-completion"><b id="stCompletion">0%</b> 今日完成率</span>
       <span><b id="stSubmitted">0</b> 已回報 · <b id="stMissing">0</b> 未回報</span>
       <span class="war-lights"><b id="stGreen">0</b> 綠 · <b id="stYellow">0</b> 黃 · <b id="stRed">0</b> 紅</span>
+      <span class="war-risk"><b id="stPain" class="clickable" data-jump="pain">0</b> 疼痛≥4 · <b id="stSleep" class="clickable" data-jump="sleep">0</b> 睡眠不足</span>
     </div>
     <div class="war-kpi-nudge" id="weeklyKpiCard">
       <span class="war-kpi-label">📋 <span id="kpiNudgeTitle">上週狀態整理</span> <b id="weeklyKpiProgress">—</b></span>
@@ -1758,6 +1759,9 @@
     $('#stGreen').textContent = r.lights.green || 0;
     $('#stYellow').textContent = r.lights.yellow || 0;
     $('#stRed').textContent = r.lights.red || 0;
+    var sub = r.submitted || [];
+    $('#stPain').textContent = sub.filter(function (s) { return Number(s.painScore) >= 4; }).length;
+    $('#stSleep').textContent = sub.filter(function (s) { return Number(s.sleepDurationMinutes) > 0 && Number(s.sleepDurationMinutes) < 360; }).length;
     $('#missCount').textContent = '（' + r.missingCount + '）';
     $('#taskRed').textContent = (r.lights.red || 0) ? (r.lights.red + ' 位需要先關心') : '✅ 今天沒有人亮紅燈，全隊狀態穩';
     $('#taskMissing').textContent = r.missingCount ? (r.missingCount + ' 位尚未完成') : '今天全員已完成';
@@ -1847,6 +1851,10 @@
       TP.$all('[data-risk-filter]', $('#riskFilters')).forEach(function (x) { x.classList.toggle('active', x === b); });
       if (lastWar) renderWarroomLists(lastWar);
     };
+  });
+  // 首頁儀表數字（疼痛/睡眠）點了直接套用對應篩選
+  TP.$all('.war-risk [data-jump]').forEach(function (b) {
+    b.onclick = function () { var f = TP.$('[data-risk-filter="' + b.dataset.jump + '"]'); if (f) f.click(); };
   });
 
   function renderPriority(selector, list, emptyText) {
