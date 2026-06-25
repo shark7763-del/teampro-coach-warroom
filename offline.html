@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>目前離線｜TeamPro</title>
+<meta name="theme-color" content="#22c55e">
+<style>
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+    background:#0f1115; color:#e8edf4; font-family:-apple-system,"Noto Sans TC",Arial,sans-serif; padding:24px; }
+  .box { text-align:center; max-width:340px; }
+  .logo { width:88px; height:88px; border-radius:22px; margin:0 auto 18px; display:block; }
+  h1 { font-size:22px; margin:0 0 8px; }
+  p { color:#9aa6b2; line-height:1.6; margin:0 0 22px; }
+  button { background:#22c55e; color:#04140a; border:0; border-radius:12px; padding:13px 22px; font-size:16px; font-weight:700; cursor:pointer; }
+  .tip { margin-top:18px; font-size:13px; color:#6b7785; }
+</style>
+</head>
+<body>
+  <div class="box">
+    <img class="logo" src="/icons/icon-192.png" alt="TeamPro">
+    <h1>目前無法連線</h1>
+    <p>看起來你現在離線了。連回網路後，戰情室、點名與回報都會恢復正常。</p>
+    <button onclick="location.reload()">重新連線</button>
+    <div class="tip">已開啟的頁面在離線時仍可瀏覽部分內容；送出資料需要連線。</div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "name": "TeamPro 教練戰情室",
+  "short_name": "TeamPro",
+  "description": "競技教練的每日戰情室：出缺勤、訓練狀態、疲勞傷勢、AI 風險預測與成果報告，3 分鐘掌握全隊。",
+  "lang": "zh-Hant",
+  "dir": "ltr",
+  "start_url": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "background_color": "#0f1115",
+  "theme_color": "#22c55e",
+  "categories": ["sports", "productivity", "health"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "快速點名", "short_name": "點名", "url": "/app?tab=attendance" },
+    { "name": "今日戰情室", "short_name": "戰情室", "url": "/app?tab=home" }
+  ]
+}
