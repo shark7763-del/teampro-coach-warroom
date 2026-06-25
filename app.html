@@ -87,6 +87,26 @@
   .sample-report .light.red { background:#fee2e2; color:#b91c1c; }
   @media (max-width:760px) { .today-steps,.trial-stats { grid-template-columns:1fr; } }
   @media (max-width:760px) { .plan-insight-grid,.plan-feats,.onboard-grid,.sample-report .score-row { grid-template-columns:1fr; } }
+  /* 手機底部 5 分頁（更像 App） */
+  .mobile-tabbar { display:none; }
+  @media (max-width:760px) {
+    .tabs { display:none !important; }
+    body { padding-bottom: calc(66px + env(safe-area-inset-bottom)); }
+    .mobile-tabbar {
+      display:flex; position:fixed; left:0; right:0; bottom:0; z-index:9000;
+      background:var(--panel); border-top:1px solid var(--line);
+      padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+      box-shadow:0 -6px 20px rgba(0,0,0,.35);
+    }
+    .mobile-tabbar button {
+      flex:1; background:none; border:0; color:var(--muted); cursor:pointer;
+      display:flex; flex-direction:column; align-items:center; gap:3px; font-size:11px; padding:4px 0; line-height:1;
+      transition:color .15s;
+    }
+    .mobile-tabbar button .ic { font-size:21px; line-height:1; }
+    .mobile-tabbar button.active { color:var(--brand); }
+    .mobile-tabbar button:active { transform:scale(.92); }
+  }
 
   /* ===== 成果報告（淺色，印出好看、省墨）===== */
   .report-doc { position:relative; background-color:#fff; color:#1a2230; border-radius:14px; padding:28px; max-width:820px; margin:0 auto;
@@ -705,6 +725,14 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<nav class="mobile-tabbar" id="mobileTabbar">
+  <button data-tab="warroom"><span class="ic">🏠</span>首頁</button>
+  <button data-tab="attendance"><span class="ic">✅</span>點名</button>
+  <button data-tab="athletes"><span class="ic">🏃</span>選手</button>
+  <button data-tab="report"><span class="ic">📊</span>報告</button>
+  <button data-tab="__more"><span class="ic">☰</span>更多</button>
+</nav>
+
 <script src="api.js"></script>
 <script>
 (function () {
@@ -1164,6 +1192,37 @@
     });
     if (tab === 'settings' && !DEMO) loadPrivacyRequests();
     if (tab === 'attendance') loadAttendance();
+    syncMobileTabbar(tab);
+  }
+
+  /* ---------- 手機底部 5 分頁 ---------- */
+  function syncMobileTabbar(tab) {
+    TP.$all('#mobileTabbar button').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.tab === tab);
+    });
+  }
+  TP.$all('#mobileTabbar button').forEach(function (b) {
+    b.onclick = function () {
+      var t = b.dataset.tab;
+      if (t === '__more') { showMoreSheet(); return; }
+      switchTab(t);
+    };
+  });
+  function showMoreSheet() {
+    var items = [['teams', '👥 團隊與連結']];
+    if (!isAssistantMode()) items.push(['settings', '⚙️ 設定 / 方案 / 個資請求']);
+    var ov = TP.el('div', { class: 'modal-overlay' },
+      '<div class="modal-box card" style="max-width:420px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;"><h3 style="margin:0;">更多</h3>' +
+        '<button class="btn btn-sm btn-ghost" id="moreClose">✕</button></div>' +
+        items.map(function (it) { return '<button class="btn btn-block" style="margin-top:10px;text-align:left;" data-more="' + it[0] + '">' + it[1] + '</button>'; }).join('') +
+      '</div>');
+    document.body.appendChild(ov);
+    ov.onclick = function (e) { if (e.target === ov) ov.remove(); };
+    ov.querySelector('#moreClose').onclick = function () { ov.remove(); };
+    TP.$all('[data-more]', ov).forEach(function (b) {
+      b.onclick = function () { switchTab(b.dataset.more); ov.remove(); };
+    });
   }
 
   function copyFirstTeamLink() {
@@ -1668,15 +1727,22 @@
     var one = '<div class="skel-card"><div class="skel w-40"></div><div class="skel w-90"></div><div class="skel w-70"></div></div>';
     return new Array(n).fill(one).join('');
   }
+  function warroomCacheKey() { return coachLS('warcache_' + ($('#warTeam').value || '') + '_' + ($('#warDate').value || '')); }
   async function loadWarroom() {
     if (DEMO) { renderWarroom(DEMO_DATA.warroom); return; }
-    $('#doneList').innerHTML = skeletonRows(3); $('#missList').innerHTML = '';
+    // 體感加速：先用上次快取「秒開」，背景再抓最新覆蓋
+    var ck = warroomCacheKey(), cached = null;
+    try { cached = JSON.parse(localStorage.getItem(ck) || 'null'); } catch (e) {}
+    if (cached && cached.ok) renderWarroom(cached);
+    else { $('#doneList').innerHTML = skeletonRows(3); $('#missList').innerHTML = ''; }
     var r = await TP.callAuth('warroom', { teamId: $('#warTeam').value, date: $('#warDate').value });
     if (!r.ok) {
+      if (cached && cached.ok) { toast('更新失敗，顯示的是上次資料', true); return; }
       $('#doneList').innerHTML = '<div class="empty-state">載入失敗，可能是網路或連線問題。<div style="margin-top:12px;"><button class="btn btn-sm" id="warRetry">↻ 重新載入</button></div></div>';
       var rt = $('#warRetry'); if (rt) rt.onclick = loadWarroom;
       toast(r.error, true); return;
     }
+    try { localStorage.setItem(ck, JSON.stringify(r)); } catch (e) {}
     renderWarroom(r);
   }
   function renderWarroom(r) {
