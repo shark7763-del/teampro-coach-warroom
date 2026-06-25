@@ -984,7 +984,8 @@
       openUpgradeModal({ reason: reason || 'lineNotify', message: '今日 LINE 通知次數已達上限。' });
       return false;
     }
-    TP.copy(text);
+    if (window.TPNative && TPNative.isNative) { TPNative.share({ title: 'TeamPro 通知', text: text }); }
+    else { TP.copy(text); }
     return true;
   }
   function defaultKpiLabels() { return ['技術執行', '戰術理解', '體能負荷', '心理狀態', '訓練態度', '生理恢復']; }
