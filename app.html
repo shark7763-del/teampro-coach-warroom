@@ -315,7 +315,7 @@
     <div class="today-steps">
       <div class="today-step"><span class="step-no">今天誰要關心</span><b>狀態異常先看他</b><span class="muted" id="taskRed">—</span></div>
       <div class="today-step"><span class="step-no">今天誰還沒回報</span><b>一鍵提醒他補回報</b><span class="muted" id="taskMissing">—</span></div>
-      <div class="today-step"><span class="step-no">今天傳給家長</span><b>系統幫你寫好，一鍵複製</b><button class="btn btn-sm" id="btnParentNotify" style="margin-top:5px;">複製家長通知</button></div>
+      <div class="today-step"><span class="step-no">今天傳給家長</span><b>系統幫你寫好，一鍵複製</b><button class="btn btn-sm" id="btnParentNotify" style="margin-top:5px;">複製家長通知</button><button class="btn btn-sm" id="btnWarLine" style="margin-top:5px;">複製今日回報總結</button></div>
     </div>
     <div class="war-context-bar">
       <select id="warTeam"></select>
@@ -332,6 +332,8 @@
         <button class="btn btn-sm" data-risk-filter="sleep">睡眠 &lt; 6 小時</button>
         <button class="btn btn-sm" data-risk-filter="quality">輕量回報異常</button>
         <button class="btn btn-sm" data-risk-filter="missing">尚未回報</button>
+        <button class="btn btn-sm" data-risk-filter="pending_reply">待教練回覆</button>
+        <button class="btn btn-sm" data-risk-filter="replied">教練已回覆</button>
         <button class="btn btn-sm" data-risk-filter="hydration_red">水分紅燈</button>
         <button class="btn btn-sm" data-risk-filter="urine_dark">尿液深黃色以上</button>
         <button class="btn btn-sm" data-risk-filter="sweat_water">高流汗但喝水不足</button>
@@ -341,6 +343,7 @@
     <div class="war-summary">
       <span class="war-completion"><b id="stCompletion">0%</b> 今日完成率</span>
       <span><b id="stSubmitted">0</b> 已回報 · <b id="stMissing">0</b> 未回報</span>
+      <span><b id="stReplied">0</b> 教練已回覆 · <b id="stPendingReply">0</b> 待教練回覆</span>
       <span class="war-lights"><b id="stGreen">0</b> 綠 · <b id="stYellow">0</b> 黃 · <b id="stRed">0</b> 紅</span>
       <span class="war-risk"><b id="stPain" class="clickable" data-jump="pain">0</b> 疼痛≥4 · <b id="stSleep" class="clickable" data-jump="sleep">0</b> 睡眠不足</span>
     </div>
@@ -350,9 +353,10 @@
     </div>
     <div class="card" style="margin-bottom:16px;">
       <h3 style="margin-top:0;">今日優先處理名單</h3>
-      <div class="grid grid-2">
+      <div class="grid grid-3">
         <div class="priority-card"><h4>🔴 今日需要關心</h4><div class="priority-names" id="priorityRed">—</div></div>
-        <div class="priority-card"><h4>📉 近期需要支持</h4><div class="priority-names" id="priorityDeclining">—</div></div>
+        <div class="priority-card"><h4>🟡 已回報・待教練回覆</h4><div class="priority-names" id="priorityPendingReply">—</div></div>
+        <div class="priority-card"><h4>✅ 今日狀態穩定</h4><div class="priority-names" id="priorityStable">—</div></div>
       </div>
     </div>
     <div class="grid grid-2">
@@ -365,10 +369,13 @@
       </div>
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;">
-          <h3 style="margin:0;">已回報</h3>
-          <span class="muted" style="font-size:13px;">點選選手可寫教練回饋</span>
+          <h3 style="margin:0;">選手已回報</h3>
+          <span class="muted" style="font-size:13px;">依教練處理進度分組</span>
         </div>
-        <div id="doneList" style="margin-top:10px;"></div>
+        <h4 class="reply-group-title">🟡 待教練回覆 <span id="pendingReplyCount" class="muted"></span></h4>
+        <div id="pendingReplyList"></div>
+        <h4 class="reply-group-title">✅ 教練已回覆 <span id="repliedCount" class="muted"></span></h4>
+        <div id="repliedList"></div>
       </div>
     </div>
     <div class="card" id="encourageCard" style="display:none;margin-top:16px;">
@@ -391,12 +398,13 @@
       <div class="att-setup">
         <div><label>隊伍</label><select id="atTeam"></select></div>
         <div><label>日期</label><input id="atDate" type="date"></div>
-        <div><label>課程 / 訓練項目</label><select id="atCourse"></select></div>
+        <div><label>訓練時段</label><select id="atSessionName"></select></div>
+        <div id="atCustomWrap" class="hidden"><label>自訂時段名稱</label><input id="atCustomSession" placeholder="例：暑訓加強"></div>
+        <div><label>開始時間</label><input id="atStartTime" type="time" value="09:30"></div>
+        <div><label>結束時間</label><input id="atEndTime" type="time" value="11:30"></div>
+        <div style="flex:0 0 auto;"><button class="btn" id="atOpenSession">＋新增 / 載入時段</button></div>
       </div>
-      <div class="att-setup">
-        <div style="flex:2;"><label>＋新增課程 / 訓練項目</label><input id="atNewCourse" placeholder="例：晨操、專長訓練、體能課、分組對抗"></div>
-        <div style="flex:0 0 auto;"><button class="btn" id="atAddCourse">＋新增</button></div>
-      </div>
+      <div class="att-session-list"><div class="row"><b>今日已建立時段</b><button class="btn btn-sm" id="atCopyTodayLine">📱 今日全部時段 LINE 回報</button></div><div id="atSessions" class="muted">尚未建立時段。</div></div>
       <div class="att-quickbar">
         <button class="btn btn-sm btn-primary" id="atAllPresent">✅ 全員出席</button>
         <button class="btn btn-sm" id="atAllAbsent">全員缺席</button>
@@ -408,7 +416,7 @@
         <button class="btn btn-sm" id="atViewToggle">🔲 棋盤</button>
       </div>
       <div id="atList"><div class="empty-state">先在上方選擇隊伍，名單就會出現。接著按「✅ 全員出席」，再把少數沒到的改掉就好——10 秒完成。</div></div>
-      <button class="btn btn-primary btn-block" id="atSave" style="margin-top:6px;">💾 儲存點名</button>
+      <button class="btn btn-primary btn-block" id="atSave" style="margin-top:6px;">💾 儲存此時段點名</button>
     </div>
     <div class="card hidden" id="atSummaryCard">
       <h3 style="margin-top:0;">今日點名摘要</h3>
@@ -1737,11 +1745,11 @@
     var ck = warroomCacheKey(), cached = null;
     try { cached = JSON.parse(localStorage.getItem(ck) || 'null'); } catch (e) {}
     if (cached && cached.ok) renderWarroom(cached);
-    else { $('#doneList').innerHTML = skeletonRows(3); $('#missList').innerHTML = ''; }
+    else { $('#pendingReplyList').innerHTML = skeletonRows(2); $('#repliedList').innerHTML = skeletonRows(1); $('#missList').innerHTML = ''; }
     var r = await TP.callAuth('warroom', { teamId: $('#warTeam').value, date: $('#warDate').value });
     if (!r.ok) {
       if (cached && cached.ok) { toast('更新失敗，顯示的是上次資料', true); return; }
-      $('#doneList').innerHTML = '<div class="empty-state">載入失敗，可能是網路或連線問題。<div style="margin-top:12px;"><button class="btn btn-sm" id="warRetry">↻ 重新載入</button></div></div>';
+      $('#pendingReplyList').innerHTML = '<div class="empty-state">載入失敗，可能是網路或連線問題。<div style="margin-top:12px;"><button class="btn btn-sm" id="warRetry">↻ 重新載入</button></div></div>';
       var rt = $('#warRetry'); if (rt) rt.onclick = loadWarroom;
       toast(r.error, true); return;
     }
@@ -1761,6 +1769,14 @@
     $('#stYellow').textContent = r.lights.yellow || 0;
     $('#stRed').textContent = r.lights.red || 0;
     var sub = r.submitted || [];
+    sub.forEach(function (s) {
+      var fb = s.coachFeedback || s.coachComment || s.coachReply || s.feedbackText || s.coachNote || '';
+      s.coachFeedback = fb;
+      s.coachComment = fb;
+      s.coachReplyStatus = String(fb || '').trim() ? 'replied' : (s.coachReplyStatus || 'none');
+    });
+    var replied = sub.filter(function (s) { return s.coachReplyStatus === 'replied'; }), pendingReply = sub.filter(function (s) { return s.coachReplyStatus !== 'replied'; });
+    $('#stReplied').textContent = replied.length; $('#stPendingReply').textContent = pendingReply.length;
     $('#stPain').textContent = sub.filter(function (s) { return Number(s.painScore) >= 4; }).length;
     $('#stSleep').textContent = sub.filter(function (s) { return Number(s.sleepDurationMinutes) > 0 && Number(s.sleepDurationMinutes) < 360; }).length;
     $('#missCount').textContent = '（' + r.missingCount + '）';
@@ -1775,8 +1791,11 @@
       : '尚未開啟 狀態追蹤';
 
     var priority = r.priority || {};
-    renderPriority('#priorityRed', priority.red || r.submitted.filter(function (s) { return s.status === 'red'; }), '✅ 今天沒有人亮紅燈，全隊狀態穩');
-    renderPriority('#priorityDeclining', priority.declining || [], '📈 沒有人連續下滑，維持得不錯');
+    var concern = sub.filter(function (s) { return s.status === 'red' || Number(s.painScore) >= 4 || (Number(s.sleepDurationMinutes) > 0 && Number(s.sleepDurationMinutes) < 360) || Number(s.moodIndex) <= 2 || s.declining; });
+    var stable = sub.filter(function (s) { return s.status === 'green' && Number(s.painScore) < 4 && !(Number(s.sleepDurationMinutes) > 0 && Number(s.sleepDurationMinutes) < 360) && !s.declining; });
+    renderPriority('#priorityRed', concern, '✅ 今天沒有人亮紅燈，全隊狀態穩');
+    renderPriority('#priorityPendingReply', pendingReply, '目前沒有待回覆，教練已全部處理完成');
+    renderPriority('#priorityStable', stable, '沒有人連續下滑，維持得不錯');
 
     renderWarroomLists(r);
 
@@ -1797,6 +1816,8 @@
   function hasHydrationFlag(s, flag) { return String(s.hydrationFlags || '').split(',').indexOf(flag) !== -1; }
   function matchRiskFilter(s, filter) {
     if (filter === 'all') return true;
+    if (filter === 'pending_reply') return s.coachReplyStatus !== 'replied';
+    if (filter === 'replied') return s.coachReplyStatus === 'replied';
     if (filter === 'red') return s.status === 'red';
     if (filter === 'pain') return Number(s.painScore) >= 4;
     if (filter === 'sleep') return Number(s.sleepDurationMinutes) > 0 && Number(s.sleepDurationMinutes) < 360;
@@ -1817,12 +1838,12 @@
       return d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0');
     }
     $('#missList').innerHTML = showMissing && r.missing.length
-      ? r.missing.map(function (m) { return '<div class="row"><span>' + esc(m.name) + '</span><span class="muted">尚未回報</span></div>'; }).join('')
-      : '<div class="empty-state">' + (currentRiskFilter === 'missing' ? '🎉 全隊今天都完成回報了，乾淨俐落。' : '此篩選不含未回報選手。') + '</div>';
+      ? r.missing.map(function (m) { return '<div class="row"><span><b>' + esc(m.name) + '</b><small class="reply-status missing">尚未回報</small></span><button class="btn btn-sm" data-remind-one="' + esc(m.name) + '">複製催繳 LINE</button></div>'; }).join('')
+      : '<div class="empty-state">' + (currentRiskFilter === 'missing' || !r.missing.length ? '✅ 今日全員已完成回報' : '此篩選不含未回報選手。') + '</div>';
     var rows = currentRiskFilter === 'missing' ? [] : r.submitted.filter(function (s) { return matchRiskFilter(s, currentRiskFilter); });
-    $('#doneList').innerHTML = rows.length ? rows.sort(function (a, b) {
-      return (a.status === 'red' ? -2 : a.status === 'yellow' ? -1 : 0) - (b.status === 'red' ? -2 : b.status === 'yellow' ? -1 : 0);
-    }).map(function (s) {
+    function priorityScore(s) { var pending=s.coachReplyStatus !== 'replied', sleep=Number(s.sleepDurationMinutes)>0&&Number(s.sleepDurationMinutes)<360; if (pending && s.status==='red') return 0; if (pending && Number(s.painScore)>=4) return 1; if (pending && sleep) return 2; if (pending && s.status==='yellow') return 3; if (pending) return 4; return 6; }
+    rows.sort(function(a,b){ return priorityScore(a)-priorityScore(b); });
+    function card(s) {
       var l = s.status || TP.lightOf(s.totalScore);
       var sleep = s.sleepDurationText || (s.sleepDurationMinutes ? Math.floor(Number(s.sleepDurationMinutes) / 60) + ' 小時 ' + (Number(s.sleepDurationMinutes) % 60) + ' 分' : '未填');
       var pain = Number(s.painScore || 0) + ' 分' + (s.painAreas ? '（' + s.painAreas + '）' : '');
@@ -1833,17 +1854,23 @@
       var urineTime = submittedAt && (s.urineColor === 'dark' || s.urineColor === 'abnormal')
         ? '<span>回報時間：' + esc(submittedAt) + '</span>'
         : '';
-      return '<div class="athlete-risk-card" data-fb="' + s.athleteId + '" data-rec="' + (s.recordId || '') + '" data-name="' + esc(s.name) + '">' +
-        '<div class="risk-head"><b><span class="dot ' + l + '"></span> ' + esc(s.name) + '</b><span class="pill ' + l + '">' + TP.lightText(l) + (Number(s.totalScore) > 0 ? ' · 最近狀態 ' + Number(s.totalScore).toFixed(1) : '') + '</span></div>' +
-        '<div class="risk-meta"><span>睡眠：' + esc(sleep) + '</span><span>疼痛：' + esc(pain) + '</span><span>資料品質：' + esc(quality) + '</span></div>' +
+      var replied=s.coachReplyStatus === 'replied', feedbackTime=formatSubmittedAt(s.coachFeedbackAt);
+      return '<div class="athlete-risk-card ' + (l === 'red' ? 'reply-critical' : replied ? 'reply-done' : 'reply-pending') + '" data-fb="' + s.athleteId + '" data-rec="' + (s.recordId || '') + '" data-name="' + esc(s.name) + '">' +
+        '<div class="risk-head"><b><span class="dot ' + l + '"></span> ' + esc(s.name) + '</b><span class="reply-status ' + (replied ? 'done' : 'pending') + '">' + (replied ? '✅ 已回覆' : '🟡 待回覆') + '</span></div>' +
+        '<div class="risk-meta"><span class="pill ' + l + '">' + TP.lightText(l) + '</span><span>睡眠：' + esc(sleep) + '</span><span>疼痛：' + esc(pain) + '</span><span>疲勞：' + esc(s.fatigueLevel || s.fatigue || '未填') + '</span><span>心情：' + esc(s.mood || s.moodIndex || '未填') + '</span></div>' +
         '<div class="risk-meta"><span class="pill ' + esc(s.hydrationRisk || 'green') + '">' + esc(hydrationLabel) + '</span>' +
         '<span>喝水：' + esc(waterLabels[s.waterAmount] || '未填') + '</span><span>流汗：' + esc(sweatLabels[s.sweatAmount] || '未填') + '</span><span>尿液：' + esc(urineLabels[s.urineColor] || '未填') + '</span>' + urineTime + '</div>' +
-        (s.reportQualityReasons ? '<div class="muted" style="font-size:12px;margin-top:6px;">需確認：' + esc(s.reportQualityReasons) + '</div>' : '') +
-        '<div class="risk-advice"><b>建議：</b>' + esc(s.coachSuggestion || '依今日狀態安排訓練並持續觀察。') + '</div></div>';
-    }).join('') : '<div class="empty-state">此條件目前沒有選手。</div>';
-    TP.$all('[data-fb]', $('#doneList')).forEach(function (el) {
+        (replied ? '<div class="risk-advice"><b>教練回覆' + (feedbackTime ? '（' + esc(feedbackTime) + '）' : '') + '：</b>' + esc(s.coachFeedback || '') + '</div>' : '<div class="risk-advice"><b>今日重點：</b>' + esc(s.coachSuggestion || s.reportQualityReasons || '依今日狀態安排訓練並持續觀察。') + '</div>') +
+        '<button class="btn btn-sm" style="margin-top:9px;" data-fb="' + s.athleteId + '" data-rec="' + (s.recordId || '') + '" data-name="' + esc(s.name) + '">' + (replied ? '查看 / 修改回饋' : '寫教練回饋') + '</button></div>';
+    }
+    var pending=rows.filter(function(s){return s.coachReplyStatus !== 'replied';}), replied=rows.filter(function(s){return s.coachReplyStatus === 'replied';});
+    $('#pendingReplyCount').textContent='（'+pending.length+'）'; $('#repliedCount').textContent='（'+replied.length+'）';
+    $('#pendingReplyList').innerHTML=pending.length ? pending.map(card).join('') : '<div class="empty-state">目前沒有待回覆，教練已全部處理完成</div>';
+    $('#repliedList').innerHTML=replied.length ? replied.map(card).join('') : '<div class="empty-state">尚未有教練回覆。</div>';
+    TP.$all('[data-fb]', $('#pendingReplyList')).concat(TP.$all('[data-fb]', $('#repliedList'))).forEach(function (el) {
       el.onclick = function () { openFeedback(el.dataset.fb, el.dataset.name, el.dataset.rec); };
     });
+    TP.$all('[data-remind-one]', $('#missList')).forEach(function(b){ b.onclick=function(){ copyLineText('您好，今天尚未收到 '+b.dataset.remindOne+' 的訓練回報，麻煩協助提醒完成，謝謝。'+lineWatermark(), 'lineNotify'); }; });
   }
 
   TP.$all('[data-risk-filter]', $('#riskFilters')).forEach(function (b) {
@@ -1869,6 +1896,16 @@
     if (!lastWar || !lastWar.missing.length) { toast('目前沒有未回報的選手'); return; }
     var names = lastWar.missing.map(function (m) { return m.name; }).join('、');
     var text = '以下選手今日尚未完成回報：' + names + '，請今天訓練前完成填寫，謝謝。' + lineWatermark();
+    copyLineText(text, 'lineNotify');
+  };
+
+  $('#btnWarLine').onclick = function () {
+    if (!lastWar) { toast('請先載入戰情室'); return; }
+    var sub=lastWar.submitted || [], missing=lastWar.missing || [], pending=sub.filter(function(s){return s.coachReplyStatus !== 'replied';}), replied=sub.filter(function(s){return s.coachReplyStatus === 'replied';});
+    var team=(state.teams || []).filter(function(t){return String(t.teamId)===String($('#warTeam').value);})[0] || {};
+    function detail(s){ var l=TP.lightText(s.status || 'green'); var sleep=s.sleepDurationText || (s.sleepDurationMinutes ? (Number(s.sleepDurationMinutes)/60).toFixed(1) : '未填'); return '- '+s.name+'｜'+l+'｜睡眠 '+sleep+'｜疼痛 '+Number(s.painScore || 0); }
+    var concern=sub.filter(function(s){return s.status==='red'||Number(s.painScore)>=4||(Number(s.sleepDurationMinutes)>0&&Number(s.sleepDurationMinutes)<360)||Number(s.moodIndex)<=2||s.declining;});
+    var text='【TeamPro 今日回報總結】\n日期：'+$('#warDate').value+'\n隊伍：'+(team.teamName || '')+'\n\n今日完成率：'+(lastWar.completionRate||0)+'%\n已回報：'+sub.length+' 人\n未回報：'+missing.length+' 人\n\n教練已回覆：'+replied.length+' 人\n待教練回覆：'+pending.length+' 人\n\n綠燈：'+(lastWar.lights.green||0)+' 人\n黃燈：'+(lastWar.lights.yellow||0)+' 人\n紅燈：'+(lastWar.lights.red||0)+' 人\n\n尚未回報：\n'+(missing.length?missing.map(function(m){return '- '+m.name;}).join('\n'):'（無）')+'\n\n待教練回覆：\n'+(pending.length?pending.map(detail).join('\n'):'（無）')+'\n\n今日需要關心：\n'+(concern.length?concern.map(detail).join('\n'):'今天沒有人亮紅燈，全隊狀態穩。')+lineWatermark();
     copyLineText(text, 'lineNotify');
   };
 
@@ -2905,7 +2942,7 @@
     var btn = this; btn.disabled = true;
     var r = await TP.callAuth('coachFeedback', { recordId: fbCtx.recordId, feedback: $('#fbText').value.trim(), coachObservation: fbCtx.coachObs || '' });
     btn.disabled = false;
-    if (r.ok) { toast('已送出回饋'); $('#fbModal').classList.add('hidden'); }
+    if (r.ok) { toast('已送出回饋'); $('#fbModal').classList.add('hidden'); localStorage.removeItem(warroomCacheKey()); await loadWarroom(); }
     else { toast(r.error, true); }
   };
 
@@ -3113,10 +3150,10 @@
       total: 15, submittedCount: 11, missingCount: 4, completionRate: 73,
       lights: { green: 5, yellow: 4, red: 2 },
       submitted: [
-        { athleteId: 'd1', name: '陳柏宇', totalScore: 4.7, status: 'green', sleepDurationMinutes:460, sleepDurationText:'7 小時 40 分', sleepRisk:'green', painScore:0, painRisk:'green', waterAmount:'enough', sweatAmount:'normal', urineColor:'pale_yellow', hydrationRisk:'green', reportQualityScore:92, reportQualityLabel:'正常', coachSuggestion:'今日狀態穩定，可依原定計畫訓練並持續觀察。' },
+        { athleteId: 'd1', name: '陳柏宇', totalScore: 4.7, status: 'green', sleepDurationMinutes:460, sleepDurationText:'7 小時 40 分', sleepRisk:'green', painScore:0, painRisk:'green', waterAmount:'enough', sweatAmount:'normal', urineColor:'pale_yellow', hydrationRisk:'green', reportQualityScore:92, reportQualityLabel:'正常', coachSuggestion:'今日狀態穩定，可依原定計畫訓練並持續觀察。', coachFeedback:'狀態穩定，維持原定訓練節奏。', coachFeedbackAt:localToday()+'T08:20:00', coachReplyStatus:'replied' },
         { athleteId: 'd2', name: '林冠廷', totalScore: 4.5, status: 'yellow', sleepDurationMinutes:380, sleepDurationText:'6 小時 20 分', sleepRisk:'yellow', painAreas:'右膝', painScore:5, painRisk:'yellow', waterAmount:'normal', sweatAmount:'high', urineColor:'dark', hydrationRisk:'yellow', hydrationFlags:'dark_urine,high_sweat_low_water', hydrationAdvice:'今日訓練前後加強補水。', reportQualityScore:88, reportQualityLabel:'正常', coachSuggestion:'今日降低高衝擊與疼痛部位負荷，訓練中持續觀察。' },
         { athleteId: 'd7', name: '王思妤', totalScore: 4.4, status: 'green' },
-        { athleteId: 'd9', name: '周子晴', totalScore: 4.3, status: 'green' },
+        { athleteId: 'd9', name: '周子晴', totalScore: 4.3, status: 'green', coachFeedback:'回報完整，明天持續觀察睡眠。', coachFeedbackAt:localToday()+'T08:35:00', coachReplyStatus:'replied' },
         { athleteId: 'd10', name: '許哲維', totalScore: 4.2, status: 'green' },
         { athleteId: 'd11', name: '郭庭瑄', totalScore: 4.0, status: 'green' },
         { athleteId: 'd3', name: '黃于軒', totalScore: 3.7, status: 'yellow', declining: true },
@@ -3213,19 +3250,12 @@
   /* ========================================================
      📋 快速點名中心（點名存後端同步；課程清單存本機；與戰情室互通）
      ======================================================== */
-  var ATT_LIST = [['present', '出席'], ['late', '遲到'], ['leave', '請假'], ['absent', '缺席'], ['early_leave', '早退'], ['injured_watch', '受傷旁觀'], ['adjust_training', '其他']];
-  var ATT_S7 = { present: '✅', late: '🟡', leave: '📝', absent: '❌', injured_watch: '🩹', early_leave: '↩️', adjust_training: '🔧' };
-  var ATT_DEFAULT_COURSES = ['晨操', '專長訓練', '體能訓練', '重量訓練', '技術訓練', '戰術訓練', '模擬比賽', '恢復訓練', '晚自習', '集訓', '比賽', '自主訓練', '其他'];
-  var atState = { teamId: '', date: '', course: '', marks: {}, roster: [], wById: {}, missingSet: {}, history: [], filter: 'all', touched: {}, lineText: '', view: localStorage.getItem('teampro_att_view') || 'list' };
+  var ATT_LIST = [['present', '出席'], ['late', '遲到'], ['early_leave', '早退'], ['official_leave', '公假'], ['personal_leave', '事假'], ['sick_leave', '病假'], ['absent', '未到'], ['not_required', '不需出席']];
+  var ATT_S7 = { present: '✅', late: '🟡', early_leave: '↩️', official_leave: '🏛️', personal_leave: '📝', sick_leave: '🤒', absent: '⚫', not_required: '－' };
+  var ATT_SESSIONS = ['晨操', '上午訓練', '下午訓練', '晚上道館', '暑期輔導', '專長訓練', '比賽', '移地訓練', '自訂'];
+  var atState = { teamId: '', date: '', sessionId: '', sessionName: '上午訓練', startTime: '09:30', endTime: '11:30', marks: {}, roster: [], wById: {}, missingSet: {}, history: [], sessions: [], filter: 'all', touched: {}, dirty: false, lineText: '', view: localStorage.getItem('teampro_att_view') || 'list' };
 
   function attLabel(s) { for (var i = 0; i < ATT_LIST.length; i++) if (ATT_LIST[i][0] === s) return ATT_LIST[i][1]; return '出席'; }
-  function attCoursesKey() { return 'teampro_attendance_courses_' + ((state.coach && state.coach.coachId) || 'x'); }
-  function attGetCourses() {
-    var fromSettings = coachSettings().attendanceCourses; // 後端同步優先
-    if (fromSettings && fromSettings.length) return fromSettings.slice();
-    try { return JSON.parse(localStorage.getItem(attCoursesKey()) || 'null') || ATT_DEFAULT_COURSES.slice(); } catch (e) { return ATT_DEFAULT_COURSES.slice(); }
-  }
-  function attSetCourses(a) { localStorage.setItem(attCoursesKey(), JSON.stringify(a)); saveCoachSettings({ attendanceCourses: a }); }
   function attDaysAgo(n) { var d = new Date(); d.setDate(d.getDate() - n); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
   function attMin(m) { m = Number(m) || 0; return Math.floor(m / 60) + ' 小時 ' + (m % 60) + ' 分'; }
 
@@ -3281,16 +3311,25 @@
     if (!atState.teamId) atState.teamId = teamSel.value; else teamSel.value = atState.teamId;
     if (!atState.date) atState.date = localToday();
     $('#atDate').value = atState.date;
-    renderAttCourses();
+    renderAttSessionInputs();
     $('#atBatch').innerHTML = '<option value="">批次設為…</option>' + ATT_LIST.map(function (s) { return '<option value="' + s[0] + '">' + s[1] + '</option>'; }).join('');
     await loadAttDay();
   }
 
-  function renderAttCourses() {
-    var cs = attGetCourses(), cur = atState.course || cs[0];
-    $('#atCourse').innerHTML = cs.map(function (c) { return '<option' + (c === cur ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('');
-    atState.course = $('#atCourse').value;
+  function renderAttSessionInputs() {
+    $('#atSessionName').innerHTML = ATT_SESSIONS.map(function (n) { return '<option value="' + esc(n) + '"' + (n === atState.sessionName ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('');
+    $('#atStartTime').value = atState.startTime || '09:30'; $('#atEndTime').value = atState.endTime || '11:30';
+    $('#atCustomWrap').classList.toggle('hidden', $('#atSessionName').value !== '自訂');
   }
+  function attCurrentName() { return $('#atSessionName').value === '自訂' ? $('#atCustomSession').value.trim() : $('#atSessionName').value; }
+  function attSessionKey(s) { return [s.sessionName, s.startTime, s.endTime].join('|'); }
+  function attConfirmDiscard(next) { if (!atState.dirty || confirm('目前點名尚未儲存，是否離開？')) { next(); return true; } return false; }
+  function renderAttSessions() {
+    var sessions = atState.sessions || [];
+    $('#atSessions').innerHTML = sessions.length ? sessions.map(function (s) { var n = Object.keys(s.marks || {}).length, done = n ? ('已點名 ' + n + ' / ' + atState.roster.length) : '尚未完成'; return '<div class="att-session-item ' + (s.sessionId === atState.sessionId ? 'active' : '') + '"><span>' + esc(s.sessionName) + ' ' + esc(s.startTime) + '–' + esc(s.endTime) + '｜' + done + '</span><button class="btn btn-sm" data-session="' + esc(s.sessionId) + '">編輯</button></div>'; }).join('') : '尚未建立時段。';
+    TP.$all('[data-session]', $('#atSessions')).forEach(function (b) { b.onclick = function () { var s = sessions.filter(function (x) { return x.sessionId === b.dataset.session; })[0]; if (s) attConfirmDiscard(function () { openAttSession(s); }); }; });
+  }
+  function openAttSession(s) { atState.sessionId = s.sessionId || ''; atState.sessionName = s.sessionName; atState.startTime = s.startTime; atState.endTime = s.endTime; atState.filter = 'all'; atState.dirty = false; renderAttSessionInputs(); loadAttDay(); }
 
   async function loadAttDay() {
     $('#atList').className = ''; $('#atList').innerHTML = skeletonRows(3);
@@ -3302,13 +3341,13 @@
     } else {
       var w = await TP.callAuth('warroom', { teamId: atState.teamId, date: atState.date });
       if (w.ok) { (w.submitted || []).forEach(function (s) { atState.wById[s.athleteId] = s; }); (w.missing || []).forEach(function (m) { atState.missingSet[m.athleteId] = true; }); }
-      var g = await TP.callAuth('getAttendance', { teamId: atState.teamId, date: atState.date });
-      if (g.ok && g.found) { Object.keys(g.marks || {}).forEach(function (id) { atState.marks[id] = { s: g.marks[id].s, n: g.marks[id].n || '' }; atState.touched[id] = true; }); if (g.course) { atState.course = g.course; $('#atCourse').value = g.course; } }
+      var g = await TP.callAuth('getAttendance', { teamId: atState.teamId, date: atState.date, sessionId: atState.sessionId, sessionName: atState.sessionName, startTime: atState.startTime, endTime: atState.endTime });
+      if (g.ok && g.found) { atState.sessionId = g.sessionId || atState.sessionId; Object.keys(g.marks || {}).forEach(function (id) { atState.marks[id] = { s: g.marks[id].s, n: g.marks[id].n || '' }; atState.touched[id] = true; }); }
       var h = await TP.callAuth('attendanceRange', { teamId: atState.teamId, from: attDaysAgo(6), to: atState.date });
-      if (h.ok) atState.history = h.records || [];
+      if (h.ok) { atState.history = h.records || []; atState.sessions = atState.history.filter(function (r) { return r.date === atState.date; }); renderAttSessions(); }
     }
     atState.roster.forEach(function (a) { if (!atState.marks[a.athleteId]) atState.marks[a.athleteId] = { s: 'present', n: '' }; });
-    renderAttList();
+    atState.dirty = false; renderAttList();
   }
 
   function renderAttList() {
@@ -3348,22 +3387,22 @@
     });
     TP.$all('[data-picker]', box).forEach(function (p) {
       TP.$all('button', p).forEach(function (b) {
-        b.onclick = function () { var aid = p.dataset.picker; atState.marks[aid] = atState.marks[aid] || { s: 'present', n: '' }; atState.marks[aid].s = b.dataset.set; atState.touched[aid] = true; renderAttList(); };
+        b.onclick = function () { var aid = p.dataset.picker; atState.marks[aid] = atState.marks[aid] || { s: 'present', n: '' }; atState.marks[aid].s = b.dataset.set; atState.touched[aid] = true; atState.dirty = true; renderAttList(); };
       });
     });
     TP.$all('[data-note]', box).forEach(function (inp) {
-      inp.oninput = function () { var aid = inp.dataset.note; atState.marks[aid] = atState.marks[aid] || { s: 'present', n: '' }; atState.marks[aid].n = inp.value; atState.touched[aid] = true; };
+      inp.oninput = function () { var aid = inp.dataset.note; atState.marks[aid] = atState.marks[aid] || { s: 'present', n: '' }; atState.marks[aid].n = inp.value; atState.touched[aid] = true; atState.dirty = true; };
     });
   }
 
   function attSetAll(s, needConfirm) {
     if (needConfirm && !confirm('確定將全員設為「' + attLabel(s) + '」？')) return;
     atState.roster.forEach(function (a) { atState.marks[a.athleteId] = { s: s, n: (atState.marks[a.athleteId] || {}).n || '' }; atState.touched[a.athleteId] = true; });
-    renderAttList();
+    atState.dirty = true; renderAttList();
   }
 
   function attCounts() {
-    var c = { present: 0, late: 0, leave: 0, absent: 0, early_leave: 0, injured_watch: 0, adjust_training: 0 };
+    var c = { present: 0, late: 0, early_leave: 0, official_leave: 0, personal_leave: 0, sick_leave: 0, absent: 0, not_required: 0 };
     atState.roster.forEach(function (a) { var s = (atState.marks[a.athleteId] || {}).s || 'present'; c[s] = (c[s] || 0) + 1; });
     return c;
   }
@@ -3377,18 +3416,16 @@
 
   function renderAttSummary() {
     var c = attCounts(), team = (state.teams.filter(function (t) { return t.teamId === atState.teamId; })[0] || {}).teamName || '';
-    var expected = atState.roster.length, actual = expected - c.leave - c.absent, na = attNeedAttention();
+    var expected = atState.roster.length - c.official_leave - c.not_required, actual = c.present + c.late + c.early_leave, na = attNeedAttention();
     $('#atSummaryCard').classList.remove('hidden');
     $('#atSummary').innerHTML =
-      '<div class="muted" style="font-size:13px;">隊伍：' + esc(team) + '　課程：' + esc(atState.course) + '　日期：' + atState.date + '</div>' +
-      '<div class="att-summary-grid">' + attStat('應到', expected) + attStat('實到', actual) + attStat('遲到', c.late) + attStat('請假', c.leave) +
-        attStat('缺席', c.absent) + attStat('早退', c.early_leave) + attStat('受傷旁觀', c.injured_watch) + attStat('其他', c.adjust_training) + '</div>' +
+      '<div class="muted" style="font-size:13px;">隊伍：' + esc(team) + '　時段：' + esc(atState.sessionName) + ' ' + atState.startTime + '–' + atState.endTime + '　日期：' + atState.date + '</div>' +
+      '<div class="att-summary-grid">' + attStat('應到', expected) + attStat('出席', c.present) + attStat('遲到', c.late) + attStat('早退', c.early_leave) + attStat('公假', c.official_leave) + attStat('事假', c.personal_leave) + attStat('病假', c.sick_leave) + attStat('未到', c.absent) + '</div>' +
       '<h4 style="margin:10px 0 6px;">今日需關注</h4>' +
       (na.length ? na.map(function (x) { return '<div class="row"><span>' + esc(x.name) + '</span><span class="muted">' + esc(x.reason) + '</span></div>'; }).join('') : '<p class="muted">今天沒有需要特別關注的選手 👍</p>');
-    atState.lineText = '【TeamPro 今日點名回報】\n\n隊伍：' + team + '\n課程 / 訓練項目：' + atState.course + '\n日期：' + atState.date +
-      '\n\n應到：' + expected + ' 人\n實到：' + actual + ' 人\n遲到：' + c.late + ' 人\n請假：' + c.leave + ' 人\n缺席：' + c.absent +
-      ' 人\n早退：' + c.early_leave + ' 人\n受傷旁觀：' + c.injured_watch + ' 人\n其他：' + c.adjust_training + ' 人\n\n今日需關注：\n' +
-      (na.length ? na.map(function (x, i) { return (i + 1) + '. ' + x.name + '｜' + x.reason; }).join('\n') : '（無）') + '\n\n教練備註：' + lineWatermark();
+    var exceptions = atState.roster.filter(function(a) { var s=(atState.marks[a.athleteId]||{}).s; return s && s !== 'present' && s !== 'not_required'; }).map(function(a){ return '- ' + a.name + '：' + attLabel(atState.marks[a.athleteId].s); });
+    atState.lineText = '【TeamPro 點名回報】\n日期：' + atState.date + '\n隊伍：' + team + '\n時段：' + atState.sessionName + ' ' + atState.startTime + '–' + atState.endTime +
+      '\n\n✅ 出席：' + c.present + '人\n遲到：' + c.late + '人\n早退：' + c.early_leave + '人\n公假：' + c.official_leave + '人\n事假：' + c.personal_leave + '人\n病假：' + c.sick_leave + '人\n⚫ 未到：' + c.absent + '人\n\n需注意名單：\n' + (exceptions.length ? exceptions.join('\n') : '（無）') + lineWatermark();
     renderAttParentNotify();
   }
 
@@ -3418,20 +3455,20 @@
     var h = await TP.callAuth('attendanceRange', { teamId: atState.teamId, from: from, to: atState.date });
     var recs = (h.ok && h.records) || [];
     if (!recs.length) { $('#atMonth').innerHTML = '<p class="muted">本月尚無點名紀錄。</p>'; return; }
-    $('#atMonth').innerHTML = atState.roster.map(function (a) {
-      var cnt = { present: 0, late: 0, leave: 0, absent: 0, early_leave: 0, injured_watch: 0, adjust_training: 0 }, days = 0;
-      recs.forEach(function (r) { var m = r.marks[a.athleteId]; if (m) { cnt[m.s] = (cnt[m.s] || 0) + 1; days++; } });
-      var present = days ? Math.round((days - cnt.leave - cnt.absent) / days * 100) : 0;
-      return '<div class="row" style="flex-wrap:wrap;"><b>' + esc(a.name) + '</b>' +
-        '<span class="muted" style="font-size:13px;">出席率 ' + present + '%｜遲到 ' + cnt.late + '｜請假 ' + cnt.leave + '｜缺席 ' + cnt.absent +
-        '｜早退 ' + cnt.early_leave + '｜受傷旁觀 ' + cnt.injured_watch + '｜其他 ' + cnt.adjust_training + '</span></div>';
-    }).join('') + '<p class="muted" style="font-size:12px;margin-top:8px;">PDF 月報（含睡眠/飲水/疲勞/心理趨勢與 AI 總評）規劃中。</p>';
+    var rows = atState.roster.map(function (a) { return calculateMonthlyAttendanceRate(recs, a.athleteId, atState.date.slice(0, 7), a.name); });
+    $('#atMonth').innerHTML = '<div class="att-month-scroll"><table class="att-month-table"><thead><tr><th>姓名</th><th>應出席<br>時段</th><th>實際<br>點數</th><th>出席</th><th>遲到</th><th>早退</th><th>公假</th><th>事假</th><th>病假</th><th>未到</th><th>不需<br>出席</th><th>出席率</th><th>狀態</th></tr></thead><tbody>' + rows.map(function (r) { var label = r.attendanceRate >= 95 ? ['穩定','stable'] : r.attendanceRate >= 90 ? ['需提醒','remind'] : r.attendanceRate >= 80 ? ['需追蹤','track'] : ['高風險','risk']; return '<tr><td><b>' + esc(r.athleteName) + '</b></td><td>' + r.requiredSessions + '</td><td>' + r.attendedScore + '</td><td>' + r.presentCount + '</td><td>' + r.lateCount + '</td><td>' + r.earlyLeaveCount + '</td><td>' + r.officialLeaveCount + '</td><td>' + r.personalLeaveCount + '</td><td>' + r.sickLeaveCount + '</td><td>' + r.absentCount + '</td><td>' + r.notRequiredCount + '</td><td><b>' + r.attendanceRate + '%</b></td><td><span class="att-risk ' + label[1] + '">' + label[0] + '</span></td></tr>'; }).join('') + '</tbody></table></div>';
   }
 
-  $('#atTeam').onchange = function () { atState.teamId = this.value; atState.filter = 'all'; loadAttDay(); };
-  $('#atDate').onchange = function () { atState.date = this.value; atState.filter = 'all'; loadAttDay(); };
-  $('#atCourse').onchange = function () { atState.course = this.value; };
-  $('#atAddCourse').onclick = function () { var v = $('#atNewCourse').value.trim(); if (!v) return; var cs = attGetCourses(); if (cs.indexOf(v) === -1) { cs.push(v); attSetCourses(cs); } atState.course = v; renderAttCourses(); $('#atCourse').value = v; $('#atNewCourse').value = ''; toast('已新增課程「' + v + '」'); };
+  function calculateMonthlyAttendanceRate(records, athleteId, yearMonth, athleteName) {
+    var out = { athleteId: athleteId, athleteName: athleteName || '', requiredSessions: 0, attendedScore: 0, presentCount: 0, lateCount: 0, earlyLeaveCount: 0, officialLeaveCount: 0, personalLeaveCount: 0, sickLeaveCount: 0, absentCount: 0, notRequiredCount: 0, attendanceRate: 0 };
+    (records || []).filter(function(r) { return String(r.date).slice(0, 7) === yearMonth; }).forEach(function(r) { var m=(r.marks || {})[athleteId]; if (!m) return; var s=m.s || m.status || 'present'; if (s === 'leave') s = 'personal_leave'; if (s === 'injured_watch' || s === 'adjust_training') s = 'not_required'; if (s === 'present') { out.requiredSessions++; out.attendedScore++; out.presentCount++; } else if (s === 'late') { out.requiredSessions++; out.attendedScore += .5; out.lateCount++; } else if (s === 'early_leave') { out.requiredSessions++; out.attendedScore += .5; out.earlyLeaveCount++; } else if (s === 'official_leave') out.officialLeaveCount++; else if (s === 'not_required') out.notRequiredCount++; else if (s === 'personal_leave') { out.requiredSessions++; out.personalLeaveCount++; } else if (s === 'sick_leave') { out.requiredSessions++; out.sickLeaveCount++; } else { out.requiredSessions++; out.absentCount++; } });
+    out.attendedScore = Number(out.attendedScore.toFixed(1)); out.attendanceRate = out.requiredSessions ? Number((out.attendedScore / out.requiredSessions * 100).toFixed(1)) : 0; return out;
+  }
+
+  $('#atTeam').onchange = function () { var el=this, v=el.value; if (!attConfirmDiscard(function () { atState.teamId = v; atState.sessionId = ''; atState.filter = 'all'; loadAttDay(); })) el.value = atState.teamId; };
+  $('#atDate').onchange = function () { var el=this, v=el.value; if (!attConfirmDiscard(function () { atState.date = v; atState.sessionId = ''; atState.filter = 'all'; loadAttDay(); })) el.value = atState.date; };
+  $('#atSessionName').onchange = function () { $('#atCustomWrap').classList.toggle('hidden', this.value !== '自訂'); };
+  $('#atOpenSession').onclick = function () { var name=attCurrentName(), start=$('#atStartTime').value, end=$('#atEndTime').value; if (!name || !start || !end) { toast('請完整填寫時段名稱與時間', true); return; } attConfirmDiscard(function () { var found=(atState.sessions || []).filter(function(s){ return s.sessionName===name && s.startTime===start && s.endTime===end; })[0]; openAttSession(found || { sessionId:'', sessionName:name, startTime:start, endTime:end, marks:{} }); }); };
   $('#atAllPresent').onclick = function () { attSetAll('present', false); };
   $('#atAllAbsent').onclick = function () { attSetAll('absent', true); };
   $('#atCopyLast').onclick = function () {
@@ -3449,16 +3486,17 @@
     var s = this.value; this.value = ''; if (!s) return;
     var visible = atState.roster.filter(function (a) { if (atState.filter === 'unmarked') return !atState.touched[a.athleteId]; if (atState.filter === 'abnormal') { var L = attLight(a); return L === '🟠' || L === '🔴' || L === '⚫'; } return true; });
     visible.forEach(function (a) { atState.marks[a.athleteId] = { s: s, n: (atState.marks[a.athleteId] || {}).n || '' }; atState.touched[a.athleteId] = true; });
-    renderAttList();
+    atState.dirty = true; renderAttList();
   };
   $('#atSave').onclick = async function () {
     if (DEMO) { demoBlock(); return; }
     var btn = this; btn.disabled = true; btn.textContent = '儲存中…';
-    var r = await TP.callAuth('saveAttendance', { teamId: atState.teamId, date: atState.date, course: atState.course, marks: atState.marks });
-    btn.disabled = false; btn.textContent = '💾 儲存點名';
-    if (r.ok) { toast('點名已儲存'); markTask('rollcall', true); renderOnboarding(); renderAttSummary(); } else { toast(r.error || '儲存失敗', true); }
+    var r = await TP.callAuth('saveAttendance', { teamId: atState.teamId, date: atState.date, sessionId: atState.sessionId, sessionName: atState.sessionName, startTime: atState.startTime, endTime: atState.endTime, marks: atState.marks });
+    btn.disabled = false; btn.textContent = '💾 儲存此時段點名';
+    if (r.ok) { atState.dirty = false; toast('點名已儲存'); markTask('rollcall', true); renderOnboarding(); renderAttSummary(); await loadAttDay(); } else { toast(r.error || '儲存失敗', true); }
   };
   $('#atCopyLine').onclick = function () { if (atState.lineText) TP.copy(atState.lineText); else toast('請先儲存點名'); };
+  $('#atCopyTodayLine').onclick = function () { var sessions=atState.sessions || []; if (!sessions.length) { toast('今日尚無已儲存時段'); return; } var team=(state.teams.filter(function(t){return t.teamId===atState.teamId;})[0]||{}).teamName||''; var lines=sessions.map(function(s){ var c={present:0,late:0,personal_leave:0,sick_leave:0,official_leave:0,absent:0}; Object.keys(s.marks||{}).forEach(function(id){var x=(s.marks[id]||{}).s; c[x]=(c[x]||0)+1;}); return s.sessionName+' '+s.startTime+'–'+s.endTime+'\n✅ 出席 '+c.present+'｜遲到 '+c.late+'｜請假 '+(c.personal_leave+c.sick_leave+c.official_leave)+'｜⚫ 未到 '+c.absent; }); TP.copy('【TeamPro 今日點名總結】\n日期：'+atState.date+'\n隊伍：'+team+'\n\n'+lines.join('\n\n')+'\n\n本日提醒：\n請確認未到與請假名單，必要時聯繫家長。'+lineWatermark()); };
   $('#atMonthBtn').onclick = renderAttMonth;
 
   boot();

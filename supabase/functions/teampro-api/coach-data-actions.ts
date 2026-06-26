@@ -20,30 +20,38 @@ export async function coachDataAction(db: Db, action: string, d: Data): Promise<
     const { data: team } = await db.from("teams").select("team_id").eq("coach_id", coach.coach_id).eq("team_id", teamId).maybeSingle();
     if (!team) return { ok: false, error: "找不到團隊或無權限" };
     const input = (d.marks as Record<string, Record<string, unknown>>) || {}, marks: Record<string, unknown> = {};
-    const allowed = ["present", "late", "leave", "absent", "injured"];
+    const allowed = ["present", "late", "early_leave", "official_leave", "personal_leave", "sick_leave", "absent", "not_required"];
     Object.keys(input).forEach((athleteId) => {
-      const item = input[athleteId] || {}, status = String(item.s || item.status || "present");
+      const item = input[athleteId] || {}; let status = String(item.s || item.status || "present");
+      if (status === "leave") status = "personal_leave";
+      if (status === "injured" || status === "injured_watch" || status === "adjust_training") status = "not_required";
       marks[athleteId] = { s: allowed.includes(status) ? status : "present", n: String(item.n || item.note || "").slice(0, 200) };
     });
-    const row = { attendance_id: uid("at_"), coach_id: coach.coach_id, team_id: teamId, attendance_date: date, course: String(d.course || "").slice(0, 60), marks, updated_at: new Date().toISOString() };
-    const { data: existing } = await db.from("attendance").select("attendance_id").eq("team_id", teamId).eq("attendance_date", date).maybeSingle();
+    const sessionName = String(d.sessionName || d.course || "").trim().slice(0, 60);
+    const startTime = String(d.startTime || "00:00").slice(0, 5), endTime = String(d.endTime || "00:00").slice(0, 5);
+    if (!sessionName) return { ok: false, error: "請選擇訓練時段" };
+    const row = { attendance_id: uid("at_"), coach_id: coach.coach_id, team_id: teamId, attendance_date: date, course: sessionName, session_id: String(d.sessionId || ""), session_name: sessionName, start_time: startTime, end_time: endTime, marks, updated_at: new Date().toISOString() };
+    const { data: existing } = await db.from("attendance").select("attendance_id,session_id").eq("team_id", teamId).eq("attendance_date", date).eq("session_name", sessionName).eq("start_time", startTime).eq("end_time", endTime).maybeSingle();
     if (existing) row.attendance_id = existing.attendance_id;
-    const { error } = await db.from("attendance").upsert(row, { onConflict: "team_id,attendance_date" });
+    row.session_id = String(d.sessionId || existing?.session_id || row.attendance_id);
+    const { error } = await db.from("attendance").upsert(row, { onConflict: "team_id,attendance_date,session_name,start_time,end_time" });
     if (error) return { ok: false, error: "點名儲存失敗" };
     await audit(db, coach, "saveAttendance", teamId, `${date} ${row.course}`);
     return { ok: true };
   }
   if (action === "getAttendance") {
-    const { data: row } = await db.from("attendance").select("course,marks").eq("coach_id", coach.coach_id).eq("team_id", d.teamId).eq("attendance_date", d.date || today()).maybeSingle();
-    return row ? { ok: true, found: true, course: row.course || "", marks: row.marks || {} } : { ok: true, found: false, course: "", marks: {} };
+    let query = db.from("attendance").select("attendance_id,session_id,session_name,start_time,end_time,course,marks").eq("coach_id", coach.coach_id).eq("team_id", d.teamId).eq("attendance_date", d.date || today());
+    if (d.sessionId) query = query.eq("session_id", d.sessionId); else if (d.sessionName) query = query.eq("session_name", d.sessionName).eq("start_time", String(d.startTime || "00:00").slice(0, 5)).eq("end_time", String(d.endTime || "00:00").slice(0, 5));
+    const { data: row } = await query.maybeSingle();
+    return row ? { ok: true, found: true, sessionId: row.session_id || row.attendance_id, sessionName: row.session_name || row.course || "", startTime: row.start_time, endTime: row.end_time, marks: row.marks || {} } : { ok: true, found: false, marks: {} };
   }
   if (action === "attendanceRange") {
-    let query = db.from("attendance").select("team_id,attendance_date,course,marks").eq("coach_id", coach.coach_id);
+    let query = db.from("attendance").select("attendance_id,session_id,team_id,attendance_date,course,session_name,start_time,end_time,marks").eq("coach_id", coach.coach_id);
     if (d.teamId) query = query.eq("team_id", d.teamId);
     if (d.from) query = query.gte("attendance_date", d.from);
     if (d.to) query = query.lte("attendance_date", d.to);
     const { data: rows } = await query.order("attendance_date");
-    return { ok: true, records: (rows || []).map((row) => ({ date: row.attendance_date, teamId: row.team_id, course: row.course || "", marks: row.marks || {} })) };
+    return { ok: true, records: (rows || []).map((row) => ({ date: row.attendance_date, teamId: row.team_id, sessionId: row.session_id || row.attendance_id, sessionName: row.session_name || row.course || "", startTime: row.start_time || "", endTime: row.end_time || "", marks: row.marks || {} })) };
   }
   if (action === "athleteRecords") {
     const athlete = await ownedAthlete(db, coach.coach_id, d.athleteId);
@@ -85,7 +93,8 @@ export async function coachDataAction(db: Db, action: string, d: Data): Promise<
       if (!rec) { missing.push({ athleteId: athlete.athlete_id, name: athlete.name }); return; }
       const latest = wk[0], isDeclining = wk.length >= 3 && Number(wk[0].total_score) < Number(wk[1].total_score) && Number(wk[1].total_score) < Number(wk[2].total_score);
       lights[String(rec.status || "green")]++;
-      const item: Data = { athleteId: athlete.athlete_id, name: athlete.name, totalScore: latest?.total_score || "", status: rec.status, kpiWeekStart: latest?.week_start || "", moodIndex: rec.mood_index, recordId: rec.record_id, declining: isDeclining, sleepDurationMinutes: rec.sleep_duration_minutes, sleepDurationText: rec.sleep_duration_text, sleepRisk: rec.sleep_risk, painStatus: rec.pain_status, painAreas: rec.pain_areas, painScore: rec.pain_score, painImpact: rec.pain_impact, painRisk: rec.pain_risk, waterAmount: rec.water_amount, sweatAmount: rec.sweat_amount, urineColor: rec.urine_color, hydrationRisk: rec.hydration_risk, hydrationAdvice: rec.hydration_advice, hydrationFlags: rec.hydration_flags, reportQualityScore: rec.report_quality_score, reportQualityLabel: rec.report_quality_label, reportQualityReasons: rec.report_quality_reasons, coachSuggestion: rec.coach_suggestion };
+      const feedback = String(rec.coach_comment || "").trim();
+      const item: Data = { athleteId: athlete.athlete_id, athleteName: athlete.name, name: athlete.name, totalScore: latest?.total_score || "", status: rec.status, lightStatus: rec.status, reportStatus: "submitted", reportDate: rec.record_date, kpiWeekStart: latest?.week_start || "", moodIndex: rec.mood_index, mood: rec.mood_index, fatigueLevel: rec.fatigue, recordId: rec.record_id, declining: isDeclining, sleepDurationMinutes: rec.sleep_duration_minutes, sleepDurationText: rec.sleep_duration_text, sleepRisk: rec.sleep_risk, painStatus: rec.pain_status, painAreas: rec.pain_areas, painScore: rec.pain_score, painImpact: rec.pain_impact, painRisk: rec.pain_risk, waterAmount: rec.water_amount, sweatAmount: rec.sweat_amount, urineColor: rec.urine_color, hydrationRisk: rec.hydration_risk, hydrationAdvice: rec.hydration_advice, hydrationFlags: rec.hydration_flags, reportQualityScore: rec.report_quality_score, reportQualityLabel: rec.report_quality_label, reportQualityReasons: rec.report_quality_reasons, coachSuggestion: rec.coach_suggestion, coachFeedback: feedback, coachFeedbackAt: rec.coach_feedback_at || "", coachReplyStatus: feedback ? "replied" : "none" };
       submitted.push(item);
       if (isDeclining) declining.push({ athleteId: athlete.athlete_id, name: athlete.name });
       if (rec.status === "green" && latest && Number(latest.total_score) >= 4.3) encouraging.push({ athleteId: athlete.athlete_id, name: athlete.name, totalScore: latest.total_score });

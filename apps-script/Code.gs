@@ -42,8 +42,9 @@ var H = {
   audit:    ['time', 'actor', 'action', 'target', 'detail'],
   contacts: ['time', 'topic', 'name', 'email', 'message'],
   privacyRequests: ['requestId', 'coachId', 'athleteId', 'athleteName', 'requestType', 'scope', 'note', 'status', 'createdAt', 'handledAt', 'resolutionNote'],
-  // 快速點名：一筆=某教練某隊某日一次點名；marks 為 JSON { athleteId: {s:狀態, n:備註} }
-  attendance: ['attId', 'coachId', 'teamId', 'date', 'course', 'marks', 'updatedAt'],
+  // 一筆為一個隊伍、日期、時段；marks 為 JSON { athleteId: {s:狀態, n:備註} }
+  // Keep legacy columns first so setup() can extend live sheets without shifting existing data.
+  attendance: ['attId', 'coachId', 'teamId', 'date', 'course', 'marks', 'updatedAt', 'teamName', 'sessionId', 'sessionName', 'startTime', 'endTime', 'createdAt'],
   // 比賽：選手回報時第一個建立、其他人用選的（同隊+日期+名稱歸戶）
   competitions: ['compId', 'coachId', 'teamId', 'date', 'name', 'location', 'createdAt']
 };
@@ -1185,7 +1186,7 @@ function visitSummary(c, d) {
   att.forEach(function (row) {
     var marks = {}; try { marks = JSON.parse(row.marks || '{}'); } catch (e) {}
     if (row.course) courses[row.course] = true;
-    athletes.forEach(function (a) { var m = marks[a.athleteId]; if (m) { slots++; if (m.s !== 'absent' && m.s !== 'leave') present++; } });
+    athletes.forEach(function (a) { var m = marks[a.athleteId]; if (m) { var st = m.s || 'present'; if (st !== 'official_leave' && st !== 'not_required') { slots++; if (st === 'present') present++; else if (st === 'late' || st === 'early_leave') present += .5; } } });
   });
   var days = Math.max(1, Math.round((new Date(to) - new Date(from)) / 86400000) + 1);
 
@@ -1228,12 +1229,13 @@ function visitSummary(c, d) {
    快速點名（跨裝置同步，存後端 attendance 表）
    marks JSON：{ athleteId: { s: 狀態, n: 備註 } }
    ============================================================ */
-var ATT_STATUSES = ['present', 'late', 'leave', 'absent', 'early_leave', 'injured_watch', 'adjust_training'];
+var ATT_STATUSES = ['present', 'late', 'early_leave', 'official_leave', 'personal_leave', 'sick_leave', 'absent', 'not_required'];
 
-function attRowOf(coachId, teamId, date) {
+function attRowOf(coachId, teamId, date, sessionName, startTime, endTime, sessionId) {
   var all = readAll(SHEETS.attendance);
   for (var i = 0; i < all.length; i++) {
-    if (String(all[i].coachId) === String(coachId) && String(all[i].teamId) === String(teamId) && String(all[i].date) === String(date))
+    if (String(all[i].coachId) === String(coachId) && String(all[i].teamId) === String(teamId) && String(all[i].date) === String(date) &&
+      (sessionId ? String(all[i].sessionId) === String(sessionId) : (String(all[i].sessionName || all[i].course) === String(sessionName) && String(all[i].startTime || '') === String(startTime) && String(all[i].endTime || '') === String(endTime))))
       return { row: i + 2, obj: all[i] };
   }
   return null;
@@ -1249,33 +1251,40 @@ function saveAttendance(c, d) {
   var marksIn = d.marks || {}, marks = {};
   Object.keys(marksIn).forEach(function (aid) {
     var m = marksIn[aid] || {};
-    var st = ATT_STATUSES.indexOf(String(m.s || m.status)) !== -1 ? String(m.s || m.status) : 'present';
+    var st = String(m.s || m.status || 'present');
+    if (st === 'leave') st = 'personal_leave';
+    if (st === 'injured_watch' || st === 'adjust_training') st = 'not_required';
+    st = ATT_STATUSES.indexOf(st) !== -1 ? st : 'present';
     marks[String(aid)] = { s: st, n: String(m.n || m.note || '').slice(0, 200) };
   });
-  var course = String(d.course || '').slice(0, 60);
+  var sessionName = String(d.sessionName || d.course || '').trim().slice(0, 60), startTime = String(d.startTime || '').slice(0, 5), endTime = String(d.endTime || '').slice(0, 5);
+  if (!sessionName) return { ok: false, error: '請選擇訓練時段' };
+  var team = readAll(SHEETS.teams)[trow - 2] || {};
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
   try {
-    var hit = attRowOf(c.coachId, teamId, date);
+    var hit = attRowOf(c.coachId, teamId, date, sessionName, startTime, endTime, d.sessionId);
     var s = sheet(SHEETS.attendance);
     if (hit) {
-      s.getRange(hit.row, H.attendance.indexOf('course') + 1).setValue(course);
+      s.getRange(hit.row, H.attendance.indexOf('sessionName') + 1).setValue(sessionName);
+      s.getRange(hit.row, H.attendance.indexOf('startTime') + 1).setValue(startTime);
+      s.getRange(hit.row, H.attendance.indexOf('endTime') + 1).setValue(endTime);
       s.getRange(hit.row, H.attendance.indexOf('marks') + 1).setValue(JSON.stringify(marks));
       s.getRange(hit.row, H.attendance.indexOf('updatedAt') + 1).setValue(now());
     } else {
-      appendObj(SHEETS.attendance, { attId: uid('at_'), coachId: c.coachId, teamId: teamId, date: date,
-        course: course, marks: JSON.stringify(marks), updatedAt: now() });
+      var attId = uid('at_'); appendObj(SHEETS.attendance, { attId: attId, coachId: c.coachId, teamId: teamId, teamName: team.teamName || '', date: date,
+        sessionId: String(d.sessionId || attId), sessionName: sessionName, startTime: startTime, endTime: endTime, course: sessionName, marks: JSON.stringify(marks), createdAt: now(), updatedAt: now() });
     }
-    audit(c.email, 'saveAttendance', teamId, date + ' ' + course);
+    audit(c.email, 'saveAttendance', teamId, date + ' ' + sessionName);
     return { ok: true };
   } finally { lock.releaseLock(); }
 }
 
 function getAttendance(c, d) {
-  var hit = attRowOf(c.coachId, String(d.teamId || ''), String(d.date || todayStr()));
-  if (!hit) return { ok: true, found: false, course: '', marks: {} };
+  var hit = attRowOf(c.coachId, String(d.teamId || ''), String(d.date || todayStr()), String(d.sessionName || ''), String(d.startTime || ''), String(d.endTime || ''), d.sessionId);
+  if (!hit) return { ok: true, found: false, marks: {} };
   var marks = {};
   try { marks = JSON.parse(hit.obj.marks || '{}'); } catch (e) { marks = {}; }
-  return { ok: true, found: true, course: hit.obj.course || '', marks: marks };
+  return { ok: true, found: true, sessionId: hit.obj.sessionId || hit.obj.attId, sessionName: hit.obj.sessionName || hit.obj.course || '', startTime: hit.obj.startTime || '', endTime: hit.obj.endTime || '', marks: marks };
 }
 
 function attendanceRange(c, d) {
@@ -1286,7 +1295,7 @@ function attendanceRange(c, d) {
       (!from || String(a.date) >= from) && (!to || String(a.date) <= to);
   }).map(function (a) {
     var marks = {}; try { marks = JSON.parse(a.marks || '{}'); } catch (e) {}
-    return { date: a.date, teamId: a.teamId, course: a.course, marks: marks };
+    return { date: a.date, teamId: a.teamId, teamName: a.teamName || '', sessionId: a.sessionId || a.attId, sessionName: a.sessionName || a.course || '', startTime: a.startTime || '', endTime: a.endTime || '', marks: marks };
   }).sort(function (x, y) { return String(x.date).localeCompare(String(y.date)); });
   return { ok: true, records: rows };
 }
@@ -1435,7 +1444,9 @@ function warroom(c, d) {
         hydrationRisk: r.hydrationRisk, hydrationAdvice: r.hydrationAdvice,
         hydrationFlags: r.hydrationFlags, reportQualityScore: r.reportQualityScore,
         reportQualityLabel: r.reportQualityLabel, reportQualityReasons: r.reportQualityReasons,
-        coachSuggestion: r.coachSuggestion
+        coachSuggestion: r.coachSuggestion, coachFeedback: r.coachComment || '', coachFeedbackAt: r.coachFeedbackAt || '',
+        coachReplyStatus: String(r.coachComment || '').trim() ? 'replied' : 'none',
+        fatigueLevel: r.fatigue || '', mood: r.moodIndex || '', reportDate: r.date, reportStatus: 'submitted', lightStatus: light
       });
       if (isDeclining) declining.push({ athleteId: a.athleteId, name: a.name });
       if (light === 'green' && latestKpi && Number(latestKpi.totalScore) >= 4.3)
@@ -2514,26 +2525,27 @@ function demoBuildRecord_(coachId, team, a, date, inp, prev) {
   return rec;
 }
 
-/* 點名：每日一種課程輪替，狀態依角色循環（出席率差異＋今日留異常給戰情室展示） */
+/* 點名 Demo：至少連續 7 天，部分日期含晨操／上午／下午／晚上多時段。 */
 function demoSeedAttendance_(coachId, team, athletes, dates) {
-  var courses = ['晨操', '專長訓練', '晚自習', '自主訓練'];
+  var sessions = [
+    { name: '晨操', start: '06:30', end: '07:30' }, { name: '上午訓練', start: '09:30', end: '11:30' },
+    { name: '下午訓練', start: '14:00', end: '16:00' }, { name: '晚上道館', start: '19:30', end: '21:00' }
+  ];
   // 各角色一段循環，跨日重複 → 不同出席率（王/張接近全勤，林最差）
   var cyc = {
     'Demo 王柏鈞': ['present'],
-    'Demo 林子棠': ['present', 'late', 'absent', 'present', 'leave', 'late', 'absent'],
-    'Demo 陳希恩': ['present', 'present', 'present', 'injured_watch', 'present', 'present', 'injured_watch'],
+    'Demo 林子棠': ['present', 'late', 'absent', 'present', 'personal_leave', 'late', 'absent'],
+    'Demo 陳希恩': ['present', 'present', 'present', 'sick_leave', 'present', 'present', 'sick_leave'],
     'Demo 許晨熙': ['present', 'present', 'late', 'present', 'present'],
     'Demo 張晏慈': ['present', 'present', 'present', 'present', 'present', 'late', 'present']
   };
   dates.forEach(function (date, i) {
-    var marks = {};
-    athletes.forEach(function (a) {
-      var arr = cyc[a.name] || ['present'];
-      marks[String(a.athleteId)] = { s: arr[i % arr.length], n: '' };
-    });
-    appendObj(SHEETS.attendance, {
-      attId: uid('at_'), coachId: coachId, teamId: team.teamId, date: date,
-      course: courses[i % courses.length], marks: JSON.stringify(marks), updatedAt: now()
+    var daySessions = i % 3 === 0 ? sessions : [sessions[i % sessions.length]];
+    daySessions.forEach(function (session, si) {
+      var marks = {};
+      athletes.forEach(function (a) { var arr = cyc[a.name] || ['present']; marks[String(a.athleteId)] = { s: arr[(i + si) % arr.length], n: '' }; });
+      var attId = uid('at_'); appendObj(SHEETS.attendance, { attId: attId, coachId: coachId, teamId: team.teamId, teamName: team.teamName, date: date,
+        sessionId: attId, sessionName: session.name, startTime: session.start, endTime: session.end, course: session.name, marks: JSON.stringify(marks), createdAt: now(), updatedAt: now() });
     });
   });
 }

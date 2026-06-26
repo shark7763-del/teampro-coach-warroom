@@ -60,7 +60,7 @@ export async function reportAction(db: Db, action: string, d: Data): Promise<Dat
   (attendance || []).forEach((row) => {
     if (row.course) courses.add(row.course);
     const marks = (row.marks || {}) as Record<string, { s?: string }>;
-    (athletes || []).forEach((athlete) => { const mark = marks[String(athlete.athlete_id)]; if (mark) { slots++; if (!["absent", "leave"].includes(String(mark.s))) present++; } });
+    (athletes || []).forEach((athlete) => { const mark = marks[String(athlete.athlete_id)]; if (mark) { const status = String(mark.s || "present"); if (!["official_leave", "not_required"].includes(status)) { slots++; if (status === "present") present++; else if (["late", "early_leave"].includes(status)) present += .5; } } });
   });
   const injury = new Set<string>(), painParts = new Set<string>(); let maxPain = 0, sleepShort = 0, hydrationFlag = 0, notesFilled = 0, feedbackCount = 0, compParticipants = 0;
   const lights: Record<string, number> = { green: 0, yellow: 0, red: 0 }, medals = { gold: 0, silver: 0, bronze: 0 }, competitions = new Map<string, Data>(), awardPhotos: Data[] = [];
