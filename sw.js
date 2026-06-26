@@ -4,11 +4,11 @@
    - 同源靜態檔 (css/js/png)：stale-while-revalidate
    - 跨來源 / 非 GET（GAS API 等）：完全不攔截，永遠走網路（資料即時、不快取）
 */
-var CACHE = 'teampro-v2';
+var CACHE = 'teampro-v3';
 var CORE = [
-  '/', '/app', '/join', '/index.html', '/app.html', '/join.html',
-  '/style.css', '/api.js', '/pwa.js', '/offline.html',
-  '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png'
+  './', 'index.html', 'app.html', 'join.html',
+  'style.css?v=20260627-speed1', 'app-extra.css?v=20260627-speed1', 'api.js?v=20260627-speed1', 'app.bundle.js?v=20260627-speed1', 'pwa.js', 'offline.html',
+  'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'
 ];
 
 self.addEventListener('install', function (e) {
@@ -39,30 +39,43 @@ self.addEventListener('fetch', function (e) {
   if (req.mode === 'navigate') {
     e.respondWith(
       fetch(req).then(function (res) {
-        var copy = res.clone();
+        var copy = withCacheHeader(res.clone(), 'no-cache');
         caches.open(CACHE).then(function (c) { c.put(req, copy); });
-        return res;
+        return withCacheHeader(res, 'no-cache');
       }).catch(function () {
-        return caches.match(req).then(function (hit) { return hit || caches.match('/offline.html'); });
+        return caches.match(req).then(function (hit) { return hit || caches.match('offline.html'); });
       })
     );
     return;
   }
 
   // 靜態檔：stale-while-revalidate
+  var isStatic = /\.(?:css|js|mjs|png|jpe?g|webp|gif|svg|ico|woff2?|ttf)$/i.test(url.pathname);
+  var staticCache = isStatic ? 'public, max-age=31536000, immutable' : 'public, max-age=3600';
   e.respondWith(
     caches.match(req).then(function (hit) {
       var net = fetch(req).then(function (res) {
         if (res && res.status === 200) {
-          var copy = res.clone();
+          var copy = withCacheHeader(res.clone(), staticCache);
           caches.open(CACHE).then(function (c) { c.put(req, copy); });
         }
-        return res;
+        return withCacheHeader(res, staticCache);
       }).catch(function () { return hit; });
       return hit || net;
     })
   );
 });
+
+function withCacheHeader(res, value) {
+  if (!res || !res.headers) return res;
+  try {
+    var headers = new Headers(res.headers);
+    headers.set('Cache-Control', value);
+    return new Response(res.body, { status: res.status, statusText: res.statusText, headers: headers });
+  } catch (e) {
+    return res;
+  }
+}
 
 // 讓頁面可叫 SW 立即更新
 self.addEventListener('message', function (e) {
