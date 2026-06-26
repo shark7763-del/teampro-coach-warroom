@@ -4,7 +4,7 @@
    - 同源靜態檔 (css/js/png)：stale-while-revalidate
    - 跨來源 / 非 GET（GAS API 等）：完全不攔截，永遠走網路（資料即時、不快取）
 */
-var CACHE = 'teampro-v1';
+var CACHE = 'teampro-v2';
 var CORE = [
   '/', '/app', '/join', '/index.html', '/app.html', '/join.html',
   '/style.css', '/api.js', '/pwa.js', '/offline.html',
