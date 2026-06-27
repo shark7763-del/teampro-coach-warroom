@@ -418,6 +418,7 @@ function readAll(name) {
     var o = {};
     for (var i = 0; i < headers.length; i++) o[headers[i]] = row[i];
     if (name === SHEETS.records && o.date) o.date = formatDateCell(o.date); // 防 Sheets 日期型別位移
+    if (name === SHEETS.attendance && o.date) o.date = formatDateCell(o.date); // 點名月統計需用 yyyy-MM-dd 比較
     if (name === SHEETS.weeklyKpi && o.weekStart) o.weekStart = formatDateCell(o.weekStart);
     if (name === SHEETS.weeklyKpi && o.weekEnd) o.weekEnd = formatDateCell(o.weekEnd);
     return o;
@@ -1288,14 +1289,15 @@ function getAttendance(c, d) {
 }
 
 function attendanceRange(c, d) {
-  var teamId = String(d.teamId || ''), from = String(d.from || ''), to = String(d.to || '');
+  var teamId = String(d.teamId || ''), from = formatDateCell(d.from || ''), to = formatDateCell(d.to || '');
   var rows = readAll(SHEETS.attendance).filter(function (a) {
+    var ad = formatDateCell(a.date);
     return String(a.coachId) === String(c.coachId) &&
       (!teamId || String(a.teamId) === String(teamId)) &&
-      (!from || String(a.date) >= from) && (!to || String(a.date) <= to);
+      (!from || ad >= from) && (!to || ad <= to);
   }).map(function (a) {
     var marks = {}; try { marks = JSON.parse(a.marks || '{}'); } catch (e) {}
-    return { date: a.date, teamId: a.teamId, teamName: a.teamName || '', sessionId: a.sessionId || a.attId, sessionName: a.sessionName || a.course || '', startTime: a.startTime || '', endTime: a.endTime || '', marks: marks };
+    return { date: formatDateCell(a.date), teamId: a.teamId, teamName: a.teamName || '', sessionId: a.sessionId || a.attId, sessionName: a.sessionName || a.course || '', startTime: a.startTime || '', endTime: a.endTime || '', marks: marks };
   }).sort(function (x, y) { return String(x.date).localeCompare(String(y.date)); });
   return { ok: true, records: rows };
 }
