@@ -1277,7 +1277,7 @@ function saveAttendance(c, d) {
         sessionId: String(d.sessionId || attId), sessionName: sessionName, startTime: startTime, endTime: endTime, course: sessionName, marks: JSON.stringify(marks), createdAt: now(), updatedAt: now() });
     }
     audit(c.email, 'saveAttendance', teamId, date + ' ' + sessionName);
-    return { ok: true };
+    return { ok: true, created: !hit, sessionId: String(d.sessionId || (hit && hit.obj && hit.obj.sessionId) || ''), sessionName: sessionName };
   } finally { lock.releaseLock(); }
 }
 

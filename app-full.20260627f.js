@@ -3180,7 +3180,17 @@
   function attConfirmDiscard(next) { if (!atState.dirty || confirm('目前點名尚未儲存，是否離開？')) { next(); return true; } return false; }
   function renderAttSessions() {
     var sessions = atState.sessions || [];
-    $('#atSessions').innerHTML = sessions.length ? sessions.map(function (s) { var n = Object.keys(s.marks || {}).length, done = n ? ('已點名 ' + n + ' / ' + atState.roster.length) : '尚未完成'; return '<div class="att-session-item ' + (s.sessionId === atState.sessionId ? 'active' : '') + '"><span>' + esc(s.sessionName) + ' ' + esc(s.startTime) + '–' + esc(s.endTime) + '｜' + done + '</span><button class="btn btn-sm" data-session="' + esc(s.sessionId) + '">載入</button></div>'; }).join('') : '尚未儲存時段。選好上方時段後，直接按「儲存點名」即可建立。';
+    var draft = currentSessionDraft();
+    if (sessions.length) {
+      $('#atSessions').innerHTML = sessions.map(function (s) {
+        var n = Object.keys(s.marks || {}).length, done = n ? ('已點名 ' + n + ' / ' + atState.roster.length) : '尚未完成';
+        return '<div class="att-session-item ' + (s.sessionId === atState.sessionId ? 'active' : '') + '"><span>' + esc(s.sessionName) + ' ' + esc(s.startTime) + '–' + esc(s.endTime) + '｜' + done + '</span><button class="btn btn-sm" data-session="' + esc(s.sessionId) + '">載入</button></div>';
+      }).join('');
+    } else {
+      $('#atSessions').innerHTML = '<div class="att-session-item active"><span>目前草稿：' + esc(draft.sessionName || '未命名時段') + ' ' + esc(draft.startTime || '--:--') + '–' + esc(draft.endTime || '--:--') + '｜尚未建立</span><button class="btn btn-sm" id="atDraftHint">儲存後建立</button></div>' +
+        '<div class="muted" style="margin-top:8px;">尚未儲存時段。選好上方時段後，直接按「儲存點名」即可建立或更新該時段。</div>';
+      var dh = $('#atDraftHint'); if (dh) dh.onclick = function () { toast('先按下方「儲存點名」建立這個時段'); };
+    }
     TP.$all('[data-session]', $('#atSessions')).forEach(function (b) { b.onclick = function () { var s = sessions.filter(function (x) { return x.sessionId === b.dataset.session; })[0]; if (s) attConfirmDiscard(function () { openAttSession(s); }); }; });
   }
   function openAttSession(s) { atState.sessionId = s.sessionId || ''; atState.sessionName = s.sessionName; atState.startTime = s.startTime; atState.endTime = s.endTime; atState.filter = 'all'; atState.dirty = false; renderAttSessionInputs(); loadAttDay(); }
@@ -3420,7 +3430,14 @@
     var btn = this; btn.disabled = true; btn.textContent = '儲存中…';
     var r = await TP.callAuth('saveAttendance', { teamId: atState.teamId, date: atState.date, sessionId: atState.sessionId, sessionName: atState.sessionName, startTime: atState.startTime, endTime: atState.endTime, marks: atState.marks });
     btn.disabled = false; btn.textContent = '💾 儲存點名（自動建立此時段）';
-    if (r.ok) { atState.dirty = false; toast('點名已儲存'); markTask('rollcall', true); renderOnboarding(); renderAttSummary(); await loadAttDay(); } else { toast(r.error || '儲存失敗', true); }
+    if (r.ok) {
+      atState.dirty = false;
+      toast(r.created ? ('已建立新時段：' + atState.sessionName) : ('已更新時段：' + atState.sessionName));
+      markTask('rollcall', true);
+      renderOnboarding();
+      renderAttSummary();
+      await loadAttDay();
+    } else { toast(r.error || '儲存失敗', true); }
   };
   $('#atCopyLine').onclick = function () { if (atState.lineText) TP.copy(atState.lineText); else toast('請先儲存點名'); };
   $('#atCopyTodayLine').onclick = function () { var sessions=atState.sessions || []; if (!sessions.length) { toast('今日尚無已儲存時段'); return; } var team=(state.teams.filter(function(t){return t.teamId===atState.teamId;})[0]||{}).teamName||''; var lines=sessions.map(function(s){ var c={present:0,late:0,personal_leave:0,sick_leave:0,official_leave:0,absent:0}; Object.keys(s.marks||{}).forEach(function(id){var x=(s.marks[id]||{}).s; c[x]=(c[x]||0)+1;}); return s.sessionName+' '+s.startTime+'–'+s.endTime+'\n✅ 出席 '+c.present+'｜遲到 '+c.late+'｜請假 '+(c.personal_leave+c.sick_leave+c.official_leave)+'｜⚫ 未到 '+c.absent; }); TP.copy('【TeamPro 今日點名總結】\n日期：'+atState.date+'\n隊伍：'+team+'\n\n'+lines.join('\n\n')+'\n\n本日提醒：\n請確認未到與請假名單，必要時聯繫家長。'+lineWatermark()); };
