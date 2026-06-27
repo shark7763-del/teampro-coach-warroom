@@ -7,7 +7,7 @@
 var CACHE = 'teampro-v4';
 var CORE = [
   './', 'index.html', 'app.html', 'join.html',
-  'style.css?v=20260627-shell1', 'app-shell.20260627a.css', 'api.js?v=20260627-shell1', 'app-shell.20260627a.js',
+  'style.css?v=20260627-shell1', 'app-shell.20260627b.css', 'api.js?v=20260627-shell1', 'app-shell.20260627a.js',
   'app-modules/dashboard.js?v=20260627-shell1', 'app-modules/legacy-frame.js',
   'app-full.html', 'app-full-extra.20260627a.css', 'app-full.20260627a.js',
   'pwa.js?v=20260627-shell1', 'offline.html',
