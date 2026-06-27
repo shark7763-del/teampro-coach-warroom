@@ -100,7 +100,7 @@ async function showDashboard() {
   $('#featurePanel').classList.add('hidden');
   $('#dashboardPanel').classList.remove('hidden');
   setActiveTab('dashboard');
-  const mod = await import('./app-modules/dashboard.js?v=20260627-shell1');
+  const mod = await import('./app-modules/dashboard.js?v=20260627-shell2');
   await mod.mountDashboard({ ensureTeams, today, coachKey });
 }
 
@@ -127,6 +127,6 @@ async function openFeature(tab) {
   $('#featureTitle').textContent = cfg.title;
   $('#featureMount').innerHTML = '<div class="shell-card shell-loading">載入 ' + TP.esc(cfg.title) + '…</div>';
   setActiveTab(tab === 'more' ? 'more' : tab);
-  const mod = await import(cfg.module + '?v=20260627-shell1');
+  const mod = await import(cfg.module + '?v=20260627-shell2');
   mod.mount($('#featureMount'));
 }

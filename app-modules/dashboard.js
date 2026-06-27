@@ -6,13 +6,23 @@ export async function mountDashboard(ctx) {
   const teams = await ctx.ensureTeams();
   const teamId = (document.getElementById('dashTeam') && document.getElementById('dashTeam').value) || '';
   const date = ctx.today();
+  const cacheKey = 'teampro_shell_warroom_' + (ctx.coachKey ? ctx.coachKey() : 'coach') + '_' + teamId + '_' + date;
+  let cached = null;
+  try { cached = JSON.parse(localStorage.getItem(cacheKey) || 'null'); } catch (e) {}
+  if (cached && cached.ok) render(root, cached, teams, ctx, true);
   const r = await TP.callAuth('warroom', { teamId, date });
   if (!r || !r.ok) {
+    if (cached && cached.ok) {
+      const note = document.getElementById('dashSyncNote');
+      if (note) note.textContent = '更新失敗，目前顯示上次資料。';
+      return;
+    }
     root.innerHTML = '<div class="shell-card">今日戰情室載入失敗。<button class="btn btn-sm" id="dashRetry">重新整理</button></div>';
     document.getElementById('dashRetry').onclick = () => mountDashboard(ctx);
     return;
   }
-  render(root, r, teams, ctx);
+  try { localStorage.setItem(cacheKey, JSON.stringify(Object.assign({}, r, { cachedAt: Date.now() }))); } catch (e) {}
+  render(root, r, teams, ctx, false);
 }
 
 function skeleton() {
@@ -23,7 +33,7 @@ function skeleton() {
   '</div>';
 }
 
-function render(root, r, teams, ctx) {
+function render(root, r, teams, ctx, stale) {
   const submitted = r.submitted || [];
   const missing = r.missing || [];
   const red = (r.lights && r.lights.red) || 0;
@@ -35,6 +45,7 @@ function render(root, r, teams, ctx) {
     (Number(s.sleepDurationMinutes) > 0 && Number(s.sleepDurationMinutes) < 360)
   ).slice(0, 6);
   root.innerHTML =
+    (stale ? '<div class="shell-sync-note" id="dashSyncNote">已先顯示上次資料，正在更新最新狀態…</div>' : '<div class="shell-sync-note fresh" id="dashSyncNote">已更新最新狀態</div>') +
     '<div class="shell-grid">' +
       '<div class="shell-card"><div class="muted">今日完成率</div><div class="metric-big">' + Number(r.completionRate || 0) + '%</div>' +
         '<div class="summary-row"><span class="summary-pill">' + submitted.length + ' 已回報</span><span class="summary-pill">' + missing.length + ' 未回報</span></div></div>' +

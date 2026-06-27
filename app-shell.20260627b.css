@@ -76,6 +76,20 @@
 .shell-settings { margin:12px 0; }
 .shell-settings summary { cursor:pointer; color:var(--muted); font-size:13px; }
 .shell-loading { padding:28px; text-align:center; color:var(--muted); }
+.shell-sync-note {
+  margin:0 0 10px;
+  padding:9px 12px;
+  border:1px solid rgba(56,189,248,.28);
+  border-radius:12px;
+  background:rgba(56,189,248,.08);
+  color:#c7e8ff;
+  font-size:13px;
+}
+.shell-sync-note.fresh {
+  border-color:rgba(34,197,94,.24);
+  background:rgba(34,197,94,.07);
+  color:#bbf7d0;
+}
 .mobile-tabbar {
   display:flex;
   position:fixed;

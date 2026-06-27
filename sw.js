@@ -7,11 +7,12 @@
 var CACHE = 'teampro-v4';
 var CORE = [
   './', 'index.html', 'app.html', 'join.html',
-  'style.css?v=20260627-shell1', 'app-shell.20260627b.css', 'api.js?v=20260627-shell1', 'app-shell.20260627a.js',
-  'app-modules/dashboard.js?v=20260627-shell1', 'app-modules/legacy-frame.js',
+  'style.css?v=20260627-shell1', 'app-shell.20260627b.css', 'api.js?v=20260627-shell1', 'app-shell.20260627b.js',
+  'app-modules/dashboard.js?v=20260627-shell2', 'app-modules/legacy-frame.js',
   'app-full.html', 'app-full-extra.20260627a.css', 'app-full.20260627a.js',
   'pwa.js?v=20260627-shell1', 'offline.html',
-  'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'
+  'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
+  'assets/logo.webp'
 ];
 
 self.addEventListener('install', function (e) {
