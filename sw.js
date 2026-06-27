@@ -4,12 +4,12 @@
    - 同源靜態檔 (css/js/png)：stale-while-revalidate
    - 跨來源 / 非 GET（GAS API 等）：完全不攔截，永遠走網路（資料即時、不快取）
 */
-var CACHE = 'teampro-v4';
+var CACHE = 'teampro-v5';
 var CORE = [
   './', 'index.html', 'app.html', 'join.html',
-  'style.css?v=20260627-shell1', 'app-shell.20260627b.css', 'api.js?v=20260627-shell1', 'app-shell.20260627b.js',
-  'app-modules/dashboard.js?v=20260627-shell2', 'app-modules/legacy-frame.js',
-  'app-full.html', 'app-full-extra.20260627a.css', 'app-full.20260627a.js',
+  'style.css?v=20260627-shell1', 'app-shell.20260627b.css', 'api.js?v=20260627-shell1', 'app-shell.20260627c.js',
+  'app-modules/dashboard.js?v=20260627-shell3', 'app-modules/legacy-frame.js',
+  'app-full.html', 'app-full-extra.20260627a.css', 'app-full.20260627b.js',
   'pwa.js?v=20260627-shell1', 'offline.html',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
   'assets/logo.webp'
