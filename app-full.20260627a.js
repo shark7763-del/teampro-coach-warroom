@@ -394,6 +394,8 @@
     loadTeams().then(function () {
       loadWarroom();
       idle(function () { if (!dataLoaded.trial) loadTrialSummary(); }, 1800);
+      var lazyTab = params.get('lazyTab');
+      if (lazyTab) setTimeout(function () { switchTab(lazyTab); }, 0);
     });
     signupJustCompleted = false;
   }
