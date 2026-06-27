@@ -294,6 +294,7 @@ function handle(action, d) {
     case 'saveAttendance':  return jsonOut(withCoach(d, saveAttendance));
     case 'getAttendance':   return jsonOut(withCoach(d, getAttendance));
     case 'attendanceRange': return jsonOut(withCoach(d, attendanceRange));
+    case 'attendanceExpandedRange': return jsonOut(withCoach(d, attendanceExpandedRange));
     case 'setAssistantPin': return jsonOut(withCoach(d, setAssistantPin));
     case 'assistantPinStatus': return jsonOut(withCoach(d, assistantPinStatus));
 
@@ -1297,9 +1298,71 @@ function attendanceRange(c, d) {
       (!from || ad >= from) && (!to || ad <= to);
   }).map(function (a) {
     var marks = {}; try { marks = JSON.parse(a.marks || '{}'); } catch (e) {}
-    return { date: formatDateCell(a.date), teamId: a.teamId, teamName: a.teamName || '', sessionId: a.sessionId || a.attId, sessionName: a.sessionName || a.course || '', startTime: a.startTime || '', endTime: a.endTime || '', marks: marks };
+    return { date: formatDateCell(a.date), teamId: a.teamId, teamName: a.teamName || '', sessionId: a.sessionId || a.attId, sessionName: a.sessionName || a.course || '', startTime: a.startTime || '', endTime: a.endTime || '', marks: marks, createdAt: a.createdAt || '', updatedAt: a.updatedAt || '' };
   }).sort(function (x, y) { return String(x.date).localeCompare(String(y.date)); });
   return { ok: true, records: rows };
+}
+
+function attendanceExpandedRange(c, d) {
+  var base = attendanceRange(c, d);
+  if (!base.ok) return base;
+  var athletes = {};
+  readAll(SHEETS.athletes).forEach(function (a) {
+    athletes[String(a.athleteId || a.id || '')] = a;
+  });
+  var out = [];
+  base.records.forEach(function (r) {
+    var marks = r.marks || {};
+    Object.keys(marks).forEach(function (aid) {
+      var m = marks[aid] || {};
+      var status = normalizeAttendanceStatus(String(m.s || m.status || 'present'));
+      var a = athletes[String(aid)] || {};
+      out.push({
+        date: formatDateCell(r.date),
+        weekday: weekdayOf(r.date),
+        sessionId: r.sessionId || '',
+        sessionName: r.sessionName || '',
+        startTime: r.startTime || '',
+        endTime: r.endTime || '',
+        studentId: String(aid),
+        studentName: a.name || a.studentName || '',
+        status: reportStatusLabel(status),
+        rawStatus: status,
+        lateMinutes: Number(m.lateMinutes || m.late || m.lateMinutesMin || 0) || 0,
+        note: String(m.n || m.note || ''),
+        createdAt: r.createdAt || '',
+        updatedAt: r.updatedAt || '',
+        teamId: r.teamId || ''
+      });
+    });
+  });
+  return { ok: true, records: out, sessionCount: base.records.length, recordCount: out.length };
+}
+
+function normalizeAttendanceStatus(s) {
+  s = String(s || 'present');
+  if (s === 'leave') return 'personal_leave';
+  if (s === 'injured_watch' || s === 'adjust_training') return 'not_required';
+  if (ATT_STATUSES.indexOf(s) !== -1) return s;
+  if (s === 'official') return 'official_leave';
+  if (s === 'injury') return 'not_required';
+  return 'present';
+}
+
+function reportStatusLabel(s) {
+  if (s === 'present') return 'present';
+  if (s === 'late') return 'late';
+  if (s === 'absent') return 'absent';
+  if (s === 'official_leave') return 'official';
+  if (s === 'personal_leave' || s === 'sick_leave') return 'leave';
+  if (s === 'not_required') return 'injury';
+  return s;
+}
+
+function weekdayOf(dateStr) {
+  var d = new Date(String(dateStr || '') + 'T12:00:00');
+  if (isNaN(d.getTime())) return '';
+  return ['日', '一', '二', '三', '四', '五', '六'][d.getDay()];
 }
 
 /* ============================================================

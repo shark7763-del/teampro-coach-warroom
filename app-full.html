@@ -361,6 +361,53 @@
 
   <!-- 成果報告 -->
   <section id="tab-report" class="hidden">
+    <div class="card no-print att-report-board">
+      <div class="att-report-head">
+        <div>
+          <div class="eyebrow-sm">點名報告</div>
+          <h3>本月總覽、學生排行與個人明細</h3>
+          <p class="muted">依課程時段統計出缺席，支援本週、本月與自訂日期區間。可切換教練內部版、家長通知版、學校佐證版。</p>
+        </div>
+        <div class="att-report-mode" id="attReportModeButtons">
+          <button class="btn btn-sm active" data-att-mode="internal">教練內部版</button>
+          <button class="btn btn-sm" data-att-mode="parent">家長通知版</button>
+          <button class="btn btn-sm" data-att-mode="evidence">學校佐證版</button>
+        </div>
+      </div>
+      <div class="att-report-filters">
+        <div class="field"><label>隊伍</label><select id="attRepTeam"></select></div>
+        <div class="field"><label>區間</label><select id="attRepRange"><option value="week">本週</option><option value="month" selected>本月</option><option value="custom">自訂日期區間</option></select></div>
+        <div class="field" id="attRepFromWrap" style="display:none;"><label>起</label><input id="attRepFrom" type="date"></div>
+        <div class="field" id="attRepToWrap" style="display:none;"><label>迄</label><input id="attRepTo" type="date"></div>
+        <div class="field"><label>課程類型</label><select id="attRepSession"><option value="all">全部課程</option></select></div>
+        <div class="field"><label>學生</label><select id="attRepStudent"><option value="all">全部學生</option></select></div>
+        <div class="field"><label>狀態</label><select id="attRepStatus"><option value="all">全部</option><option value="present">出席</option><option value="late">遲到</option><option value="early_leave">早退</option><option value="absent">缺席</option><option value="leave">請假</option><option value="injury">傷病</option><option value="official">公假</option></select></div>
+      </div>
+      <div class="att-report-actions">
+        <button class="btn btn-primary" id="attRepRefresh">更新點名報告</button>
+        <button class="btn" id="attRepCopyLine">複製 LINE 通知</button>
+        <button class="btn" id="attRepPrint">列印 / PDF</button>
+      </div>
+      <div id="attRepStats" class="att-report-stats"></div>
+      <div class="att-report-body">
+        <div class="att-report-rank">
+          <div class="att-report-headline">
+            <h4>學生出席率排行榜</h4>
+            <span class="muted">點擊學生後可看個人點名明細</span>
+          </div>
+          <div id="attRepRank" class="att-report-rank-list"></div>
+        </div>
+        <div class="att-report-issues">
+          <div class="att-report-headline">
+            <h4>異常名單</h4>
+            <span class="muted">低於 80% 標示為需關心</span>
+          </div>
+          <div id="attRepIssues" class="att-report-issue-list"></div>
+        </div>
+      </div>
+      <div id="attRepDetail" class="att-report-detail"></div>
+      <div id="attRepPrintArea" class="att-report-print-area"></div>
+    </div>
     <div class="card no-print report-composer">
       <div class="composer-head">
         <div class="eyebrow-sm">成果輸出</div>

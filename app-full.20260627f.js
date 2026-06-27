@@ -488,7 +488,7 @@
     });
     if (tab === 'settings' && !DEMO) loadAthletesOnce().then(loadPrivacyRequests);
     if (tab === 'athletes') loadAthletesOnce();
-    if (tab === 'report') loadAthletesOnce();
+    if (tab === 'report') { initAttendanceReportControls(); loadAttendanceReport(); }
     if (tab === 'attendance') loadAthletesOnce().then(loadAttendance);
     syncMobileTabbar(tab);
   }
@@ -1285,6 +1285,553 @@
     var f = from.toISOString().slice(0, 10), t = to.toISOString().slice(0, 10);
     var days = Math.round((new Date(t) - new Date(f)) / 86400000) + 1;
     return { from: f, to: t, days: days };
+  }
+
+  var attReportState = {
+    mode: 'internal',
+    range: 'month',
+    from: '',
+    to: '',
+    teamId: '',
+    sessionId: 'all',
+    studentId: 'all',
+    status: 'all',
+    rows: [],
+    selectedStudentId: '',
+    loading: false
+  };
+
+  function attReportKeyDate(v) {
+    if (v instanceof Date && !isNaN(v.getTime())) {
+      return v.getFullYear() + '-' + String(v.getMonth() + 1).padStart(2, '0') + '-' + String(v.getDate()).padStart(2, '0');
+    }
+    var s = String(v == null ? '' : v).trim();
+    var m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+    if (m) return m[1] + '-' + String(m[2]).padStart(2, '0') + '-' + String(m[3]).padStart(2, '0');
+    var d = new Date(s);
+    if (!isNaN(d.getTime())) {
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+    return '';
+  }
+  function attReportWeekday(dateStr) {
+    var d = new Date(attReportKeyDate(dateStr) + 'T12:00:00');
+    if (isNaN(d.getTime())) return '';
+    return ['日', '一', '二', '三', '四', '五', '六'][d.getDay()];
+  }
+  function attReportStartOfWeek(dateStr) {
+    var d = new Date(attReportKeyDate(dateStr) + 'T12:00:00');
+    if (isNaN(d.getTime())) return localToday();
+    var day = d.getDay();
+    d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+    return attReportKeyDate(d);
+  }
+  function attReportStartOfMonth(dateStr) {
+    var d = new Date(attReportKeyDate(dateStr) + 'T12:00:00');
+    if (isNaN(d.getTime())) return localToday().slice(0, 7) + '-01';
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-01';
+  }
+  function attReportEndOfMonth(dateStr) {
+    var d = new Date(attReportStartOfMonth(dateStr) + 'T12:00:00');
+    if (isNaN(d.getTime())) return localToday();
+    d.setMonth(d.getMonth() + 1);
+    d.setDate(0);
+    return attReportKeyDate(d);
+  }
+  function attReportRange() {
+    var mode = $('#attRepRange').value || 'month';
+    var anchor = attReportKeyDate($('#attRepTo').value || $('#attRepFrom').value || localToday()) || localToday();
+    var from = '', to = '';
+    if (mode === 'week') {
+      from = attReportStartOfWeek(anchor);
+      to = anchor;
+    } else if (mode === 'month') {
+      from = attReportStartOfMonth(anchor);
+      to = attReportEndOfMonth(anchor);
+    } else {
+      from = attReportKeyDate($('#attRepFrom').value) || attReportStartOfMonth(anchor);
+      to = attReportKeyDate($('#attRepTo').value) || anchor;
+      if (from > to) { var tmp = from; from = to; to = tmp; }
+    }
+    return { from: from, to: to, mode: mode, anchor: anchor };
+  }
+  function attReportStatusBucket(raw) {
+    var s = String(raw || 'present');
+    if (s === 'present') return 'present';
+    if (s === 'late') return 'late';
+    if (s === 'early_leave') return 'early_leave';
+    if (s === 'absent') return 'absent';
+    if (s === 'official' || s === 'official_leave') return 'official';
+    if (s === 'injury' || s === 'not_required') return 'injury';
+    if (s === 'sick_leave' || s === 'personal_leave' || s === 'leave') return 'leave';
+    return 'leave';
+  }
+  function attReportStatusText(bucket) {
+    return { present: '出席', late: '遲到', early_leave: '早退', absent: '缺席', leave: '請假', injury: '傷病', official: '公假' }[bucket] || '請假';
+  }
+  function attReportStatusClass(bucket) {
+    return { present: 'good', late: 'warn', early_leave: 'warn', absent: 'bad', leave: 'neutral', injury: 'neutral', official: 'neutral' }[bucket] || 'neutral';
+  }
+  function attReportSessionKey(r) { return r.sessionId || [r.sessionName, r.startTime, r.endTime].join('|'); }
+  function attReportFlatten(records) {
+    var byId = {};
+    (state.athletes || []).forEach(function (a) { byId[String(a.athleteId)] = a; });
+    var out = [];
+    (records || []).forEach(function (r) {
+      var marks = r.marks || {};
+      Object.keys(marks).forEach(function (aid) {
+        var m = marks[aid] || {};
+        var bucket = attReportStatusBucket(m.status || m.s || 'present');
+        var a = byId[String(aid)] || {};
+        out.push({
+          date: attReportKeyDate(r.date),
+          weekday: attReportWeekday(r.date),
+          sessionId: r.sessionId || '',
+          sessionKey: attReportSessionKey(r),
+          sessionName: r.sessionName || '',
+          startTime: r.startTime || '',
+          endTime: r.endTime || '',
+          studentId: String(aid),
+          studentName: a.name || a.studentName || ('學生 ' + aid),
+          status: bucket,
+          lateMinutes: Number(m.lateMinutes || m.late || 0) || 0,
+          note: String(m.n || m.note || ''),
+          createdAt: r.createdAt || '',
+          updatedAt: r.updatedAt || '',
+          teamId: r.teamId || '',
+          teamName: r.teamName || ''
+        });
+      });
+    });
+    return out.sort(function (x, y) {
+      return (x.date + ' ' + x.startTime + ' ' + x.studentName).localeCompare(y.date + ' ' + y.startTime + ' ' + y.studentName);
+    });
+  }
+  function attReportCourseText(r) {
+    return r.sessionName + ' ' + r.startTime + '–' + r.endTime;
+  }
+  function attReportFilters(rows) {
+    var session = $('#attRepSession').value || 'all';
+    var student = $('#attRepStudent').value || 'all';
+    var status = $('#attRepStatus').value || 'all';
+    return rows.filter(function (r) {
+      if (session !== 'all' && r.sessionKey !== session) return false;
+      if (student !== 'all' && r.studentId !== student) return false;
+      if (status !== 'all' && r.status !== status) return false;
+      return true;
+    });
+  }
+  function attReportSummaries(rows) {
+    var map = {};
+    rows.forEach(function (r) {
+      var k = r.studentId;
+      if (!map[k]) map[k] = {
+      studentId: k, studentName: r.studentName, total: 0, present: 0, late: 0, absent: 0,
+        earlyLeave: 0, leave: 0, injury: 0, official: 0, lateMinutes: 0, sessions: [], lastDate: '', lastStatus: '', streakAbsent: 0
+      };
+      var o = map[k];
+      o.total += 1;
+      o.sessions.push(r);
+      if (r.status === 'present') o.present += 1;
+      else if (r.status === 'late') o.late += 1;
+      else if (r.status === 'early_leave') o.earlyLeave += 1;
+      else if (r.status === 'absent') o.absent += 1;
+      else if (r.status === 'leave') o.leave += 1;
+      else if (r.status === 'injury') o.injury += 1;
+      else if (r.status === 'official') o.official += 1;
+      o.lateMinutes += Number(r.lateMinutes || 0) || 0;
+    });
+    Object.keys(map).forEach(function (k) {
+      var o = map[k];
+      var required = o.total - o.official;
+      var score = o.present + (o.late * 0.5) + ((o.earlyLeave || 0) * 0.5);
+      o.required = required;
+      o.score = Number(score.toFixed(1));
+      o.rate = required ? Number((score / required * 100).toFixed(1)) : 0;
+      o.sessions.sort(function (a, b) {
+        return (a.date + ' ' + a.startTime).localeCompare(b.date + ' ' + b.startTime);
+      });
+      o.lastDate = o.sessions.length ? o.sessions[o.sessions.length - 1].date : '';
+      o.lastStatus = o.sessions.length ? o.sessions[o.sessions.length - 1].status : '';
+      var streak = 0;
+      for (var i = o.sessions.length - 1; i >= 0; i--) {
+        if (o.sessions[i].status === 'absent') streak++; else break;
+      }
+      o.streakAbsent = streak;
+    });
+    return Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) {
+      if (b.rate !== a.rate) return b.rate - a.rate;
+      if (b.absent !== a.absent) return b.absent - a.absent;
+      return a.studentName.localeCompare(b.studentName);
+    });
+  }
+  function attReportOverall(rows, summaries) {
+    var sessions = {};
+    rows.forEach(function (r) { sessions[r.sessionKey] = true; });
+    var totals = rows.reduce(function (acc, r) {
+      acc.total += 1;
+      if (r.status === 'present') acc.present += 1;
+      else if (r.status === 'late') acc.late += 1;
+      else if (r.status === 'early_leave') acc.earlyLeave += 1;
+      else if (r.status === 'absent') acc.absent += 1;
+      else if (r.status === 'leave') acc.leave += 1;
+      else if (r.status === 'injury') acc.injury += 1;
+      else if (r.status === 'official') acc.official += 1;
+      return acc;
+    }, { total: 0, present: 0, late: 0, earlyLeave: 0, absent: 0, leave: 0, injury: 0, official: 0 });
+    var score = totals.present + (totals.late * 0.5) + (totals.earlyLeave * 0.5);
+    var required = totals.total - totals.official;
+    return {
+      sessionCount: Object.keys(sessions).length,
+      studentCount: summaries.length,
+      required: required,
+      score: Number(score.toFixed(1)),
+      rate: required ? Number((score / required * 100).toFixed(1)) : 0,
+      totals: totals,
+      concernCount: summaries.filter(function (s) { return s.rate < 80 || s.streakAbsent >= 2 || s.late >= 3; }).length
+    };
+  }
+  function attReportCopyText(s) {
+    if (!s) return '';
+    return '您好，' + s.studentName + '本期點名摘要：\n' +
+      '應到堂數：' + s.required + ' 堂\n' +
+      '出席：' + s.present + ' 次\n' +
+      '遲到：' + s.late + ' 次\n' +
+      '早退：' + (s.earlyLeave || 0) + ' 次\n' +
+      '缺席：' + s.absent + ' 次\n' +
+      '請假：' + s.leave + ' 次\n' +
+      '傷病：' + s.injury + ' 次\n' +
+      '公假：' + s.official + ' 次\n' +
+      '出席率：' + s.rate + '%\n' +
+      (s.rate < 80 ? '需要再一起關心與追蹤。' : '目前狀況穩定，持續保持。');
+  }
+  function attReportLineText(summary) {
+    var name = (summary && summary.studentName) || '';
+    var rate = summary ? summary.rate : 0;
+    return '【TeamPro 家長通知】\n' +
+      '學生：' + name + '\n' +
+      '出席率：' + rate + '%\n' +
+      '出席：' + (summary ? summary.present : 0) + '、遲到：' + (summary ? summary.late : 0) + '、早退：' + (summary ? summary.earlyLeave || 0 : 0) + '、缺席：' + (summary ? summary.absent : 0) + '、請假：' + (summary ? summary.leave : 0) + '、傷病：' + (summary ? summary.injury : 0) + '、公假：' + (summary ? summary.official : 0) + '\n' +
+      (rate < 80 ? '目前需要持續關心，請協助留意出席與作息。' : '目前出席狀況穩定，持續保持即可。') + lineWatermark();
+  }
+  function attReportPrintHtml(rows, summaries, overall) {
+    var teamSel = $('#attRepTeam');
+    var teamName = (teamSel && teamSel.selectedIndex >= 0 && teamSel.options[teamSel.selectedIndex]) ? teamSel.options[teamSel.selectedIndex].text : '全部團隊';
+    var range = attReportRange();
+    var selected = summaries.filter(function (s) { return s.studentId === attReportState.selectedStudentId; })[0] || summaries[0] || null;
+    var title = 'TeamPro 點名報告';
+    var detailRows = selected ? selected.sessions : rows;
+    var detailHead = selected ? ('學生：' + selected.studentName) : '全部學生';
+    var detailTable = detailRows.map(function (r) {
+      return '<tr><td>' + r.date + '</td><td>週' + r.weekday + '</td><td>' + esc(attReportCourseText(r)) + '</td><td><span class="badge ' + esc(attReportStatusClass(r.status)) + '">' + esc(attReportStatusText(r.status)) + '</span></td><td>' + r.lateMinutes + '</td><td>' + esc(r.note || '') + '</td></tr>';
+    }).join('');
+    return '<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">' +
+      '<title>' + esc(title) + '</title>' +
+      '<style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",sans-serif;margin:0;padding:24px;color:#1a2230;background:#fff}h1,h2,h3,p{margin:0 0 10px}table{width:100%;border-collapse:collapse;font-size:13px}th,td{border-bottom:1px solid #e4e8ef;padding:8px 6px;text-align:left;vertical-align:top}th{color:#5b6675;font-size:12px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0}.card{border:1px solid #e4e8ef;border-radius:12px;padding:12px}.badge{display:inline-flex;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:800}.present{background:#dcfce7;color:#15803d}.late,.warn{background:#fef3c7;color:#b45309}.absent{background:#fee2e2;color:#b91c1c}.leave{background:#e0f2fe;color:#0369a1}.injury{background:#ede9fe;color:#6d28d9}.official{background:#e2e8f0;color:#475569}</style></head><body>' +
+      '<h1>點名報告</h1>' +
+      '<p>隊伍：' + esc(teamName) + '｜區間：' + range.from + ' ～ ' + range.to + '｜輸出：學校佐證版</p>' +
+      '<div class="grid">' +
+        '<div class="card"><b>' + overall.sessionCount + '</b><div>課程時段</div></div>' +
+        '<div class="card"><b>' + overall.studentCount + '</b><div>學生數</div></div>' +
+        '<div class="card"><b>' + overall.rate + '%</b><div>整體出席率</div></div>' +
+        '<div class="card"><b>' + overall.concernCount + '</b><div>需關心</div></div>' +
+      '</div>' +
+      '<h2>個人明細：' + esc(detailHead) + '</h2>' +
+      '<table><thead><tr><th>日期</th><th>星期</th><th>課程時段</th><th>課程名稱</th><th>狀態</th><th>遲到分鐘</th><th>備註</th></tr></thead><tbody>' +
+      (detailTable || '<tr><td colspan="7">無資料</td></tr>') + '</tbody></table>' +
+      '</body></html>';
+  }
+  function attReportPrint() {
+    var rows = attReportFilters(attReportState.rows);
+    var summaries = attReportSummaries(rows);
+    var overall = attReportOverall(rows, summaries);
+    var html = attReportPrintHtml(rows, summaries, overall);
+    var w = window.open('', '_blank', 'noopener,noreferrer');
+    if (!w) { toast('瀏覽器阻擋列印視窗，請允許彈出式視窗', true); return; }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    setTimeout(function () { try { w.print(); } catch (e) {} }, 350);
+  }
+  function attReportRenderControls(rows) {
+    var teamSel = $('#attRepTeam');
+    if (teamSel && !teamSel.dataset.ready) {
+      var teamOpts = ['<option value="">全部團隊</option>'].concat((state.teams || []).map(function (t) {
+        return '<option value="' + esc(t.teamId) + '">' + esc(t.teamName) + '</option>';
+      }));
+      teamSel.innerHTML = teamOpts.join('');
+      teamSel.dataset.ready = '1';
+      teamSel.value = attReportState.teamId || (atState && atState.teamId) || (state.teams[0] && state.teams[0].teamId) || '';
+    }
+    if (!$('#attRepStudent').dataset.ready) $('#attRepStudent').dataset.ready = '1';
+    var sessionSel = $('#attRepSession');
+    var studentsSel = $('#attRepStudent');
+    var uniqueSessions = {};
+    var uniqueStudents = {};
+    rows.forEach(function (r) {
+      uniqueSessions[r.sessionKey] = r;
+      uniqueStudents[r.studentId] = r;
+    });
+    sessionSel.innerHTML = '<option value="all">全部課程</option>' + Object.keys(uniqueSessions).map(function (k) {
+      var r = uniqueSessions[k];
+      return '<option value="' + esc(k) + '">' + esc(attReportCourseText(r)) + '</option>';
+    }).join('');
+    studentsSel.innerHTML = '<option value="all">全部學生</option>' + Object.keys(uniqueStudents).map(function (k) {
+      var r = uniqueStudents[k];
+      return '<option value="' + esc(k) + '">' + esc(r.studentName) + '</option>';
+    }).join('');
+    if (attReportState.sessionId !== 'all') sessionSel.value = attReportState.sessionId;
+    if (attReportState.studentId !== 'all') studentsSel.value = attReportState.studentId;
+  }
+  function attReportSelectedLineText() {
+    var rows = attReportState.rows || [];
+    var summaries = attReportSummaries(rows);
+    var selected = summaries.filter(function (s) { return s.studentId === attReportState.selectedStudentId; })[0] || summaries[0] || null;
+    return selected ? attReportCopyText(selected) : '';
+  }
+  function attReportRender() {
+    var rows = attReportFilters(attReportState.rows);
+    var summaries = attReportSummaries(rows);
+    var overall = attReportOverall(rows, summaries);
+    if (!attReportState.selectedStudentId || !summaries.some(function (s) { return s.studentId === attReportState.selectedStudentId; })) {
+      attReportState.selectedStudentId = summaries.length ? summaries[0].studentId : '';
+    }
+    var selected = summaries.filter(function (s) { return s.studentId === attReportState.selectedStudentId; })[0] || null;
+    var mode = attReportState.mode;
+
+    $('#attRepStats').innerHTML = [
+      { n: overall.sessionCount, l: '課程時段', m: '已統計 ' + summaries.length + ' 位學生' },
+      { n: overall.studentCount, l: '學生數', m: '可點選學生查看明細' },
+      { n: overall.rate + '%', l: '整體出席率', m: '以出席 + 遲到 / 早退半分計算' },
+      { n: overall.concernCount, l: '需關心', m: '低於 80% / 連續缺席 / 遲到過多' }
+    ].map(function (x) {
+      return '<div class="att-report-stat"><b>' + esc(x.n) + '</b><div>' + esc(x.l) + '</div><div class="muted">' + esc(x.m) + '</div></div>';
+    }).join('');
+
+    $('#attRepRank').innerHTML = summaries.length ? summaries.map(function (s) {
+      var active = attReportState.selectedStudentId === s.studentId ? ' active' : '';
+      var badge = s.rate >= 80 ? (s.rate >= 95 ? 'good' : 'warn') : 'bad';
+      return '<div class="att-report-card' + active + '" data-att-student="' + esc(s.studentId) + '">' +
+        '<div class="top"><div><div class="name">' + esc(s.studentName) + '</div><div class="meta">' +
+          '<span class="att-pill ' + badge + '">出席率 ' + s.rate + '%</span>' +
+          '<span class="att-pill neutral">缺席 ' + s.absent + '</span>' +
+          '<span class="att-pill neutral">遲到 ' + s.late + '</span>' +
+          '<span class="att-pill neutral">早退 ' + (s.earlyLeave || 0) + '</span></div></div>' +
+          '<button class="btn btn-sm" data-copy-line="' + esc(s.studentId) + '">複製 LINE</button></div>' +
+        '</div>';
+    }).join('') : '<div class="empty">沒有可顯示的學生資料。</div>';
+
+    var issues = summaries.filter(function (s) { return s.rate < 80 || s.streakAbsent >= 2 || s.late >= 3; });
+    $('#attRepIssues').innerHTML = issues.length
+      ? issues.map(function (s) {
+          var reasons = [];
+          if (s.rate < 80) reasons.push('出席率低於 80%');
+          if (s.streakAbsent >= 2) reasons.push('連續缺席 ' + s.streakAbsent + ' 次');
+          if (s.late >= 3) reasons.push('遲到過多');
+          return '<div class="att-report-card' + (attReportState.selectedStudentId === s.studentId ? ' active' : '') + '" data-att-student="' + esc(s.studentId) + '">' +
+            '<div class="top"><div><div class="name">' + esc(s.studentName) + '</div><div class="meta">' +
+              reasons.map(function (r) { return '<span class="att-pill bad">' + esc(r) + '</span>'; }).join(' ') + '</div></div>' +
+              '<button class="btn btn-sm" data-copy-line="' + esc(s.studentId) + '">複製 LINE</button></div>' +
+            '</div>';
+        }).join('')
+      : '<div class="empty">目前沒有需要特別關心的學生。</div>';
+
+    if (!selected && summaries.length) selected = summaries[0];
+    if (mode === 'evidence') {
+      $('#attRepDetail').innerHTML = attReportRenderEvidence(rows, selected, overall);
+    } else if (mode === 'parent') {
+      $('#attRepDetail').innerHTML = attReportRenderParent(rows, selected, overall);
+    } else {
+      $('#attRepDetail').innerHTML = attReportRenderInternal(rows, selected, overall);
+    }
+
+    TP.$all('[data-att-student]', $('#attRepRank')).forEach(function (b) {
+      b.onclick = function () {
+        attReportState.selectedStudentId = b.dataset.attStudent;
+        $('#attRepStudent').value = b.dataset.attStudent;
+        attReportRender();
+      };
+    });
+    TP.$all('[data-att-student]', $('#attRepIssues')).forEach(function (b) {
+      b.onclick = function () {
+        attReportState.selectedStudentId = b.dataset.attStudent;
+        $('#attRepStudent').value = b.dataset.attStudent;
+        attReportRender();
+      };
+    });
+    TP.$all('[data-copy-line]', $('#attRepRank')).forEach(function (b) {
+      b.onclick = function (e) {
+        e.stopPropagation();
+        var s = summaries.filter(function (x) { return x.studentId === b.dataset.copyLine; })[0];
+        if (s) TP.copy(attReportLineText(s));
+      };
+    });
+    TP.$all('[data-copy-line]', $('#attRepIssues')).forEach(function (b) {
+      b.onclick = function (e) {
+        e.stopPropagation();
+        var s = summaries.filter(function (x) { return x.studentId === b.dataset.copyLine; })[0];
+        if (s) TP.copy(attReportLineText(s));
+      };
+    });
+    var selectedLineBtn = $('#attRepSelectedLine');
+    if (selectedLineBtn) {
+      selectedLineBtn.onclick = function () {
+        var txt = attReportSelectedLineText();
+        if (txt) TP.copy(txt);
+      };
+    }
+  }
+  function attReportRenderInternal(rows, selected, overall) {
+    if (!selected) return '<div class="empty">沒有可顯示的學生資料。</div>';
+    var list = selected.sessions.map(function (r) {
+      return '<tr><td>' + esc(r.date) + '</td><td>週' + esc(r.weekday) + '</td><td>' + esc(attReportCourseText(r)) + '</td><td><span class="att-pill ' + attReportStatusClass(r.status) + '">' + esc(attReportStatusText(r.status)) + '</span></td><td>' + esc(String(r.lateMinutes || 0)) + '</td><td>' + esc(r.note || '') + '</td></tr>';
+    }).join('');
+    var warn = selected.rate < 80 ? '需關心' : (selected.streakAbsent >= 2 ? '連續缺席' : (selected.late >= 3 ? '遲到偏多' : '正常'));
+    return '<div class="detail-top"><div><h4>' + esc(selected.studentName) + ' 個人點名明細</h4><div class="muted">出席率 ' + selected.rate + '%｜' + esc(warn) + '</div></div>' +
+      '<div class="att-report-actions"><button class="btn btn-sm" id="attRepSelectedLine">複製家長通知 LINE</button></div></div>' +
+      '<table><thead><tr><th>日期</th><th>星期</th><th>課程時段</th><th>課程名稱</th><th>狀態</th><th>遲到分鐘</th><th>備註</th></tr></thead><tbody>' +
+      list + '</tbody></table>';
+  }
+  function attReportRenderParent(rows, selected, overall) {
+    if (!selected) return '<div class="empty">沒有可顯示的學生資料。</div>';
+    return '<div class="detail-top"><div><h4>家長通知版</h4><div class="muted">客觀、簡潔、不責備，可直接複製到 LINE。</div></div>' +
+      '<div class="att-report-actions"><button class="btn btn-sm" id="attRepSelectedLine">複製家長通知 LINE</button></div></div>' +
+      '<div class="att-report-card active"><div class="top"><div><div class="name">' + esc(selected.studentName) + '</div><div class="meta">' +
+      '<span class="att-pill ' + (selected.rate >= 80 ? 'good' : 'bad') + '">出席率 ' + selected.rate + '%</span>' +
+      '<span class="att-pill neutral">應到 ' + selected.required + '</span>' +
+      '<span class="att-pill neutral">缺席 ' + selected.absent + '</span>' +
+      '<span class="att-pill neutral">遲到 ' + selected.late + '</span>' +
+      '<span class="att-pill neutral">早退 ' + (selected.earlyLeave || 0) + '</span></div></div><div class="att-pill ' + (selected.rate >= 80 ? 'good' : 'bad') + '">' + (selected.rate >= 80 ? '穩定' : '需關心') + '</div></div>' +
+      '<div style="margin-top:10px;white-space:pre-wrap;line-height:1.7;">' + esc(attReportLineText(selected)) + '</div></div>' +
+      '<table style="margin-top:12px;"><thead><tr><th>日期</th><th>課程時段</th><th>狀態</th><th>備註</th></tr></thead><tbody>' +
+      selected.sessions.map(function (r) {
+        return '<tr><td>' + esc(r.date) + '</td><td>' + esc(attReportCourseText(r)) + '</td><td>' + esc(attReportStatusText(r.status)) + '</td><td>' + esc(r.note || '') + '</td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+  function attReportRenderEvidence(rows, selected, overall) {
+    var base = selected ? selected.sessions : rows;
+    var htmlRows = base.map(function (r) {
+      return '<tr><td>' + esc(r.date) + '</td><td>週' + esc(r.weekday) + '</td><td>' + esc(attReportCourseText(r)) + '</td><td>' + esc(r.studentName) + '</td><td><span class="att-pill ' + attReportStatusClass(r.status) + '">' + esc(attReportStatusText(r.status)) + '</span></td><td>' + esc(String(r.lateMinutes || 0)) + '</td><td>' + esc(r.note || '') + '</td></tr>';
+    }).join('');
+    return '<div class="detail-top"><div><h4>學校佐證版</h4><div class="muted">正式表格，可直接列印或另存 PDF。</div></div>' +
+      '<div class="att-report-actions"><button class="btn btn-sm" id="attRepSelectedLine">複製家長通知 LINE</button></div></div>' +
+      '<table><thead><tr><th>日期</th><th>星期</th><th>課程時段</th><th>學生姓名</th><th>狀態</th><th>遲到分鐘</th><th>備註</th></tr></thead><tbody>' +
+      (htmlRows || '<tr><td colspan="7">無資料</td></tr>') + '</tbody></table>';
+  }
+  async function loadAttendanceReport(force) {
+    if (attReportState.loading && !force) return;
+    attReportState.loading = true;
+    initAttendanceReportControls();
+    $('#attRepStats').innerHTML = '<div class="att-report-stat"><b>…</b><div>載入中</div><div class="muted">讀取點名資料</div></div>'.repeat(4);
+    try {
+      if (!dataLoaded.teams) await loadTeams();
+      await loadAthletesOnce();
+      var range = attReportRange();
+      var teamId = $('#attRepTeam').value || '';
+      attReportState.teamId = teamId;
+      attReportState.range = range.mode;
+      attReportState.from = range.from;
+      attReportState.to = range.to;
+      var r = await TP.callAuth('attendanceExpandedRange', { teamId: teamId, from: range.from, to: range.to });
+      var rows = [];
+      if (r && r.ok && r.records) rows = r.records;
+      else {
+        var legacy = await TP.callAuth('attendanceRange', { teamId: teamId, from: range.from, to: range.to });
+        rows = attReportFlatten((legacy && legacy.ok && legacy.records) || []);
+      }
+      attReportState.rows = rows;
+      attReportRenderControls(rows);
+      if (attReportState.studentId !== 'all' && attReportState.studentId && !rows.some(function (r) { return r.studentId === attReportState.studentId; })) attReportState.studentId = 'all';
+      attReportRender();
+    } catch (e) {
+      $('#attRepStats').innerHTML = '<div class="att-report-stat"><b>錯誤</b><div>載入失敗</div><div class="muted">' + esc(e.message || e) + '</div></div>';
+      $('#attRepRank').innerHTML = '<div class="empty">點名報告載入失敗。</div>';
+      $('#attRepIssues').innerHTML = '<div class="empty">請稍後再試。</div>';
+      $('#attRepDetail').innerHTML = '<div class="empty">無法載入資料。</div>';
+    } finally {
+      attReportState.loading = false;
+    }
+  }
+
+  function initAttendanceReportControls() {
+    var modeBox = $('#attReportModeButtons');
+    if (modeBox && !modeBox.dataset.bound) {
+      modeBox.dataset.bound = '1';
+      TP.$all('[data-att-mode]', modeBox).forEach(function (b) {
+        b.onclick = function () {
+          attReportState.mode = b.dataset.attMode || 'internal';
+          TP.$all('[data-att-mode]', modeBox).forEach(function (x) { x.classList.toggle('active', x === b); });
+          attReportRender();
+        };
+      });
+    }
+    var rangeSel = $('#attRepRange');
+    if (rangeSel && !rangeSel.dataset.bound) {
+      rangeSel.dataset.bound = '1';
+      rangeSel.onchange = function () {
+        var custom = rangeSel.value === 'custom';
+        $('#attRepFromWrap').style.display = custom ? '' : 'none';
+        $('#attRepToWrap').style.display = custom ? '' : 'none';
+        if (custom) {
+          if (!$('#attRepFrom').value) $('#attRepFrom').value = attReportStartOfMonth(localToday());
+          if (!$('#attRepTo').value) $('#attRepTo').value = localToday();
+        }
+        loadAttendanceReport(true);
+      };
+      rangeSel.onchange();
+    }
+    var teamSel = $('#attRepTeam');
+    if (teamSel && !teamSel.dataset.bound) {
+      teamSel.dataset.bound = '1';
+      teamSel.onchange = function () {
+        attReportState.teamId = teamSel.value || '';
+        loadAttendanceReport(true);
+      };
+    }
+    var sessionSel = $('#attRepSession');
+    if (sessionSel && !sessionSel.dataset.bound) {
+      sessionSel.dataset.bound = '1';
+      sessionSel.onchange = function () {
+        attReportState.sessionId = sessionSel.value || 'all';
+        attReportRender();
+      };
+    }
+    var studentSel = $('#attRepStudent');
+    if (studentSel && !studentSel.dataset.bound) {
+      studentSel.dataset.bound = '1';
+      studentSel.onchange = function () {
+        attReportState.studentId = studentSel.value || 'all';
+        attReportState.selectedStudentId = attReportState.studentId === 'all' ? '' : attReportState.studentId;
+        attReportRender();
+      };
+    }
+    var statusSel = $('#attRepStatus');
+    if (statusSel && !statusSel.dataset.bound) {
+      statusSel.dataset.bound = '1';
+      statusSel.onchange = function () {
+        attReportState.status = statusSel.value || 'all';
+        attReportRender();
+      };
+    }
+    var refreshBtn = $('#attRepRefresh');
+    if (refreshBtn && !refreshBtn.dataset.bound) {
+      refreshBtn.dataset.bound = '1';
+      refreshBtn.onclick = function () { loadAttendanceReport(true); };
+    }
+    var copyBtn = $('#attRepCopyLine');
+    if (copyBtn && !copyBtn.dataset.bound) {
+      copyBtn.dataset.bound = '1';
+      copyBtn.onclick = function () {
+        var txt = attReportSelectedLineText();
+        if (txt) TP.copy(txt);
+      };
+    }
+    var printBtn = $('#attRepPrint');
+    if (printBtn && !printBtn.dataset.bound) {
+      printBtn.dataset.bound = '1';
+      printBtn.onclick = function () { attReportPrint(); };
+    }
   }
 
   var DIMS = [['technicalAvg', '技術執行'], ['tacticalAvg', '戰術理解'], ['physicalAvg', '體能負荷'],
