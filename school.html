@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TeamPro School Mode｜學校行政後台</title>
+<link rel="stylesheet" href="style.css?v=20260627-shell1"><link rel="stylesheet" href="role-portal.css?v=20260627-role1">
+</head>
+<body>
+<div class="container">
+  <div class="topbar"><div class="logo"><picture><source srcset="assets/logo.webp" type="image/webp"><img class="logo-img" src="assets/logo.png" width="30" height="30" alt=""></picture>TeamPro <span class="mark">School Mode</span></div><div><a class="btn btn-ghost btn-sm" href="index.html">角色入口</a><a class="btn btn-sm" href="app.html">教練端</a></div></div>
+  <section class="admin-hero">
+    <div class="eyebrow">體育組長 / 學校行政</div>
+    <h1>一眼看懂全校體育班評鑑還缺什麼。</h1>
+    <p class="muted">此頁是第一版行政總覽，資料可由教練日常紀錄自動彙整，重點放在完成率、缺漏、提醒與輸出。</p>
+  </section>
+  <div class="kpi-row">
+    <div class="kpi-card"><span class="muted">全校評鑑準備度</span><b>82%</b><small>比上週 +6%</small></div>
+    <div class="kpi-card"><span class="muted">隊伍資料完成率</span><b>7/9</b><small>2 隊需補資料</small></div>
+    <div class="kpi-card"><span class="muted">待補項目</span><b>14</b><small>紅色 4 項</small></div>
+    <div class="kpi-card"><span class="muted">本週提醒</span><b>23</b><small>可一鍵通知教練</small></div>
+  </div>
+  <div class="grid grid-2">
+    <div class="card">
+      <h3>評鑑缺漏雷達</h3>
+      <div class="radar-grid">
+        <div class="radar-item green"><b>出席統計</b><br><span class="muted">已完成</span></div>
+        <div class="radar-item yellow"><b>訓練日誌</b><br><span class="muted">資料不足</span></div>
+        <div class="radar-item red"><b>獎狀歸檔</b><br><span class="muted">缺資料</span></div>
+        <div class="radar-item gray"><b>場地設備</b><br><span class="muted">尚未開始</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>待補資料清單</h3>
+      <div class="todo-list">
+        <div class="row"><span>武術隊：6 月訓練日誌缺 3 天</span><button class="btn btn-sm" data-remind>提醒教練</button></div>
+        <div class="row"><span>跆拳道隊：縣市賽獎狀照片未上傳</span><button class="btn btn-sm" data-remind>提醒教練</button></div>
+        <div class="row"><span>田徑隊：傷病追蹤缺家長通知紀錄</span><button class="btn btn-sm" data-remind>提醒教練</button></div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>一鍵輸出</h3>
+    <p class="muted">第一版先產生可交付的 HTML / CSV / JSON 佐證包，下一版再升級為真 ZIP 與正式 PDF 版型。</p>
+    <div class="export-actions">
+      <button class="btn btn-primary" id="exportEvidence">輸出評鑑佐證包</button>
+      <button class="btn" id="exportCompletion">各隊完成率 Excel/CSV</button>
+      <a class="btn" href="handover.html">體育組長交接包</a>
+    </div>
+  </div>
+</div>
+<script src="school-tools.js?v=20260627-role1"></script>
+</body>
+</html>

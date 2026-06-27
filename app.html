@@ -41,10 +41,25 @@
       <div class="shell-hero">
         <div>
           <div class="eyebrow">今日戰情室</div>
-          <h1>先看今日狀態，再處理重點名單。</h1>
+          <h1>60 秒完成今日紀錄。</h1>
         </div>
         <button class="btn btn-primary" id="quickAttendance">快速點名</button>
       </div>
+      <div class="coach-flow">
+        <button class="flow-step" data-tab="attendance"><b>10 秒</b><span>今日點名</span></button>
+        <button class="flow-step" id="focusTrainingNote"><b>20 秒</b><span>今日訓練</span></button>
+        <button class="flow-step"><b>10 秒</b><span>異常學生</span></button>
+        <button class="flow-step"><b>10 秒</b><span>傷病 / 比賽</span></button>
+        <button class="flow-step" id="organizeAiBtn"><b>10 秒</b><span>AI 整理</span></button>
+      </div>
+      <section class="shell-card coach-ai-card">
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;">
+          <div><b>AI 短文字整理</b><div class="muted" style="font-size:13px;">輸入口語紀錄，系統整理成正式訓練紀錄。</div></div>
+          <button class="btn btn-sm" id="aiOrganizeNow">整理</button>
+        </div>
+        <textarea id="quickTrainingText" placeholder="例：今天練反擊，冠霖膝蓋不舒服，柏鈞狀態很好，瀚忠遲到。"></textarea>
+        <div id="aiOrganizedOutput" class="ai-output hidden"></div>
+      </section>
       <div id="dashboardMount">
         <div class="shell-grid">
           <div class="shell-card"><div class="skel w-40"></div><div class="skel w-90"></div></div>

@@ -72,6 +72,10 @@ function bindAuth() {
   };
   $('#quickAttendance').onclick = () => openFeature('attendance');
   $('#backDashboard').onclick = () => showDashboard();
+  $('#focusTrainingNote').onclick = () => $('#quickTrainingText').focus();
+  $('#organizeAiBtn').onclick = organizeTrainingText;
+  $('#aiOrganizeNow').onclick = organizeTrainingText;
+  $$('.flow-step[data-tab]').forEach(btn => btn.onclick = () => openFeature(btn.dataset.tab));
 }
 
 function bindTabs() {
@@ -153,4 +157,27 @@ async function openFeature(tab) {
   setActiveTab(tab === 'more' ? 'more' : tab);
   const mod = await import(cfg.module + '?v=20260627-shell3');
   mod.mount($('#featureMount'));
+}
+
+function organizeTrainingText() {
+  const raw = ($('#quickTrainingText').value || '').trim();
+  if (!raw) {
+    TP.toast('請先輸入今日訓練紀錄', true);
+    $('#quickTrainingText').focus();
+    return;
+  }
+  const names = raw.match(/[\u4e00-\u9fa5]{2,4}/g) || [];
+  const injury = /痛|不舒服|受傷|拉傷|扭到/.test(raw);
+  const late = /遲到|晚到/.test(raw);
+  const good = /很好|穩|進步|佳|不錯/.test(raw);
+  const topic = raw.match(/練([^，。,.]+)/);
+  const out =
+    '<b>今日訓練主題</b><p>' + TP.esc(topic ? topic[1] : '專項訓練與狀態觀察') + '</p>' +
+    '<b>訓練內容</b><p>' + TP.esc(raw) + '</p>' +
+    '<b>學生狀況</b><p>' + TP.esc(names.slice(0, 6).join('、') || '依今日紀錄追蹤學生運動員狀態') + '</p>' +
+    '<b>異常追蹤</b><p>' + (injury ? '有學生回報疼痛或不適，建議列入傷病追蹤。' : '未偵測明顯傷病關鍵字。') + (late ? ' 有學生遲到，建議列入出席提醒。' : '') + '</p>' +
+    '<b>後續建議</b><p>' + (good ? '狀態良好者可維持訓練節奏；' : '') + '下次訓練前確認異常學生恢復與出席狀況。</p>';
+  const box = $('#aiOrganizedOutput');
+  box.innerHTML = out;
+  box.classList.remove('hidden');
 }

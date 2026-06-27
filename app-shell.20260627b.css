@@ -76,6 +76,14 @@
 .shell-settings { margin:12px 0; }
 .shell-settings summary { cursor:pointer; color:var(--muted); font-size:13px; }
 .shell-loading { padding:28px; text-align:center; color:var(--muted); }
+.coach-flow { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin:0 0 12px; }
+.flow-step { appearance:none; border:1px solid var(--line); border-radius:15px; background:var(--panel); color:var(--text); padding:12px; text-align:left; cursor:pointer; }
+.flow-step b { display:block; color:var(--brand); font-size:13px; }
+.flow-step span { font-weight:800; }
+.coach-ai-card { margin:0 0 12px; }
+.coach-ai-card textarea { margin-top:10px; min-height:72px; }
+.ai-output { margin-top:10px; border:1px solid var(--line); background:var(--panel-2); border-radius:12px; padding:12px; }
+.ai-output p { margin:4px 0 10px; color:var(--muted); }
 .shell-sync-note {
   margin:0 0 10px;
   padding:9px 12px;
@@ -134,6 +142,7 @@
   .shell-grid { grid-template-columns:1fr; }
   .shell-hero { align-items:flex-start; flex-direction:column; }
   .shell-hero .btn { width:100%; }
+  .coach-flow { grid-template-columns:1fr 1fr; }
   .legacy-frame-wrap { height:calc(100vh - 96px - env(safe-area-inset-bottom)); min-height:560px; border-radius:12px; }
   .mobile-tabbar {
     left:0;
