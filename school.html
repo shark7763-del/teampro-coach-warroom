@@ -41,7 +41,7 @@
   </div>
   <div class="card">
     <h3>一鍵輸出</h3>
-    <p class="muted">第一版先產生可交付的 HTML / CSV / JSON 佐證包，下一版再升級為真 ZIP 與正式 PDF 版型。</p>
+    <p class="muted">第一版可產生 HTML / CSV / ZIP 佐證包，供正式填報前整理與人工確認。</p>
     <div class="export-actions">
       <button class="btn btn-primary" id="exportEvidence">輸出評鑑佐證包</button>
       <button class="btn" id="exportCompletion">各隊完成率 Excel/CSV</button>
@@ -64,12 +64,12 @@
     <div class="card">
       <h3>比賽紀錄完整度（官方欄位對照）</h3>
       <p class="muted">欄位：比賽起迄、學生姓名、教練、運動種類 / 項目、學年度、賽會級別、比賽名稱、天數、名次、成績、備註、狀態、檔案列表。</p>
-      <div class="warn-box">採計提醒：佐證必須清楚包含比賽名稱、獲獎名次、學生姓名。僅獎盃照片或秩序冊，請標記為「可能不採計」。</div>
+      <div class="warn-box">採計提醒：佐證必須清楚包含比賽名稱、獲獎名次、學生姓名、日期、組別。若只有獎盃照片或秩序冊，請標記「可能不採計，請補獎狀或清楚證明文件」。</div>
       <table class="field-table">
         <thead><tr><th>比賽</th><th>完成</th><th>佐證狀態</th><th>採計風險</th></tr></thead>
         <tbody>
           <tr><td>縣市中等學校運動會</td><td>15 / 15</td><td><span class="status-chip evidence">獎狀已歸檔</span></td><td><span class="status-chip done">低</span></td></tr>
-          <tr><td>邀請賽</td><td>12 / 15</td><td><span class="status-chip check">僅秩序冊</span></td><td><span class="status-chip check">可能不採計</span></td></tr>
+          <tr><td>邀請賽</td><td>12 / 15</td><td><span class="status-chip check">僅秩序冊</span></td><td><span class="status-chip check">可能不採計，請補獎狀或清楚證明文件</span></td></tr>
         </tbody>
       </table>
     </div>
@@ -78,8 +78,8 @@
     <h3>佐證資料箱</h3>
     <p class="muted">分類：學生名冊、比賽獎狀、秩序冊、訓練照片、補課紀錄、學生公假日數、場地維護紀錄、傷病紀錄、輔導紀錄、畢業銜續資料、其他特色加分資料。</p>
     <div class="evidence-grid">
-      <div class="evidence-card"><b>比賽獎狀</b><p class="muted">3MB 提醒，5MB 上限；建議壓縮圖片並自動命名：學年度_學生_比賽_名次。</p></div>
-      <div class="evidence-card"><b>訓練照片</b><p class="muted">依評鑑步驟分類到「運作情形」或「訓練績效」。</p></div>
+      <div class="evidence-card"><b>比賽獎狀</b><p class="muted">3MB 提醒，5MB 上限；建議壓縮圖片並自動命名：學年度_學生_比賽_組別_名次。</p></div>
+      <div class="evidence-card"><b>訓練照片</b><p class="muted">依評鑑步驟分類到「運作情形」或「訓練績效」，非首要照片建議壓縮後再歸檔。</p></div>
       <div class="evidence-card"><b>畢業銜續資料</b><p class="muted">對應畢業學生銜續訓練統計表。</p></div>
     </div>
   </div>

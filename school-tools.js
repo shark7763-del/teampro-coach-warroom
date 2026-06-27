@@ -36,7 +36,7 @@
   function officialCsv(kind) {
     var rows = {
       students: '\ufeff學校,學生姓名,出生日期,國籍別,身分證字號/外籍證號,學生年級,班級,教練,是否為身心障礙學生,運動種類,身分,狀態\nTeamPro高中,陳柏宇,2010-01-01,本國籍,A123456789,九年級,體育班,王教練,否,跆拳道,體育班學生,在學\n',
-      competitions: '\ufeff比賽開始日期,比賽結束日期,選手姓名,教練,運動種類,運動項目,學年度,賽會級別,比賽名稱,比賽天數,名次,成績,備註,狀態,檔案列表\n2026-05-01,2026-05-03,陳柏宇,王教練,跆拳道,對打,115,縣市級,縣市中等學校運動會,3,第一名,,獎狀清楚含姓名名次,可供上傳參考,獎狀.pdf\n',
+      competitions: '\ufeff比賽開始日期,比賽結束日期,選手姓名,教練,運動種類,運動項目,學年度,賽會級別,比賽名稱,比賽天數,名次,成績,備註,狀態,檔案列表\n2026-05-01,2026-05-03,陳柏宇,王教練,跆拳道,對打,115,縣市級,縣市中等學校運動會,3,第一名,,獎狀清楚含比賽名稱/學生姓名/名次/日期/組別,可供上傳參考,獎狀.pdf\n',
       officialLeave: '\ufeff學生姓名,隊伍/專項,日期,公假日數,事由,佐證\n陳柏宇,跆拳道隊,2026-05-01,3,縣市中等學校運動會,公假單.pdf\n',
       facility: '\ufeff日期,場地/設備,維護內容,照片/佐證,狀態\n2026-06-01,重量訓練室,器材安全檢查,照片.jpg,完成\n',
       graduateTracking: '\ufeff畢業學生,畢業學年度,銜續學校/隊伍,是否持續訓練,備註\n林冠霖,114,市立高中代表隊,是,持續專項訓練\n'
@@ -44,7 +44,7 @@
     return rows[kind] || rows.students;
   }
   function selfReviewHtml() {
-    return '<!doctype html><meta charset="utf-8"><title>TeamPro 自評文字草稿</title><h1>體育班評鑑自評文字草稿</h1><p>本文件為官方系統填報前準備資料，需由學校承辦人確認後再填入官方系統。</p><h2>設班現況</h2><p>本校依學生運動員專項需求建立隊伍與訓練紀錄。</p><h2>運作情形</h2><p>日常點名、訓練日誌、傷病追蹤與輔導紀錄已逐步電子化。</p><h2>訓練績效</h2><p>競賽成果與訓練績效資料已依官方欄位整理，可供填報參考。</p>';
+    return '<!doctype html><meta charset="utf-8"><title>TeamPro 自評文字草稿</title><h1>體育班評鑑自評文字草稿</h1><p>本文件為官方系統填報前準備資料，需由學校承辦人確認後再填入官方系統。</p><h2>設班現況</h2><p>本校依學生運動員專項需求建立隊伍與訓練紀錄。</p><h2>運作情形</h2><p>日常點名、訓練日誌、傷病追蹤與輔導紀錄已逐步電子化。</p><h2>訓練績效</h2><p>競賽成果與訓練績效資料已依官方欄位整理，可供填報參考。</p><h2>改善追蹤</h2><p>針對缺漏資料與委員建議建立校內追蹤清單，於正式填報前完成補件與主管確認。</p>';
   }
   function handoverHtml() {
     return '<!doctype html><meta charset="utf-8"><title>TeamPro 體育組長交接包</title><h1>體育組長交接包</h1><p>產生日期：' + today() + '</p><ol>' +
@@ -110,7 +110,7 @@
   function evidenceZip() {
     var payload = evidencePayload();
     return makeZip([
-      { name: 'README.txt', content: 'TeamPro 評鑑佐證包\n用途：官方系統填報前準備與佐證整理。\n注意：本 ZIP 不是官方送出檔，仍需由學校承辦人登入官方系統確認、上傳與送出。\n' },
+      { name: 'README.txt', content: 'TeamPro 評鑑佐證包\n用途：官方系統填報前準備與佐證整理。\n注意：本 ZIP 不是官方送出檔，仍需由學校承辦人登入官方系統確認、上傳與送出。\n比賽佐證請確認包含：比賽名稱、獲獎名次、學生姓名、日期、組別。\n' },
       { name: '評鑑佐證清單.json', content: JSON.stringify(payload, null, 2) },
       { name: '學生基本資料.csv', content: officialCsv('students') },
       { name: '比賽紀錄.csv', content: officialCsv('competitions') },
@@ -131,7 +131,7 @@
   document.querySelectorAll('[data-export]').forEach(function (b) {
     b.onclick = function () {
       var kind = b.dataset.export;
-      if (kind === 'selfReview') download('自評文字草稿-' + today() + '.html', 'text/html', selfReviewHtml());
+      if (kind === 'selfReview') download('自評文字草稿-' + today() + '.doc', 'application/msword', selfReviewHtml());
       else download(kind + '-' + today() + '.csv', 'text/csv', officialCsv(kind));
     };
   });

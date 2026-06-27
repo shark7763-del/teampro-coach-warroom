@@ -76,6 +76,11 @@ function bindAuth() {
   $('#organizeAiBtn').onclick = organizeTrainingText;
   $('#aiOrganizeNow').onclick = organizeTrainingText;
   $$('.flow-step[data-tab]').forEach(btn => btn.onclick = () => openFeature(btn.dataset.tab));
+  $$('.mode-entry[data-tab]').forEach(btn => btn.onclick = () => {
+    const tab = btn.dataset.tab;
+    if (tab === 'dashboard') showDashboard();
+    else openFeature(tab);
+  });
 }
 
 function bindTabs() {
