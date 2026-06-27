@@ -16,6 +16,17 @@
 <script src="pwa.js" defer></script>
 <script src="native.js" defer></script>
 <link rel="stylesheet" href="app-full-extra.20260627a.css">
+<script>
+(function () {
+  try {
+    if (window.self !== window.top || new URLSearchParams(location.search).has('lazyTab')) {
+      document.documentElement.classList.add('embedded-appfull');
+    }
+  } catch (e) {
+    document.documentElement.classList.add('embedded-appfull');
+  }
+})();
+</script>
 </head>
 <body>
 <div id="bootSplash" class="boot-splash">

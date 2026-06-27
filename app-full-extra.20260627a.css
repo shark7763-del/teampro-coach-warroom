@@ -136,9 +136,11 @@
   }
   /* 手機底部 5 分頁（更像 App） */
   .mobile-tabbar { display:none; }
+  .embedded-appfull .mobile-tabbar { display:none !important; }
   @media (max-width:760px) {
     .tabs { display:none !important; }
     body { padding-bottom: calc(66px + env(safe-area-inset-bottom)); }
+    .embedded-appfull body { padding-bottom: 0 !important; }
     .mobile-tabbar {
       display:flex; position:fixed; left:0; right:0; bottom:0; z-index:9000;
       background:var(--panel); border-top:1px solid var(--line);
