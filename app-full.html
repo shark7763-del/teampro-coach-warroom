@@ -231,7 +231,7 @@
   <section id="tab-attendance" class="hidden">
     <div class="card">
       <h3 style="margin-top:0;">📋 快速點名（每天 10 秒）</h3>
-      <p class="muted" style="margin:-2px 0 10px;font-size:13px;">先從點名開始，不用一次用完整套系統。每天 10 秒點名，資料會自動整理成出席統計與月報。</p>
+      <p class="muted" style="margin:-2px 0 10px;font-size:13px;">選隊伍、日期與時段後直接點名。按「儲存點名」會自動建立或更新該時段，資料會整理成出席統計與月報。</p>
       <div class="att-setup">
         <div><label>隊伍</label><select id="atTeam"></select></div>
         <div><label>日期</label><input id="atDate" type="date"></div>
@@ -239,9 +239,9 @@
         <div id="atCustomWrap" class="hidden"><label>自訂時段名稱</label><input id="atCustomSession" placeholder="例：暑訓加強"></div>
         <div><label>開始時間</label><input id="atStartTime" type="time" value="09:30"></div>
         <div><label>結束時間</label><input id="atEndTime" type="time" value="11:30"></div>
-        <div style="flex:0 0 auto;"><button class="btn" id="atOpenSession">＋新增 / 載入時段</button></div>
+        <div style="flex:0 0 auto;"><button class="btn" id="atOpenSession">套用時段</button></div>
       </div>
-      <div class="att-session-list"><div class="row"><b>今日已建立時段</b><button class="btn btn-sm" id="atCopyTodayLine">📱 今日全部時段 LINE 回報</button></div><div id="atSessions" class="muted">尚未建立時段。</div></div>
+      <div class="att-session-list"><div class="row"><b>今日已儲存時段</b><button class="btn btn-sm" id="atCopyTodayLine">📱 今日全部時段 LINE 回報</button></div><div id="atSessions" class="muted">尚未儲存時段。</div></div>
       <div class="att-quickbar">
         <button class="btn btn-sm btn-primary" id="atAllPresent">✅ 全員出席</button>
         <button class="btn btn-sm" id="atAllAbsent">全員缺席</button>
@@ -253,7 +253,7 @@
         <button class="btn btn-sm" id="atViewToggle">🔲 棋盤</button>
       </div>
       <div id="atList"><div class="empty-state">先在上方選擇隊伍，名單就會出現。接著按「✅ 全員出席」，再把少數沒到的改掉就好——10 秒完成。</div></div>
-      <button class="btn btn-primary btn-block" id="atSave" style="margin-top:6px;">💾 儲存此時段點名</button>
+      <button class="btn btn-primary btn-block" id="atSave" style="margin-top:6px;">💾 儲存點名（自動建立此時段）</button>
     </div>
     <div class="card hidden" id="atSummaryCard">
       <h3 style="margin-top:0;">今日點名摘要</h3>
@@ -580,6 +580,6 @@
 </nav>
 
 <script src="api.js?v=20260627-speed1"></script>
-<script src="app-full.20260627e.js"></script>
+<script src="app-full.20260627f.js"></script>
 </body>
 </html>
