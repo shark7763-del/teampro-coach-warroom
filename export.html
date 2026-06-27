@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TeamPro Export Mode｜官方填報包準備</title>
+<link rel="stylesheet" href="style.css?v=20260627-shell1"><link rel="stylesheet" href="role-portal.css?v=20260627-role2">
+</head>
+<body>
+<div class="container">
+  <div class="topbar"><div class="logo"><picture><source srcset="assets/logo.webp" type="image/webp"><img class="logo-img" src="assets/logo.png" width="30" height="30" alt=""></picture>TeamPro <span class="mark">Export Mode</span></div><div style="display:flex;gap:8px;flex-wrap:wrap;"><a class="btn btn-ghost btn-sm" href="index.html">角色入口</a><a class="btn btn-sm" href="evaluation.html">評鑑準備</a><a class="btn btn-sm" href="school.html">學校管理</a></div></div>
+  <section class="admin-hero">
+    <div class="eyebrow">官方系統填報前準備</div>
+    <h1>官方欄位對照與佐證輸出包</h1>
+    <p class="muted">輸出結果是可供上傳參考的整理資料；正式填報、確認與送出仍需學校人員到官方系統操作。</p>
+  </section>
+  <div class="grid grid-2">
+    <div class="card">
+      <h3>可輸出資料</h3>
+      <div class="todo-list">
+        <div class="row"><span>學生基本資料 Excel / CSV</span><button class="btn btn-sm" data-export="students">輸出</button></div>
+        <div class="row"><span>比賽紀錄 Excel / CSV</span><button class="btn btn-sm" data-export="competitions">輸出</button></div>
+        <div class="row"><span>佐證資料 ZIP / JSON 清單</span><button class="btn btn-sm" id="exportEvidence">輸出</button></div>
+        <div class="row"><span>自評文字 Word / HTML</span><button class="btn btn-sm" data-export="selfReview">輸出</button></div>
+        <div class="row"><span>學生公假日數一覽表</span><button class="btn btn-sm" data-export="officialLeave">輸出</button></div>
+        <div class="row"><span>場地維護紀錄表</span><button class="btn btn-sm" data-export="facility">輸出</button></div>
+        <div class="row"><span>畢業銜續訓練統計表</span><button class="btn btn-sm" data-export="graduateTracking">輸出</button></div>
+        <div class="row"><span>評鑑交接包</span><a class="btn btn-sm" href="handover.html">前往</a></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>匯出前檢查</h3>
+      <table class="field-table">
+        <thead><tr><th>資料包</th><th>狀態</th><th>提醒</th></tr></thead>
+        <tbody>
+          <tr><td>學生基本資料</td><td><span class="status-chip check">待補</span></td><td>3 位缺出生日期 / 身分證號</td></tr>
+          <tr><td>比賽紀錄</td><td><span class="status-chip check">待確認</span></td><td>2 筆佐證可能不採計</td></tr>
+          <tr><td>佐證資料</td><td><span class="status-chip evidence">可整理</span></td><td>大型圖片需壓縮至 5MB 內</td></tr>
+          <tr><td>自評文字</td><td><span class="status-chip done">可產生</span></td><td>需主任 / 組長最後確認</td></tr>
+        </tbody>
+      </table>
+      <div class="warn-box" style="margin-top:12px;">提醒：TeamPro 不會直接送出官方系統。請下載後，由學校承辦人登入官方系統逐欄確認、上傳與送出。</div>
+    </div>
+  </div>
+</div>
+<script src="school-tools.js?v=20260627-role2"></script>
+</body>
+</html>

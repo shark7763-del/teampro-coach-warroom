@@ -3,15 +3,16 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TeamPro School Mode｜學校行政後台</title>
-<link rel="stylesheet" href="style.css?v=20260627-shell1"><link rel="stylesheet" href="role-portal.css?v=20260627-role1">
+<link rel="stylesheet" href="style.css?v=20260627-shell1"><link rel="stylesheet" href="role-portal.css?v=20260627-role2">
 </head>
 <body>
 <div class="container">
-  <div class="topbar"><div class="logo"><picture><source srcset="assets/logo.webp" type="image/webp"><img class="logo-img" src="assets/logo.png" width="30" height="30" alt=""></picture>TeamPro <span class="mark">School Mode</span></div><div><a class="btn btn-ghost btn-sm" href="index.html">角色入口</a><a class="btn btn-sm" href="app.html">教練端</a></div></div>
+  <div class="topbar"><div class="logo"><picture><source srcset="assets/logo.webp" type="image/webp"><img class="logo-img" src="assets/logo.png" width="30" height="30" alt=""></picture>TeamPro <span class="mark">School Mode</span></div><div style="display:flex;gap:8px;flex-wrap:wrap;"><a class="btn btn-ghost btn-sm" href="index.html">角色入口</a><a class="btn btn-sm" href="evaluation.html">評鑑準備</a><a class="btn btn-sm" href="export.html">填報包</a><a class="btn btn-sm" href="app.html">教練端</a></div></div>
   <section class="admin-hero">
     <div class="eyebrow">體育組長 / 學校行政</div>
     <h1>一眼看懂全校體育班評鑑還缺什麼。</h1>
     <p class="muted">此頁是第一版行政總覽，資料可由教練日常紀錄自動彙整，重點放在完成率、缺漏、提醒與輸出。</p>
+    <p class="muted">定位：官方系統填報前準備、官方欄位對照、佐證整理與評鑑準備度檢查；正式填報仍需人工進入官方系統確認。</p>
   </section>
   <div class="kpi-row">
     <div class="kpi-card"><span class="muted">全校評鑑準備度</span><b>82%</b><small>比上週 +6%</small></div>
@@ -47,7 +48,42 @@
       <a class="btn" href="handover.html">體育組長交接包</a>
     </div>
   </div>
+  <div class="grid grid-2">
+    <div class="card">
+      <h3>學生基本資料完整度（官方欄位對照）</h3>
+      <p class="muted">必填欄位：學校、學生姓名、出生日期、國籍別、身分證字號 / 外籍證號、學生年級、班級、教練、是否為身心障礙學生、運動種類、身分、狀態。</p>
+      <table class="field-table">
+        <thead><tr><th>學生運動員</th><th>完成欄位</th><th>缺漏欄位</th><th>可否匯出</th><th>官方填報參考</th></tr></thead>
+        <tbody>
+          <tr><td>陳柏宇</td><td>12 / 12</td><td>—</td><td><span class="status-chip done">可匯出</span></td><td><span class="status-chip done">可作參考</span></td></tr>
+          <tr><td>林冠霖</td><td>10 / 12</td><td>出生日期、身分證號</td><td><span class="status-chip check">待補</span></td><td><span class="status-chip missing">不可作完整資料</span></td></tr>
+          <tr><td>王品潔</td><td>9 / 12</td><td>國籍別、身分、狀態</td><td><span class="status-chip check">待補</span></td><td><span class="status-chip missing">不可作完整資料</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h3>比賽紀錄完整度（官方欄位對照）</h3>
+      <p class="muted">欄位：比賽起迄、學生姓名、教練、運動種類 / 項目、學年度、賽會級別、比賽名稱、天數、名次、成績、備註、狀態、檔案列表。</p>
+      <div class="warn-box">採計提醒：佐證必須清楚包含比賽名稱、獲獎名次、學生姓名。僅獎盃照片或秩序冊，請標記為「可能不採計」。</div>
+      <table class="field-table">
+        <thead><tr><th>比賽</th><th>完成</th><th>佐證狀態</th><th>採計風險</th></tr></thead>
+        <tbody>
+          <tr><td>縣市中等學校運動會</td><td>15 / 15</td><td><span class="status-chip evidence">獎狀已歸檔</span></td><td><span class="status-chip done">低</span></td></tr>
+          <tr><td>邀請賽</td><td>12 / 15</td><td><span class="status-chip check">僅秩序冊</span></td><td><span class="status-chip check">可能不採計</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card">
+    <h3>佐證資料箱</h3>
+    <p class="muted">分類：學生名冊、比賽獎狀、秩序冊、訓練照片、補課紀錄、學生公假日數、場地維護紀錄、傷病紀錄、輔導紀錄、畢業銜續資料、其他特色加分資料。</p>
+    <div class="evidence-grid">
+      <div class="evidence-card"><b>比賽獎狀</b><p class="muted">3MB 提醒，5MB 上限；建議壓縮圖片並自動命名：學年度_學生_比賽_名次。</p></div>
+      <div class="evidence-card"><b>訓練照片</b><p class="muted">依評鑑步驟分類到「運作情形」或「訓練績效」。</p></div>
+      <div class="evidence-card"><b>畢業銜續資料</b><p class="muted">對應畢業學生銜續訓練統計表。</p></div>
+    </div>
+  </div>
 </div>
-<script src="school-tools.js?v=20260627-role1"></script>
+<script src="school-tools.js?v=20260627-role2"></script>
 </body>
 </html>

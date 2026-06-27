@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TeamPro Evaluation Mode｜體育班評鑑準備</title>
+<link rel="stylesheet" href="style.css?v=20260627-shell1"><link rel="stylesheet" href="role-portal.css?v=20260627-role2">
+</head>
+<body>
+<div class="container">
+  <div class="topbar"><div class="logo"><picture><source srcset="assets/logo.webp" type="image/webp"><img class="logo-img" src="assets/logo.png" width="30" height="30" alt=""></picture>TeamPro <span class="mark">Evaluation Mode</span></div><div style="display:flex;gap:8px;flex-wrap:wrap;"><a class="btn btn-ghost btn-sm" href="index.html">角色入口</a><a class="btn btn-sm" href="school.html">學校管理</a><a class="btn btn-sm" href="export.html">填報包</a></div></div>
+  <section class="admin-hero">
+    <div class="eyebrow">官方系統填報前準備</div>
+    <h1>13 步驟評鑑準備度</h1>
+    <p class="muted">依你提供的手冊流程整理準備狀態。TeamPro 僅協助欄位對照、佐證整理、自評文字與缺漏提醒；正式送出仍需人工登入官方系統填報。</p>
+  </section>
+  <div class="kpi-row">
+    <div class="kpi-card"><span class="muted">整體準備度</span><b>78%</b><small>13 步驟中 8 項可匯出</small></div>
+    <div class="kpi-card"><span class="muted">缺資料</span><b style="color:#ef4444;">4</b><small>獎狀、場地、公假、銜續</small></div>
+    <div class="kpi-card"><span class="muted">待確認</span><b style="color:#f59e0b;">5</b><small>需主管確認文字</small></div>
+    <div class="kpi-card"><span class="muted">已有佐證</span><b>9</b><small>可供上傳參考</small></div>
+  </div>
+  <section class="card">
+    <h3>13 步驟流程</h3>
+    <div class="eval-steps" id="evalSteps"></div>
+  </section>
+  <section class="card">
+    <h3>AI 輔助整理</h3>
+    <div class="grid grid-2">
+      <div>
+        <label>輸入日常紀錄 / 改善追蹤內容</label>
+        <textarea id="evalAiInput" placeholder="例：本學期各隊訓練紀錄完整，但比賽獎狀附件尚未全部歸檔，委員建議補強畢業銜續資料。"></textarea>
+        <button class="btn btn-primary" id="evalAiBtn">產生評鑑摘要文字</button>
+      </div>
+      <div class="ai-output hidden" id="evalAiOutput"></div>
+    </div>
+  </section>
+  <section class="card">
+    <h3>改善追蹤歷程</h3>
+    <table class="field-table">
+      <thead><tr><th>委員建議</th><th>改善情形</th><th>佐證檔案</th><th>狀態</th><th>送出前提醒</th></tr></thead>
+      <tbody>
+        <tr><td>補強畢業銜續資料</td><td>已整理升學與續訓名冊</td><td>銜續統計表.pdf</td><td><span class="status-chip check">暫存</span></td><td>需主管確認</td></tr>
+        <tr><td>獎狀佐證需清楚</td><td>已要求各隊補學生姓名與名次清楚照片</td><td>待補</td><td><span class="status-chip missing">缺資料</span></td><td>可能不採計</td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+<script src="evaluation-tools.js?v=20260627-eval1"></script>
+</body>
+</html>
