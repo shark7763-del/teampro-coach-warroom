@@ -4,6 +4,21 @@
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TeamPro Export Mode｜官方填報包準備</title>
 <link rel="stylesheet" href="style.css?v=20260627-shell1"><link rel="stylesheet" href="role-portal.css?v=20260627-role2">
+<style>
+.table-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+.status-chip.remind { background:rgba(56,189,248,.15); color:#7dd3fc; }
+.exp-hint { font-size:12px; color:var(--muted); margin-top:2px; }
+#checkTable td .btn { margin:2px 3px 2px 0; }
+@media (max-width:640px){
+  #checkTable, #checkTable thead, #checkTable tbody, #checkTable tr, #checkTable td { display:block; width:100%; }
+  #checkTable thead { display:none; }
+  #checkTable tr { border:1px solid var(--line); border-radius:12px; padding:10px; margin-bottom:10px; background:var(--panel); }
+  #checkTable td { border:0; padding:4px 0; }
+  #checkTable td::before { content:attr(data-label)"："; color:var(--muted); font-size:12px; font-weight:700; }
+  #checkTable td:first-child { font-size:16px; font-weight:800; }
+  #checkTable td:first-child::before { content:""; }
+}
+</style>
 </head>
 <body>
 <div class="container">
@@ -28,20 +43,55 @@
       </div>
     </div>
     <div class="card">
-      <h3>匯出前檢查</h3>
-      <table class="field-table">
-        <thead><tr><th>資料包</th><th>狀態</th><th>提醒</th></tr></thead>
+      <h3>匯出前檢查總表</h3>
+      <p class="muted">一眼看懂：現在可以匯出什麼、哪些還不能、缺什麼、下一步做什麼。</p>
+      <div class="table-scroll">
+      <table class="field-table" id="checkTable">
+        <thead><tr><th>項目</th><th>完成狀態</th><th>缺漏數量</th><th>是否建議匯出</th><th>備註</th><th>操作</th></tr></thead>
         <tbody>
-          <tr><td>學生基本資料</td><td><span class="status-chip check">待補</span></td><td>3 位缺出生日期 / 身分證號</td></tr>
-          <tr><td>比賽紀錄</td><td><span class="status-chip check">待確認</span></td><td>2 筆佐證可能不採計</td></tr>
-          <tr><td>佐證資料</td><td><span class="status-chip evidence">可整理</span></td><td>大型圖片需壓縮至 5MB 內</td></tr>
-          <tr><td>自評文字</td><td><span class="status-chip done">可產生</span></td><td>需主任 / 組長最後確認</td></tr>
+          <tr>
+            <td data-label="項目">學生基本資料</td>
+            <td data-label="完成狀態"><span class="status-chip check">待補</span></td>
+            <td data-label="缺漏數量">3 位缺資料</td>
+            <td data-label="是否建議匯出"><span class="status-chip missing">不建議匯出</span></td>
+            <td data-label="備註">缺出生日期、班級、身分別<div class="exp-hint">下一步：補齊 3 位學生欄位後再匯出</div></td>
+            <td data-label="操作"><button class="btn btn-sm" data-export="students">仍要匯出</button></td>
+          </tr>
+          <tr>
+            <td data-label="項目">比賽紀錄</td>
+            <td data-label="完成狀態"><span class="status-chip check">待確認</span></td>
+            <td data-label="缺漏數量">2 筆佐證不足</td>
+            <td data-label="是否建議匯出"><span class="status-chip check">可部分匯出</span></td>
+            <td data-label="備註">缺獎狀照片，僅秩序冊可能不採計<div class="exp-hint">下一步：補上清楚獎狀後標記完成</div></td>
+            <td data-label="操作"><button class="btn btn-sm" data-export="competitions">輸出</button></td>
+          </tr>
+          <tr>
+            <td data-label="項目">佐證資料箱</td>
+            <td data-label="完成狀態"><span class="status-chip evidence">可整理</span></td>
+            <td data-label="缺漏數量">圖片過大</td>
+            <td data-label="是否建議匯出"><span class="status-chip done">可匯出</span></td>
+            <td data-label="備註">建議壓縮圖片至 5MB 內再歸檔<div class="exp-hint">下一步：壓縮後輸出 ZIP</div></td>
+            <td data-label="操作"><button class="btn btn-sm" id="exportEvidence2">輸出 ZIP</button></td>
+          </tr>
+          <tr>
+            <td data-label="項目">自評文字草稿</td>
+            <td data-label="完成狀態"><span class="status-chip done">可產生</span></td>
+            <td data-label="缺漏數量">—</td>
+            <td data-label="是否建議匯出"><span class="status-chip done">可匯出</span></td>
+            <td data-label="備註">需主任 / 組長最後確認<div class="exp-hint">下一步：產生後人工潤稿</div></td>
+            <td data-label="操作"><button class="btn btn-sm" data-export="selfReview">輸出草稿</button></td>
+          </tr>
         </tbody>
       </table>
-      <div class="warn-box" style="margin-top:12px;">提醒：TeamPro 不會直接送出官方系統。請下載後，由學校承辦人登入官方系統逐欄確認、上傳與送出。</div>
+      </div>
+      <div class="warn-box" style="margin-top:12px;">提醒：TeamPro 不會直接送出官方系統，也不會自動送件。以上輸出僅供整理與確認；正式填報請由學校承辦人登入官方系統，逐欄確認、上傳與送出。</div>
     </div>
   </div>
 </div>
 <script src="school-tools.js?v=20260627-role2"></script>
+<script>
+(function(){ var b=document.getElementById('exportEvidence2'); var m=document.getElementById('exportEvidence');
+  if(b&&m) b.onclick=function(){ m.click(); }; })();
+</script>
 </body>
 </html>
