@@ -71,6 +71,8 @@ function bindAuth() {
     location.reload();
   };
   $('#quickAttendance').onclick = () => openFeature('attendance');
+  const moreBtn = $('#shellMore');
+  if (moreBtn) moreBtn.onclick = () => openFeature('more');
   $('#backDashboard').onclick = () => showDashboard();
   $('#focusTrainingNote').onclick = () => $('#quickTrainingText').focus();
   $('#organizeAiBtn').onclick = organizeTrainingText;
@@ -88,9 +90,18 @@ function bindTabs() {
     btn.onclick = () => {
       const tab = btn.dataset.tab;
       if (tab === 'dashboard') showDashboard();
+      else if (tab === 'training') openTraining();
       else openFeature(tab);
     };
   });
+}
+
+// 「紀錄」分頁：回今日頁並聚焦訓練日誌 composer（60 秒流程的訓練紀錄）
+async function openTraining() {
+  await showDashboard();
+  setActiveTab('training');
+  const el = $('#quickTrainingText');
+  if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus(); }
 }
 
 function setActiveTab(tab) {
