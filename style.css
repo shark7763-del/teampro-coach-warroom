@@ -345,3 +345,29 @@ footer { padding: 40px 0; border-top: 1px solid var(--line); color: var(--muted)
 .doc ol, .doc ul { padding-left: 20px; color: var(--muted); }
 .doc li { margin: 7px 0; }
 .doc .lead { font-size: 17px; color: var(--text); }
+
+/* ============================================================
+   示範資料橫幅（?demo=1 自動掛上）
+   ============================================================ */
+.tp-demo-banner {
+  position: sticky; top: 0; z-index: 9998;
+  background: repeating-linear-gradient(45deg, rgba(245,158,11,.16) 0 12px, rgba(245,158,11,.28) 12px 24px);
+  border-bottom: 1px solid var(--yellow);
+  color: var(--text); text-align: center;
+  font-size: 13px; padding: 8px 14px; letter-spacing: .2px;
+}
+.tp-demo-banner b { color: var(--yellow); margin-right: 6px; }
+body.tp-has-demo-banner { scroll-padding-top: 40px; }
+
+/* ============================================================
+   評鑑狀態色系（全站一致）：綠完成 / 黃待確認 / 橘即將到期 / 紅缺漏逾期 / 灰未開始
+   ============================================================ */
+:root { --orange: #f97316; --grey: #6b7280; }
+.status-dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px; vertical-align:middle; }
+.status-done   { color: var(--green); }  .status-done .status-dot,   .dot-done   { background: var(--green); }
+.status-pending{ color: var(--yellow); } .status-pending .status-dot,.dot-pending{ background: var(--yellow); }
+.status-due    { color: var(--orange); } .status-due .status-dot,    .dot-due    { background: var(--orange); }
+.status-overdue{ color: var(--red); }    .status-overdue .status-dot,.dot-overdue{ background: var(--red); }
+.status-todo   { color: var(--grey); }   .status-todo .status-dot,   .dot-todo   { background: var(--grey); }
+.pill.orange { background: rgba(249,115,22,.15); color: var(--orange); }
+.pill.grey   { background: rgba(107,114,128,.18); color: var(--grey); }

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>登入 · TeamPro 學校運動團隊數位治理平台</title>
+<meta name="description" content="TeamPro 登入，依角色進入教練端、學校端或平台管理。">
+<link rel="stylesheet" href="style.css?v=20260708-login1">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#22c55e">
+<style>
+  .login-wrap { max-width: 400px; margin: 8vh auto; padding: 0 16px; }
+  .login-card { padding: 26px 22px; }
+  .login-card h1 { font-size: 22px; margin: 4px 0 4px; }
+  .login-card label { display:block; margin-top: 12px; font-size: 13px; color: var(--muted); }
+  .role-hint { display:flex; flex-wrap:wrap; gap:6px; margin-top:14px; }
+  .role-hint .pill { font-size: 12px; }
+  .adv-toggle { background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;padding:6px 0;text-decoration:underline; }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+<div class="login-wrap">
+  <div class="topbar" style="margin-bottom:8px;">
+    <div class="logo"><picture><source srcset="assets/logo.webp" type="image/webp"><img class="logo-img" src="assets/logo.png" alt="TeamPro logo" width="28" height="28" decoding="async"></picture>TeamPro <span class="mark">登入</span></div>
+    <a class="btn btn-ghost btn-sm" href="index.html">回首頁</a>
+  </div>
+
+  <div class="login-card card">
+    <h1>登入 TeamPro</h1>
+    <p class="muted" style="font-size:13px;margin:0 0 6px;">登入後依你的角色自動進入對應工作區。</p>
+
+    <label for="loginEmail">Email</label>
+    <input id="loginEmail" type="email" autocomplete="email" placeholder="coach@example.com">
+    <label for="loginPassword">密碼</label>
+    <input id="loginPassword" type="password" autocomplete="current-password" placeholder="請輸入密碼">
+
+    <button class="btn btn-primary btn-block" id="loginBtn" style="margin-top:16px;">登入</button>
+
+    <button type="button" class="adv-toggle" id="advToggle">進階：設定後端網址</button>
+    <div id="advBox" class="hidden">
+      <label for="cfgUrl">後端網址（GAS /exec）</label>
+      <input id="cfgUrl" placeholder="https://script.google.com/.../exec">
+      <button class="btn btn-sm btn-block" id="saveUrl" style="margin-top:8px;">儲存網址</button>
+    </div>
+
+    <div class="role-hint">
+      <span class="pill">教練 → 教練端</span>
+      <span class="pill">體育組長/主任 → 學校端</span>
+      <span class="pill">平台管理 → 管理後台</span>
+    </div>
+
+    <p class="muted" style="font-size:12px;margin-top:14px;">
+      還沒有帳號？<a href="contact.html?topic=trial">申請學校試用</a>　·
+      想先看看？<a href="app.html?demo=1">體驗教練端 Demo</a>
+    </p>
+  </div>
+</div>
+
+<script src="api.js?v=20260708-login1"></script>
+<script>
+(function () {
+  var $ = TP.$, toast = TP.toast;
+
+  // 角色 → 目的地（保留多頁；Worker 會把 /coach /school /admin 導到同檔）
+  var ROLE_DEST = {
+    coach: 'app.html',
+    assistant_coach: 'app.html',
+    school_admin: 'school.html',
+    director: 'school.html',
+    platform_admin: 'admin.html'
+  };
+  function destFor(role) { return ROLE_DEST[String(role || '').trim()] || 'app.html'; }
+
+  // 已登入就直接依快取角色轉走（避免重複登入）
+  (function autoForward() {
+    if (!TP.getToken()) return;
+    try {
+      var c = JSON.parse(localStorage.getItem('teampro_shell_coach') || 'null');
+      if (c && c.role) location.replace(destFor(c.role));
+    } catch (e) {}
+  })();
+
+  $('#cfgUrl').value = TP.getUrl();
+  $('#advToggle').onclick = function () { $('#advBox').classList.toggle('hidden'); };
+  $('#saveUrl').onclick = function () { TP.setUrl($('#cfgUrl').value); toast('已儲存後端網址'); };
+
+  async function doLogin() {
+    if (!TP.getUrl()) { toast('請先在「進階」設定後端網址', true); $('#advBox').classList.remove('hidden'); return; }
+    var email = $('#loginEmail').value.trim();
+    var password = $('#loginPassword').value;
+    if (!email || !password) { toast('請輸入 email 與密碼', true); return; }
+    var btn = $('#loginBtn');
+    btn.disabled = true; btn.textContent = '登入中…';
+    var r = await TP.call('login', { email: email, password: password });
+    btn.disabled = false; btn.textContent = '登入';
+    if (!r || !r.ok) { toast((r && r.error) || '登入失敗', true); return; }
+    TP.setToken(r.token);
+    // 角色可能來自 r.role 或 r.coach.role；後端尚未提供時預設 coach
+    var coach = r.coach || {};
+    var role = r.role || coach.role || 'coach';
+    coach.role = role;
+    try { localStorage.setItem('teampro_shell_coach', JSON.stringify(coach)); } catch (e) {}
+    location.replace(destFor(role));
+  }
+
+  $('#loginBtn').onclick = doLogin;
+  $('#loginPassword').addEventListener('keydown', function (e) { if (e.key === 'Enter') doLogin(); });
+})();
+</script>
+</body>
+</html>

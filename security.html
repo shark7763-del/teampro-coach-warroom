@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>安全與權限 · TeamPro 學校運動團隊數位治理平台</title>
+<meta name="description" content="TeamPro 的權限、資料隔離、備份、操作紀錄與資料管理說明。">
+<link rel="stylesheet" href="style.css?v=20260708-security1">
+<meta name="theme-color" content="#22c55e">
+<style>
+  .sec-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; margin:18px 0; }
+  .sec-card { border:1px solid var(--line); border-radius:var(--radius); padding:18px; background:var(--panel); }
+  .sec-card h3 { margin:0 0 6px; font-size:16px; }
+  .role-table { width:100%; border-collapse:collapse; font-size:14px; margin-top:8px; }
+  .role-table th, .role-table td { text-align:left; padding:9px 8px; border-bottom:1px solid var(--line); }
+  .role-table th { color:var(--muted); }
+  .role-wrap { overflow-x:auto; }
+  .yes { color:var(--green); } .no { color:var(--muted); } .part { color:var(--yellow); }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="topbar">
+    <div class="logo"><a href="index.html" style="color:inherit;"><img class="logo-img" src="assets/logo.png" alt="TeamPro logo">TeamPro <span class="mark">安全與權限</span></a></div>
+    <div style="display:flex;gap:8px;">
+      <a class="btn btn-ghost btn-sm" href="index.html">回首頁</a>
+      <a class="btn btn-primary btn-sm" href="contact.html?topic=trial">申請學校試用</a>
+    </div>
+  </div>
+</div>
+
+<div class="doc container">
+  <h1>安全、權限與資料管理</h1>
+  <p class="lead">學校資料涉及未成年學生個資。TeamPro 以「組織 → 學校 → 隊伍」多層架構做資料隔離，每一筆核心資料都記錄建立者與時間，敏感操作寫入稽核紀錄。</p>
+
+  <div class="sec-grid">
+    <div class="sec-card"><h3>🔒 資料隔離</h3><p class="muted">不同學校資料完全隔離。以資料庫列級安全（RLS）強制執行，非僅前端限制；教練只看得到自己負責的隊伍。</p></div>
+    <div class="sec-card"><h3>👥 角色權限</h3><p class="muted">教練、助理教練、體育組長、主任、家長、選手、平台管理各有不同權限，最小權限原則。</p></div>
+    <div class="sec-card"><h3>🗂️ 受控檔案</h3><p class="muted">佐證與獎狀等檔案存於私有儲存空間，透過限時簽名網址存取，不公開直連。</p></div>
+    <div class="sec-card"><h3>🧾 操作紀錄</h3><p class="muted">刪除、審核、方案變更、匯出等敏感操作寫入 audit log，可追溯誰在何時做了什麼。</p></div>
+    <div class="sec-card"><h3>♻️ 軟刪除與備份</h3><p class="muted">正式資料採軟刪除，避免誤刪即消失；資料定期備份，支援還原。</p></div>
+    <div class="sec-card"><h3>🧪 示範與正式分離</h3><p class="muted">示範資料全程標示「示範資料」，正式帳號不混入 Demo 內容，Demo 不顯示真實學生個資。</p></div>
+  </div>
+
+  <h2>角色權限矩陣</h2>
+  <div class="role-wrap">
+    <table class="role-table">
+      <thead><tr>
+        <th>能力</th><th>教練</th><th>助理教練</th><th>體育組長</th><th>主任</th><th>家長</th><th>平台管理</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>日常紀錄（點名/訓練/傷病/比賽）</td><td class="yes">建立/編輯</td><td class="part">建立/編輯</td><td class="no">檢視</td><td class="no">檢視</td><td class="no">—</td><td class="no">—</td></tr>
+        <tr><td>刪除正式資料</td><td class="yes">✓</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td><td class="part">稽核用</td></tr>
+        <tr><td>看全校資料</td><td class="no">僅本隊</td><td class="no">僅本隊</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">✗</td><td class="part">跨組織</td></tr>
+        <tr><td>審核佐證 / 退回補件</td><td class="no">✗</td><td class="no">✗</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">✗</td><td class="no">—</td></tr>
+        <tr><td>查看報告</td><td class="yes">本隊</td><td class="yes">本隊</td><td class="yes">全校</td><td class="yes">全校</td><td class="part">自己孩子</td><td class="no">—</td></tr>
+        <tr><td>查看孩子被授權內容</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td><td class="no">—</td></tr>
+        <tr><td>方案 / 帳號 / 範本管理</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td><td class="yes">✓</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>資料當事人權利</h2>
+  <p class="muted">選手與家長可提出隱藏、刪除、更正或停止使用資料之請求，由教練或學校端處理並記錄。詳見 <a href="privacy.html">隱私權說明</a>。</p>
+</div>
+
+<footer>
+  TeamPro 學校運動團隊數位治理平台<br>
+  <a href="index.html">首頁</a> · <a href="pricing.html">方案</a> · <a href="privacy.html">隱私權</a> · <a href="terms.html">服務條款</a>
+</footer>
+</body>
+</html>

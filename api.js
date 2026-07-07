@@ -299,7 +299,28 @@
     return name + '近期需要多一點支持。教練會持續關心並調整訓練安排；家長可以以鼓勵和陪伴為主，必要時再與教練聯繫，我們一起幫孩子。';
   }
 
+  /* ============================================================
+     示範資料標示：任何帶 ?demo=1 的頁面自動掛「示範資料」橫幅。
+     正式帳號（無 demo 參數）不會顯示，避免真假資料混淆。
+     ============================================================ */
+  function isDemo() {
+    try { return new URLSearchParams(location.search).get('demo') === '1'; } catch (e) { return false; }
+  }
+  function mountDemoBanner() {
+    if (!isDemo()) return;
+    var run = function () {
+      if (!document.body || document.getElementById('tpDemoBanner')) return;
+      var b = el('div', { id: 'tpDemoBanner', class: 'tp-demo-banner', role: 'note' },
+        '<b>示範資料</b>　此為 Demo 環境，資料僅供體驗，不含真實學生個資。');
+      document.body.insertBefore(b, document.body.firstChild);
+      document.body.classList.add('tp-has-demo-banner');
+    };
+    if (document.body) run(); else document.addEventListener('DOMContentLoaded', run);
+  }
+  mountDemoBanner();
+
   global.TP = {
+    isDemo: isDemo, mountDemoBanner: mountDemoBanner,
     getUrl: getUrl, setUrl: setUrl, getToken: getToken, setToken: setToken, clearToken: clearToken,
     getLineUrl: getLineUrl, setLineUrl: setLineUrl,
     planLimits: PLAN_LIMITS, getPlanLimits: getPlanLimits,
