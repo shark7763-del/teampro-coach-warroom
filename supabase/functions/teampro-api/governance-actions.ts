@@ -12,10 +12,19 @@ const STATE_FACTOR: Record<string, number> = {
 };
 const TASK_STATES = ["not_started", "in_progress", "pending_review", "returned", "completed", "overdue"];
 const REVIEW_STATES = ["not_checked", "insufficient", "need_more", "acceptable", "not_recommended", "confirmed"];
-const TASK_ACTIONS = new Set([
+const GOV_ACTIONS = new Set([
   "govOverview", "govListTasks", "govCreateTask", "govUpdateTaskState",
   "govRemindTask", "govListEvidence", "govReviewEvidence",
+  "govListTemplates", "govSaveTemplate", "govDeleteTemplate", "govSaveItem", "govDeleteItem",
+  "govOnboarding", "govCompleteStep",
+  "govSubmitTrial", "govListTrials", "govUpdateTrial",
+  "govExportPackage", "govUsage",
 ]);
+const ONBOARD_STEPS: [string, string][] = [
+  ["create_school", "建立學校"], ["first_team", "建立第一支隊伍"], ["invite_coach", "邀請教練"],
+  ["import_athletes", "匯入選手"], ["first_attendance", "完成第一次點名"], ["first_training", "完成第一次訓練紀錄"],
+  ["first_evidence", "上傳第一份佐證"], ["view_gaps", "查看評鑑缺漏"], ["first_report", "產生第一份報告"],
+];
 
 interface GovCtx { userId: string | null; isAdmin: boolean; schoolIds: string[]; schoolId: string; coach: Data; }
 
@@ -101,11 +110,33 @@ async function decorateTasks(db: Db, rows: Data[]): Promise<Data[]> {
 }
 
 export async function governanceAction(db: Db, action: string, body: Data): Promise<Data | null> {
-  if (!TASK_ACTIONS.has(action)) return null;
+  if (!GOV_ACTIONS.has(action)) return null;
+
+  // 公開動作：學校試用申請（無需登入；service-role 寫入 trial_requests）
+  if (action === "govSubmitTrial") {
+    const f = (body.form || {}) as Data;
+    if (!f.schoolName || !f.contactEmail) return { ok: false, error: "缺少學校名稱或聯絡 Email" };
+    const row: Data = {
+      trial_request_id: uid("trq_"), school_name: String(f.schoolName), city: f.city || null,
+      contact_name: f.contactName || null, contact_email: f.contactEmail || null,
+      contact_phone: f.contactPhone || null, role: f.role || null,
+      team_count: f.teamCount || null, message: f.message || null, status: "new",
+    };
+    const { data, error } = await db.from("trial_requests").insert(row).select("*").single();
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, trial: { trialRequestId: data.trial_request_id, schoolName: data.school_name, status: data.status } };
+  }
 
   const ctx = await govContext(db, body);
   if ("error" in ctx) return { ok: false, error: ctx.error };
   const scopeSchools = ctx.isAdmin && !ctx.schoolId ? ctx.schoolIds : [ctx.schoolId];
+
+  // 該 school 所屬 org（範本/使用量用）
+  async function orgOfSchool(): Promise<string | null> {
+    if (!ctx.schoolId) return null;
+    const { data } = await db.from("schools").select("organization_id").eq("school_id", ctx.schoolId).maybeSingle();
+    return data?.organization_id || null;
+  }
 
   // ---- 總覽 ----
   if (action === "govOverview") {
@@ -232,6 +263,191 @@ export async function governanceAction(db: Db, action: string, body: Data): Prom
     if (error) return { ok: false, error: error.message };
     await audit(db, ctx.coach, "gov_review_evidence", evidenceId, reviewStatus);
     return { ok: true, evidence: evidenceOut(data) };
+  }
+
+  // ---- 評鑑範本 ----
+  if (action === "govListTemplates") {
+    const orgId = await orgOfSchool();
+    const { data: tpls } = await db.from("evaluation_templates").select("*")
+      .eq("organization_id", orgId).is("deleted_at", null);
+    const out: Data[] = [];
+    for (const t of tpls || []) {
+      const { data: items } = await db.from("evaluation_items")
+        .select("*, evaluation_dimensions(name)").eq("template_id", t.template_id).order("sort_order");
+      const mapped = (items || []).map((i: Data) => ({
+        itemId: i.item_id, dimension: (i.evaluation_dimensions as Data)?.name || "",
+        name: i.name, weight: Number(i.weight) || 1, dueDate: i.due_date || "",
+        responsibleRole: i.responsible_role || "", completionMode: i.completion_mode,
+        requiresReview: !!i.requires_review, isRequired: !!i.is_required,
+      }));
+      out.push({
+        templateId: t.template_id, name: t.name, academicYear: t.academic_year || "",
+        city: t.city || "", schoolLevel: t.school_level || "", isActive: !!t.is_active,
+        items: mapped, itemCount: mapped.length,
+        totalWeight: mapped.reduce((s, i) => s + (i.weight as number), 0),
+      });
+    }
+    return { ok: true, templates: out };
+  }
+
+  if (action === "govSaveTemplate") {
+    const t = (body.template || {}) as Data;
+    if (!t.name) return { ok: false, error: "缺少範本名稱" };
+    if (t.templateId) {
+      const { error } = await db.from("evaluation_templates").update({
+        name: t.name, academic_year: t.academicYear || null, city: t.city || null,
+        school_level: t.schoolLevel || null, is_active: t.isActive !== false, updated_at: new Date().toISOString(),
+      }).eq("template_id", String(t.templateId));
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, template: { templateId: t.templateId } };
+    }
+    const row: Data = {
+      template_id: uid("et_"), organization_id: await orgOfSchool(), name: t.name,
+      academic_year: t.academicYear || null, city: t.city || null, school_level: t.schoolLevel || null,
+      is_active: true, created_by: ctx.userId,
+    };
+    const { data, error } = await db.from("evaluation_templates").insert(row).select("*").single();
+    if (error) return { ok: false, error: error.message };
+    await audit(db, ctx.coach, "gov_save_template", String(data.template_id));
+    return { ok: true, template: { templateId: data.template_id } };
+  }
+
+  if (action === "govDeleteTemplate") {
+    const { error } = await db.from("evaluation_templates").update({ deleted_at: new Date().toISOString() })
+      .eq("template_id", String(body.templateId));
+    if (error) return { ok: false, error: error.message };
+    await audit(db, ctx.coach, "gov_delete_template", String(body.templateId));
+    return { ok: true };
+  }
+
+  if (action === "govSaveItem") {
+    const templateId = String(body.templateId || "");
+    const it = (body.item || {}) as Data;
+    if (!it.name) return { ok: false, error: "缺少指標名稱" };
+    // 找/建 dimension（以名稱）
+    let dimensionId: string | null = null;
+    if (it.dimension) {
+      const { data: dim } = await db.from("evaluation_dimensions").select("dimension_id")
+        .eq("template_id", templateId).eq("name", String(it.dimension)).maybeSingle();
+      if (dim) dimensionId = dim.dimension_id;
+      else {
+        const { data: newDim } = await db.from("evaluation_dimensions")
+          .insert({ dimension_id: uid("ed_"), template_id: templateId, name: String(it.dimension) })
+          .select("dimension_id").single();
+        dimensionId = newDim?.dimension_id || null;
+      }
+    }
+    const patch: Data = {
+      template_id: templateId, dimension_id: dimensionId, name: it.name,
+      weight: Number(it.weight) || 1, due_date: it.dueDate || null,
+      responsible_role: it.responsibleRole || null, completion_mode: it.completionMode || "evidence",
+      requires_review: !!it.requiresReview, is_required: it.isRequired !== false,
+    };
+    if (it.itemId) {
+      const { error } = await db.from("evaluation_items").update(patch).eq("item_id", String(it.itemId));
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, item: { itemId: it.itemId } };
+    }
+    patch.item_id = uid("ei_");
+    const { data, error } = await db.from("evaluation_items").insert(patch).select("item_id").single();
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, item: { itemId: data.item_id } };
+  }
+
+  if (action === "govDeleteItem") {
+    const { error } = await db.from("evaluation_items").delete().eq("item_id", String(body.itemId));
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  }
+
+  // ---- 新手導引 ----
+  if (action === "govOnboarding") {
+    if (!ctx.schoolId) return { ok: false, error: "no_school_scope" };
+    const { data: rows } = await db.from("onboarding_progress").select("*").eq("school_id", ctx.schoolId);
+    const map = new Map((rows || []).map((r) => [r.step_key, r]));
+    const steps = ONBOARD_STEPS.map(([key, label]) => ({
+      stepKey: key, label, done: !!map.get(key)?.done, doneAt: map.get(key)?.done_at || "",
+    }));
+    const done = steps.filter((s) => s.done).length;
+    return { ok: true, steps, done, total: steps.length, percent: Math.round((done / steps.length) * 100) };
+  }
+
+  if (action === "govCompleteStep") {
+    if (!ctx.schoolId) return { ok: false, error: "no_school_scope" };
+    const stepKey = String(body.stepKey || "");
+    await db.from("onboarding_progress").upsert({
+      onboarding_id: uid("ob_"), school_id: ctx.schoolId, step_key: stepKey,
+      done: true, done_at: new Date().toISOString(),
+    }, { onConflict: "school_id,step_key" });
+    return governanceAction(db, "govOnboarding", body) as Promise<Data>;
+  }
+
+  // ---- 試用申請（platform_admin）----
+  if (action === "govListTrials") {
+    if (!ctx.isAdmin) return { ok: false, error: "forbidden" };
+    const { data } = await db.from("trial_requests").select("*").order("created_at", { ascending: false });
+    return {
+      ok: true, trials: (data || []).map((t) => ({
+        trialRequestId: t.trial_request_id, schoolName: t.school_name, city: t.city || "",
+        contactName: t.contact_name || "", contactEmail: t.contact_email || "", role: t.role || "",
+        teamCount: t.team_count || "", status: t.status, createdAt: t.created_at,
+      })),
+    };
+  }
+  if (action === "govUpdateTrial") {
+    if (!ctx.isAdmin) return { ok: false, error: "forbidden" };
+    const patch: Data = { status: String(body.status || "new") };
+    if (String(body.status) !== "new") patch.handled_at = new Date().toISOString();
+    const { data, error } = await db.from("trial_requests").update(patch)
+      .eq("trial_request_id", String(body.trialRequestId)).select("*").single();
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, trial: { trialRequestId: data.trial_request_id, status: data.status } };
+  }
+
+  // ---- 官方填報前資料包 ----
+  if (action === "govExportPackage") {
+    const { data: rawTasks } = await db.from("evaluation_tasks").select("*")
+      .in("school_id", scopeSchools).is("deleted_at", null);
+    const tasks = await decorateTasks(db, rawTasks || []);
+    const { data: school } = await db.from("schools").select("name, academic_year").eq("school_id", ctx.schoolId).maybeSingle();
+    const { data: teams } = await db.from("teams").select("team_id, team_name").eq("school_id", ctx.schoolId);
+    const teamRates = (teams || []).map((tm) => {
+      const sub = tasks.filter((t) => t.team_id === tm.team_id);
+      return { teamName: tm.team_name, rate: computeRate(sub), total: sub.length, done: sub.filter((t) => t.state === "completed").length };
+    });
+    const { data: usable } = await db.from("evidence_files").select("*")
+      .in("school_id", scopeSchools).in("review_status", ["confirmed", "acceptable"]).is("deleted_at", null);
+    const pending = tasks.filter((t) => t.state !== "completed").map(taskOut);
+    await audit(db, ctx.coach, "gov_export_package", ctx.schoolId);
+    return {
+      ok: true, schoolName: school?.name || "", academicYear: school?.academic_year || "",
+      completionRate: computeRate(tasks), teams: teamRates,
+      usableEvidence: (usable || []).map(evidenceOut), pendingItems: pending,
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  // ---- 平台使用量 / 續約（platform_admin）----
+  if (action === "govUsage") {
+    if (!ctx.isAdmin) return { ok: false, error: "forbidden" };
+    const { data: orgs } = await db.from("organizations").select("*").is("deleted_at", null);
+    const { data: subs } = await db.from("subscriptions").select("*");
+    const subMap = new Map((subs || []).map((s) => [s.organization_id, s]));
+    const today = new Date().toISOString().slice(0, 10);
+    const in14 = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
+    const list = (orgs || []).map((o) => {
+      const s = subMap.get(o.organization_id) as Data | undefined;
+      return {
+        organizationId: o.organization_id, name: o.name, plan: o.plan, status: o.status,
+        expiresAt: s?.expires_at || "", teamCount: 0, coachCount: 0, activity: 0,
+      };
+    });
+    const expiringSoon = list.filter((o) => o.expiresAt && o.expiresAt >= today && o.expiresAt <= in14);
+    return {
+      ok: true, orgs: list, totalOrgs: list.length,
+      activeOrgs: list.filter((o) => o.status === "active").length,
+      trialOrgs: list.filter((o) => o.plan === "trial").length, expiringSoon,
+    };
   }
 
   return null;
