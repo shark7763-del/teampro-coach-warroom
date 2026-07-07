@@ -75,7 +75,63 @@
       mkEv('114_育林國中_游泳隊_訓練照片_期中', '訓練照片', '運作情形 / 訓練照片', '游泳隊', '', 'not_checked', 'unknown')
     ];
     var teams = ['跆拳道隊', '武術隊', '田徑隊', '游泳隊'];
-    return { academicYear: ay, schoolName: '育林國中（示範）', teams: teams, tasks: tasks, evidence: evidence, demo: true };
+
+    // 評鑑範本（管理員可設定；示範一份 114 學年度國中體育班）
+    var templates = [{
+      templateId: uid('et_'), name: '114 學年度 國中體育班評鑑', academicYear: ay,
+      city: '新北市', schoolLevel: 'junior_high', isActive: true, isDemo: true,
+      items: [
+        mkItem('基礎資料', '學生名冊完整度', 2, 'school_admin', 'fields', true),
+        mkItem('基礎資料', '出席與公假統計', 1, 'coach', 'fields', false),
+        mkItem('運作情形', '訓練日誌', 2, 'coach', 'evidence', false),
+        mkItem('運作情形', '學生輔導與家長聯繫紀錄', 1, 'coach', 'evidence', true),
+        mkItem('運作情形', '場地設備維護紀錄', 1, 'school_admin', 'evidence', false),
+        mkItem('訓練績效', '競賽成果與獎狀', 3, 'coach', 'evidence', true),
+        mkItem('訓練績效', '畢業銜續訓練統計', 1, 'director', 'fields', true),
+        mkItem('特色加分', '社區推廣 / 特色活動', 1, 'coach', 'evidence', false)
+      ]
+    }];
+
+    // 新手導引 9 步
+    var onboarding = [
+      obStep('create_school', '建立學校', true), obStep('first_team', '建立第一支隊伍', true),
+      obStep('invite_coach', '邀請教練', true), obStep('import_athletes', '匯入選手', true),
+      obStep('first_attendance', '完成第一次點名', true), obStep('first_training', '完成第一次訓練紀錄', false),
+      obStep('first_evidence', '上傳第一份佐證', false), obStep('view_gaps', '查看評鑑缺漏', false),
+      obStep('first_report', '產生第一份報告', false)
+    ];
+
+    // 試用申請（給平台管理看）
+    var trials = [
+      mkTrial('明德高中', '台北市', '張組長', 'director', 'new'),
+      mkTrial('中山國小', '高雄市', '李主任', 'director', 'contacted'),
+      mkTrial('成功工商', '台中市', '王教練', 'coach', 'onboarding')
+    ];
+
+    // 平台使用量 / 續約（給平台管理看）
+    var orgs = [
+      mkOrg('育林國中（示範）', 'school', 'active', addDays(220), 4, 6, 62),
+      mkOrg('明德高中', 'trial', 'trial', addDays(9), 2, 3, 20),
+      mkOrg('新北市體育局', 'government', 'active', addDays(400), 24, 40, 88),
+      mkOrg('中山國小', 'coach', 'active', addDays(3), 1, 1, 15)
+    ];
+
+    return { academicYear: ay, schoolName: '育林國中（示範）', teams: teams, tasks: tasks,
+      evidence: evidence, templates: templates, onboarding: onboarding, trials: trials, orgs: orgs, demo: true };
+
+    function mkItem(dim, name, weight, role, mode, review) {
+      return { itemId: uid('ei_'), dimension: dim, name: name, weight: weight,
+        responsibleRole: role, completionMode: mode, requiresReview: review, dueDate: '', isRequired: true };
+    }
+    function obStep(key, label, done) { return { stepKey: key, label: label, done: done, doneAt: done ? todayStr() : '' }; }
+    function mkTrial(school, city, contact, role, status) {
+      return { trialRequestId: uid('trq_'), schoolName: school, city: city, contactName: contact,
+        contactEmail: '', contactPhone: '', role: role, teamCount: '', message: '', status: status, createdAt: todayStr() };
+    }
+    function mkOrg(name, plan, status, expires, teams, coaches, activity) {
+      return { organizationId: uid('org_'), name: name, plan: plan, status: status,
+        expiresAt: expires, teamCount: teams, coachCount: coaches, activity: activity };
+    }
 
     function mkTask(title, item, team, owner, due, pri, state) {
       return { taskId: uid('task_'), title: title, evaluationItemLabel: item, teamName: team,
@@ -224,6 +280,108 @@
       if (reviewStatus === 'not_recommended') e.validityStatus = 'invalid';
       saveDemo(d);
       return { ok: true, demo: true, evidence: e };
+    },
+
+    /* ---- 評鑑範本（管理員設定）---- */
+    async listTemplates() {
+      if (!useDemo()) return edge('govListTemplates', {});
+      var d = loadDemo();
+      return { ok: true, demo: true, templates: (d.templates || []).map(function (t) {
+        return Object.assign({}, t, { itemCount: (t.items || []).length,
+          totalWeight: (t.items || []).reduce(function (s, i) { return s + (i.weight || 0); }, 0) });
+      }) };
+    },
+    async saveTemplate(tpl) {
+      if (!useDemo()) return edge('govSaveTemplate', { template: tpl });
+      var d = loadDemo(); d.templates = d.templates || [];
+      if (tpl.templateId) {
+        var t = find(d.templates, tpl.templateId, 'templateId');
+        if (t) { Object.assign(t, { name: tpl.name, academicYear: tpl.academicYear, city: tpl.city, schoolLevel: tpl.schoolLevel, isActive: tpl.isActive !== false }); }
+      } else {
+        tpl.templateId = uid('et_'); tpl.items = tpl.items || []; tpl.isActive = true; d.templates.push(tpl);
+      }
+      saveDemo(d); return { ok: true, demo: true, template: tpl };
+    },
+    async deleteTemplate(templateId) {
+      if (!useDemo()) return edge('govDeleteTemplate', { templateId: templateId });
+      var d = loadDemo(); d.templates = (d.templates || []).filter(function (t) { return t.templateId !== templateId; });
+      saveDemo(d); return { ok: true, demo: true };
+    },
+    async saveItem(templateId, item) {
+      if (!useDemo()) return edge('govSaveItem', { templateId: templateId, item: item });
+      var d = loadDemo(); var t = find(d.templates || [], templateId, 'templateId');
+      if (!t) return { ok: false, error: '找不到範本' };
+      t.items = t.items || [];
+      if (item.itemId) { var it = find(t.items, item.itemId, 'itemId'); if (it) Object.assign(it, item); }
+      else { item.itemId = uid('ei_'); item.isRequired = item.isRequired !== false; t.items.push(item); }
+      saveDemo(d); return { ok: true, demo: true, item: item };
+    },
+    async deleteItem(templateId, itemId) {
+      if (!useDemo()) return edge('govDeleteItem', { templateId: templateId, itemId: itemId });
+      var d = loadDemo(); var t = find(d.templates || [], templateId, 'templateId');
+      if (t) { t.items = (t.items || []).filter(function (i) { return i.itemId !== itemId; }); saveDemo(d); }
+      return { ok: true, demo: true };
+    },
+
+    /* ---- 新手導引 ---- */
+    async onboarding() {
+      if (!useDemo()) return edge('govOnboarding', {});
+      var d = loadDemo(); var steps = d.onboarding || [];
+      var done = steps.filter(function (s) { return s.done; }).length;
+      return { ok: true, demo: true, steps: steps, done: done, total: steps.length,
+        percent: steps.length ? Math.round(done / steps.length * 100) : 0 };
+    },
+    async completeStep(stepKey) {
+      if (!useDemo()) return edge('govCompleteStep', { stepKey: stepKey });
+      var d = loadDemo(); var s = find(d.onboarding || [], stepKey, 'stepKey');
+      if (s) { s.done = true; s.doneAt = todayStr(); saveDemo(d); }
+      return this.onboarding();
+    },
+
+    /* ---- 學校試用申請 ---- */
+    async submitTrial(form) {
+      if (!useDemo()) return edge('govSubmitTrial', { form: form });
+      var d = loadDemo(); d.trials = d.trials || [];
+      var t = { trialRequestId: uid('trq_'), schoolName: form.schoolName || '', city: form.city || '',
+        contactName: form.contactName || '', contactEmail: form.contactEmail || '', contactPhone: form.contactPhone || '',
+        role: form.role || '', teamCount: form.teamCount || '', message: form.message || '', status: 'new', createdAt: todayStr() };
+      d.trials.unshift(t); saveDemo(d);
+      return { ok: true, demo: true, trial: t };
+    },
+    async listTrials() {
+      if (!useDemo()) return edge('govListTrials', {});
+      var d = loadDemo(); return { ok: true, demo: true, trials: (d.trials || []).slice() };
+    },
+    async updateTrial(trialRequestId, status) {
+      if (!useDemo()) return edge('govUpdateTrial', { trialRequestId: trialRequestId, status: status });
+      var d = loadDemo(); var t = find(d.trials || [], trialRequestId, 'trialRequestId');
+      if (t) { t.status = status; saveDemo(d); }
+      return { ok: true, demo: true, trial: t };
+    },
+
+    /* ---- 官方填報前資料包 ---- */
+    async exportPackage() {
+      if (!useDemo()) return edge('govExportPackage', {});
+      var d = loadDemo();
+      var usable = (d.evidence || []).filter(function (e) { return e.reviewStatus === 'confirmed' || e.reviewStatus === 'acceptable'; });
+      var pending = (d.tasks || []).filter(function (t) { return t.state !== 'completed'; });
+      return { ok: true, demo: true, schoolName: d.schoolName, academicYear: d.academicYear,
+        completionRate: computeRate(d.tasks || []),
+        teams: teamRates(d.tasks || [], d.teams || []),
+        usableEvidence: usable, pendingItems: pending.map(pubTask),
+        generatedAt: new Date().toISOString() };
+    },
+
+    /* ---- 平台使用量 / 續約（管理者）---- */
+    async usage() {
+      if (!useDemo()) return edge('govUsage', {});
+      var d = loadDemo(); var orgs = d.orgs || [];
+      var today = todayStr();
+      var expiringSoon = orgs.filter(function (o) { return o.expiresAt && o.expiresAt >= today && o.expiresAt <= addDays(14); });
+      var trials = orgs.filter(function (o) { return o.plan === 'trial'; });
+      return { ok: true, demo: true, orgs: orgs,
+        totalOrgs: orgs.length, activeOrgs: orgs.filter(function (o) { return o.status === 'active'; }).length,
+        trialOrgs: trials.length, expiringSoon: expiringSoon };
     }
   };
 
