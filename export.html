@@ -28,6 +28,26 @@
     <h1>官方欄位對照與佐證輸出包</h1>
     <p class="muted">輸出結果是可供上傳參考的整理資料；正式填報、確認與送出仍需學校人員到官方系統操作。</p>
   </section>
+
+  <!-- 官方填報前資料包 -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+      <h3 style="margin:0;">官方填報前資料包</h3>
+      <span id="pkgSchool" class="muted"></span>
+    </div>
+    <p class="muted" style="margin:6px 0;">把已審核可採計的佐證、各隊完成率與待補缺漏，一次整理成填報前資料包。正式送出仍須人工登入官方系統。</p>
+    <div class="kpi-row" style="margin:8px 0;">
+      <div class="kpi-card"><span class="muted">全校完成率</span><b id="pkgRate">—</b></div>
+      <div class="kpi-card"><span class="muted">可採計佐證</span><b id="pkgEvidence" style="color:var(--green)">—</b></div>
+      <div class="kpi-card"><span class="muted">尚待補缺漏</span><b id="pkgPending" style="color:var(--yellow)">—</b></div>
+    </div>
+    <div class="export-actions">
+      <button class="btn btn-primary" id="genPackage">產生資料包（可列印 / 存 PDF）</button>
+      <button class="btn" id="csvEvidence">可採計佐證清單 CSV</button>
+      <button class="btn" id="csvPending">待補缺漏清單 CSV</button>
+    </div>
+  </div>
+
   <div class="grid grid-2">
     <div class="card">
       <h3>可輸出資料</h3>
@@ -88,10 +108,89 @@
     </div>
   </div>
 </div>
+<script src="api.js?v=20260708-export2"></script>
+<script src="gov.js?v=20260708-export2"></script>
 <script src="school-tools.js?v=20260627-role2"></script>
 <script>
 (function(){ var b=document.getElementById('exportEvidence2'); var m=document.getElementById('exportEvidence');
   if(b&&m) b.onclick=function(){ m.click(); }; })();
+
+(function () {
+  var $ = TP.$, esc = TP.esc, toast = TP.toast, gov = TP.gov;
+  var pkg = null;
+
+  function download(name, text, type) {
+    var blob = new Blob(['﻿' + text], { type: (type || 'text/csv') + ';charset=utf-8' });
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = name; a.click(); URL.revokeObjectURL(a.href);
+  }
+
+  async function load() {
+    var r = await gov.exportPackage();
+    if (!r || !r.ok) { toast('載入填報包資料失敗', true); return; }
+    pkg = r;
+    $('#pkgSchool').textContent = (r.schoolName || '') + '｜' + (r.academicYear || '') + ' 學年度';
+    $('#pkgRate').textContent = r.completionRate + '%';
+    $('#pkgEvidence').textContent = (r.usableEvidence || []).length;
+    $('#pkgPending').textContent = (r.pendingItems || []).length;
+  }
+
+  $('#csvEvidence').onclick = function () {
+    if (!pkg) return;
+    var lines = ['檔名,類型,對應評鑑指標,隊伍,學生,審核狀態,效度'];
+    pkg.usableEvidence.forEach(function (e) {
+      lines.push([e.generatedFilename, e.evidenceType, e.evaluationItemLabel, e.teamName, e.athleteName, e.reviewStatus, e.validityStatus]
+        .map(function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; }).join(','));
+    });
+    download('可採計佐證清單.csv', lines.join('\n'));
+  };
+  $('#csvPending').onclick = function () {
+    if (!pkg) return;
+    var lines = ['缺漏項目,對應評鑑指標,隊伍,負責人,截止日,狀態'];
+    pkg.pendingItems.forEach(function (t) {
+      lines.push([t.title, t.evaluationItemLabel, t.teamName, t.assigneeName, t.dueDate, gov.taskState(t.state).label]
+        .map(function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; }).join(','));
+    });
+    download('待補缺漏清單.csv', lines.join('\n'));
+  };
+
+  $('#genPackage').onclick = function () {
+    if (!pkg) return;
+    var teamRows = (pkg.teams || []).map(function (t) {
+      return '<tr><td>' + esc(t.teamName) + '</td><td style="text-align:right;">' + t.rate + '%</td><td style="text-align:right;">' + t.done + ' / ' + t.total + '</td></tr>';
+    }).join('');
+    var evRows = (pkg.usableEvidence || []).map(function (e) {
+      return '<tr><td>' + esc(e.generatedFilename) + '</td><td>' + esc(e.evidenceType) + '</td><td>' + esc(e.evaluationItemLabel) + '</td><td>' + esc(gov.reviewState(e.reviewStatus).label) + '</td></tr>';
+    }).join('') || '<tr><td colspan="4">尚無可採計佐證</td></tr>';
+    var pendRows = (pkg.pendingItems || []).map(function (t) {
+      return '<tr><td>' + esc(t.title) + '</td><td>' + esc(t.evaluationItemLabel) + '</td><td>' + esc(t.teamName) + '</td><td>' + esc(gov.taskState(t.state).label) + '</td></tr>';
+    }).join('') || '<tr><td colspan="4">無待補缺漏 🎉</td></tr>';
+    var demoTag = pkg.demo ? '<div style="background:#fef3c7;color:#92400e;padding:6px 12px;border-radius:6px;display:inline-block;margin-bottom:10px;font-size:13px;">示範資料 · 不含真實學生個資</div>' : '';
+    var html = '<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>官方填報前資料包 — ' + esc(pkg.schoolName || '') + '</title>' +
+      '<style>body{font-family:"Noto Sans TC",system-ui,sans-serif;color:#1f2937;max-width:820px;margin:24px auto;padding:0 16px;line-height:1.6;}' +
+      'h1{font-size:22px;margin:0 0 4px;} h2{font-size:16px;border-bottom:2px solid #22c55e;padding-bottom:4px;margin-top:24px;}' +
+      'table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px;} th,td{border:1px solid #d1d5db;padding:6px 8px;text-align:left;}' +
+      'th{background:#f3f4f6;} .sub{color:#6b7280;font-size:13px;} .disc{background:#fff7ed;border:1px solid #fed7aa;padding:10px;border-radius:8px;font-size:12.5px;margin-top:20px;}' +
+      '@media print{button{display:none;}}</style></head><body>' +
+      demoTag +
+      '<h1>官方填報前資料包</h1>' +
+      '<div class="sub">' + esc(pkg.schoolName || '') + '　' + esc(pkg.academicYear || '') + ' 學年度　產生時間：' + new Date().toLocaleString('zh-TW') + '</div>' +
+      '<h2>評鑑完成率</h2><p>全校完成率：<b>' + pkg.completionRate + '%</b></p>' +
+      '<table><thead><tr><th>隊伍</th><th style="text-align:right;">完成率</th><th style="text-align:right;">已完成 / 總項</th></tr></thead><tbody>' + teamRows + '</tbody></table>' +
+      '<h2>可採計佐證清單（' + (pkg.usableEvidence || []).length + '）</h2>' +
+      '<table><thead><tr><th>檔名（自動命名）</th><th>類型</th><th>對應評鑑指標</th><th>審核狀態</th></tr></thead><tbody>' + evRows + '</tbody></table>' +
+      '<h2>尚待補缺漏（' + (pkg.pendingItems || []).length + '）</h2>' +
+      '<table><thead><tr><th>缺漏項目</th><th>對應評鑑指標</th><th>隊伍</th><th>狀態</th></tr></thead><tbody>' + pendRows + '</tbody></table>' +
+      '<div class="disc">提醒：本資料包由 TeamPro 於官方系統填報前整理產生，僅供學校承辦人整理與確認之用。正式填報、逐欄確認、上傳與送出，仍須由學校人員登入官方體育班線上系統操作。TeamPro 不會自動送件。</div>' +
+      '<p style="text-align:center;margin-top:20px;"><button onclick="window.print()" style="padding:8px 20px;font-size:14px;">列印 / 存 PDF</button></p>' +
+      '</body></html>';
+    var w = window.open('', '_blank');
+    if (!w) { toast('請允許彈出視窗以產生資料包', true); return; }
+    w.document.write(html); w.document.close();
+  };
+
+  load();
+})();
 </script>
 </body>
 </html>
