@@ -16,6 +16,7 @@ const ROUTES = {
   "/admin": "/admin.html",
   "/pricing": "/pricing.html",
   "/security": "/security.html",
+  "/trial": "/trial.html",
   "/principal": "/principal.html",
   "/evaluation": "/evaluation.html",
   "/join": "/join.html",

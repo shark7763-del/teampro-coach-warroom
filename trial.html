@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>申請學校試用 · TeamPro 學校運動團隊數位治理平台</title>
+<meta name="description" content="申請 TeamPro 學校版試用，整校一套年度授權，體驗缺漏中心、佐證庫與評鑑準備。">
+<link rel="stylesheet" href="style.css?v=20260708-trial1">
+<meta name="theme-color" content="#22c55e">
+<style>
+  .trial-wrap { max-width: 520px; margin: 6vh auto; padding: 0 16px; }
+  .trial-card { padding: 26px 22px; }
+  .trial-card label { display:block; margin-top: 12px; font-size: 13px; color: var(--muted); }
+  .trial-card .req::after { content:" *"; color: var(--red); }
+  .ok-box { text-align:center; padding: 30px 10px; }
+  .ok-box .big { font-size: 44px; }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+<div class="trial-wrap">
+  <div class="topbar" style="margin-bottom:8px;">
+    <div class="logo"><a href="index.html" style="color:inherit;"><img class="logo-img" src="assets/logo.png" alt="TeamPro logo" width="28" height="28">TeamPro <span class="mark">學校試用</span></a></div>
+    <a class="btn btn-ghost btn-sm" href="pricing.html">看方案</a>
+  </div>
+
+  <div class="trial-card card" id="formCard">
+    <h1 style="margin:0 0 4px;font-size:22px;">申請學校試用</h1>
+    <p class="muted" style="font-size:13px;margin:0 0 6px;">學校版以整校年度授權為主，不以每位教練單獨收費。送出後我們會與您聯繫開通試用。</p>
+
+    <label class="req" for="schoolName">學校名稱</label>
+    <input id="schoolName" placeholder="例：新北市立育林國中">
+    <div style="display:flex;gap:10px;">
+      <div style="flex:1;"><label for="city">縣市</label><input id="city" placeholder="例：新北市"></div>
+      <div style="flex:1;"><label for="role">您的身分</label>
+        <select id="role">
+          <option value="director">主任 / 校長</option>
+          <option value="school_admin">體育組長 / 行政</option>
+          <option value="coach">教練</option>
+          <option value="other">其他</option>
+        </select>
+      </div>
+    </div>
+    <label class="req" for="contactName">聯絡人姓名</label>
+    <input id="contactName" placeholder="您的姓名">
+    <div style="display:flex;gap:10px;">
+      <div style="flex:1;"><label class="req" for="contactEmail">Email</label><input id="contactEmail" type="email" placeholder="you@school.edu.tw"></div>
+      <div style="flex:1;"><label for="contactPhone">電話</label><input id="contactPhone" placeholder="選填"></div>
+    </div>
+    <label for="teamCount">預計使用隊伍數</label>
+    <select id="teamCount">
+      <option value="1-2">1–2 隊</option>
+      <option value="3-5">3–5 隊</option>
+      <option value="6-10">6–10 隊</option>
+      <option value="10+">10 隊以上</option>
+    </select>
+    <label for="message">想先了解的重點（選填）</label>
+    <textarea id="message" placeholder="例：想了解評鑑佐證整理、缺漏追蹤、官方填報前資料包"></textarea>
+
+    <button class="btn btn-primary btn-block" id="submitBtn" style="margin-top:16px;">送出申請</button>
+    <p class="muted" style="font-size:12px;margin-top:10px;">送出即表示同意我們就試用事宜與您聯繫。詳見 <a href="privacy.html">隱私權</a>。</p>
+  </div>
+
+  <div class="trial-card card hidden" id="okCard">
+    <div class="ok-box">
+      <div class="big">✅</div>
+      <h2>已收到您的試用申請</h2>
+      <p class="muted">我們會盡快與 <b id="okSchool"></b> 聯繫並開通試用環境。<br>在等待期間，您可以先體驗：</p>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:14px;">
+        <a class="btn btn-primary" href="school.html?demo=1">體驗學校端 Demo</a>
+        <a class="btn" href="app.html?demo=1">體驗教練端 Demo</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="api.js?v=20260708-trial1"></script>
+<script src="gov.js?v=20260708-trial1"></script>
+<script>
+(function () {
+  var $ = TP.$, toast = TP.toast, gov = TP.gov;
+  $('#submitBtn').onclick = async function () {
+    var form = {
+      schoolName: $('#schoolName').value.trim(), city: $('#city').value.trim(),
+      role: $('#role').value, contactName: $('#contactName').value.trim(),
+      contactEmail: $('#contactEmail').value.trim(), contactPhone: $('#contactPhone').value.trim(),
+      teamCount: $('#teamCount').value, message: $('#message').value.trim()
+    };
+    if (!form.schoolName || !form.contactName || !form.contactEmail) { toast('請填學校名稱、聯絡人與 Email', true); return; }
+    var btn = $('#submitBtn'); btn.disabled = true; btn.textContent = '送出中…';
+    var r = await gov.submitTrial(form);
+    btn.disabled = false; btn.textContent = '送出申請';
+    if (!r || !r.ok) { toast((r && r.error) || '送出失敗，請稍後再試', true); return; }
+    $('#okSchool').textContent = form.schoolName;
+    $('#formCard').classList.add('hidden');
+    $('#okCard').classList.remove('hidden');
+    window.scrollTo(0, 0);
+  };
+})();
+</script>
+</body>
+</html>
