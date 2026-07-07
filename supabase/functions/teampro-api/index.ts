@@ -4,6 +4,7 @@ import { teamAthleteAction } from "./team-athlete-actions.ts";
 import { publicAction } from "./public-actions.ts";
 import { coachDataAction, contactAction } from "./coach-data-actions.ts";
 import { adminAction, reportAction } from "./report-admin-actions.ts";
+import { governanceAction } from "./governance-actions.ts";
 
 const allowedOrigins = new Set([
   "https://shark7763-del.github.io",
@@ -88,6 +89,7 @@ Deno.serve(async (request: Request) => {
       await coachDataAction(supabase, action, body) ||
       await contactAction(supabase, action, body) ||
       await reportAction(supabase, action, body) ||
+      await governanceAction(supabase, action, body) ||
       await adminAction(supabase, action, body);
     if (result) return json(request, result);
     return json(request, { ok: false, error: `未知 action：${action}` }, 404);

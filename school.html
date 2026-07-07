@@ -2,160 +2,336 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TeamPro School Mode｜學校行政後台</title>
-<link rel="stylesheet" href="style.css?v=20260627-shell1"><link rel="stylesheet" href="role-portal.css?v=20260627-role2">
+<title>TeamPro School Mode｜學校評鑑治理</title>
+<link rel="stylesheet" href="style.css?v=20260708-school2"><link rel="stylesheet" href="role-portal.css?v=20260627-role2">
 <style>
 .table-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
 .gap-progress { margin:10px 0 12px; }
 .gap-progress-bar { height:10px; border-radius:999px; background:var(--panel-2); border:1px solid var(--line); overflow:hidden; }
 .gap-progress-bar span { display:block; height:100%; background:var(--brand); width:0; transition:width .4s; }
-#gapTable td .btn { margin:2px 3px 2px 0; }
-#gapTable td:nth-child(2) { min-width:150px; }
-.status-chip.remind { background:rgba(56,189,248,.15); color:#7dd3fc; }
+.team-rate { display:flex; align-items:center; gap:10px; margin:8px 0; }
+.team-rate .bar { flex:1; height:8px; border-radius:999px; background:var(--panel-2); border:1px solid var(--line); overflow:hidden; }
+.team-rate .bar span { display:block; height:100%; background:var(--brand); }
+.team-rate .name { width:82px; font-weight:700; font-size:14px; }
+.team-rate .pct { width:52px; text-align:right; font-variant-numeric:tabular-nums; color:var(--muted); font-size:13px; }
+.gchip { display:inline-block; font-size:12px; font-weight:700; padding:2px 9px; border-radius:999px; border:1px solid currentColor; }
+.gchip.status-done{background:rgba(34,197,94,.12);} .gchip.status-pending{background:rgba(245,158,11,.12);}
+.gchip.status-due{background:rgba(249,115,22,.12);} .gchip.status-overdue{background:rgba(239,68,68,.12);}
+.gchip.status-todo{background:rgba(107,114,128,.15);}
+.filter-row { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 12px; align-items:center; }
+.fchip { font-size:13px; padding:5px 12px; border-radius:999px; border:1px solid var(--line); background:var(--panel); color:var(--text); cursor:pointer; }
+.fchip.active { border-color:var(--brand); background:rgba(34,197,94,.14); color:var(--brand); }
+#gapTable td .btn, #evTable td .btn { margin:2px 3px 2px 0; }
+.remind-note { font-size:12px; color:var(--muted); }
+.ev-name { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px; word-break:break-all; }
 @media (max-width:640px){
-  #gapTable, #gapTable thead, #gapTable tbody, #gapTable tr, #gapTable td { display:block; width:100%; }
-  #gapTable thead { display:none; }
-  #gapTable tr { border:1px solid var(--line); border-radius:12px; padding:10px; margin-bottom:10px; background:var(--panel); }
-  #gapTable td { border:0; padding:4px 0; }
-  #gapTable td::before { content:attr(data-label)"："; color:var(--muted); font-size:12px; font-weight:700; }
-  #gapTable td:first-child { font-size:16px; font-weight:800; }
-  #gapTable td:first-child::before { content:""; }
+  #gapTable, #gapTable thead, #gapTable tbody, #gapTable tr, #gapTable td,
+  #evTable, #evTable thead, #evTable tbody, #evTable tr, #evTable td { display:block; width:100%; }
+  #gapTable thead, #evTable thead { display:none; }
+  #gapTable tr, #evTable tr { border:1px solid var(--line); border-radius:12px; padding:10px; margin-bottom:10px; background:var(--panel); }
+  #gapTable td, #evTable td { border:0; padding:4px 0; }
+  #gapTable td::before, #evTable td::before { content:attr(data-label)"："; color:var(--muted); font-size:12px; font-weight:700; }
+  #gapTable td:first-child, #evTable td:first-child { font-size:16px; font-weight:800; }
+  #gapTable td:first-child::before, #evTable td:first-child::before { content:""; }
 }
 </style>
 </head>
 <body>
 <div class="container">
-  <div class="topbar"><div class="logo"><picture><source srcset="assets/logo.webp" type="image/webp"><img class="logo-img" src="assets/logo.png" width="30" height="30" alt=""></picture>TeamPro <span class="mark">School Mode</span></div><div style="display:flex;gap:8px;flex-wrap:wrap;"><a class="btn btn-ghost btn-sm" href="index.html">角色入口</a><a class="btn btn-sm" href="evaluation.html">評鑑準備</a><a class="btn btn-sm" href="export.html">填報包</a><a class="btn btn-sm" href="app.html">教練端</a></div></div>
+  <div class="topbar"><div class="logo"><picture><source srcset="assets/logo.webp" type="image/webp"><img class="logo-img" src="assets/logo.png" width="30" height="30" alt=""></picture>TeamPro <span class="mark">School Mode</span></div><div style="display:flex;gap:8px;flex-wrap:wrap;"><a class="btn btn-ghost btn-sm" href="index.html">角色入口</a><a class="btn btn-sm" href="evaluation.html">評鑑準備</a><a class="btn btn-sm" href="export.html">填報包</a><a class="btn btn-sm" href="login.html">登入</a></div></div>
+
   <section class="admin-hero">
     <div class="eyebrow">體育組長 / 學校行政</div>
     <h1>一眼看懂全校體育班評鑑還缺什麼。</h1>
-    <p class="muted">此頁是第一版行政總覽，資料可由教練日常紀錄自動彙整，重點放在完成率、缺漏、提醒與輸出。</p>
-    <p class="muted">定位：官方系統填報前準備、官方欄位對照、佐證整理與評鑑準備度檢查；正式填報仍需人工進入官方系統確認。</p>
+    <p class="muted">教練日常紀錄自動彙整為評鑑進度：完成率、缺漏中心、佐證審核與一鍵輸出。正式填報仍需人工進入官方系統確認。</p>
   </section>
+
+  <!-- 總覽 -->
   <div class="kpi-row">
-    <div class="kpi-card"><span class="muted">全校評鑑準備度</span><b>82%</b><small>比上週 +6%</small></div>
-    <div class="kpi-card"><span class="muted">隊伍資料完成率</span><b>7/9</b><small>2 隊需補資料</small></div>
-    <div class="kpi-card"><span class="muted">待補項目</span><b>14</b><small>紅色 4 項</small></div>
-    <div class="kpi-card"><span class="muted">本週提醒</span><b>23</b><small>可一鍵通知教練</small></div>
+    <div class="kpi-card"><span class="muted">全校評鑑完成率</span><b id="ovRate">—</b><small id="ovRateSub">載入中…</small></div>
+    <div class="kpi-card"><span class="muted">隊伍數</span><b id="ovTeams">—</b><small>各隊完成率見下方</small></div>
+    <div class="kpi-card"><span class="muted">高風險缺漏</span><b id="ovRisk" style="color:var(--red)">—</b><small>逾期 / 退回補件</small></div>
+    <div class="kpi-card"><span class="muted">待審核佐證</span><b id="ovReview" style="color:var(--yellow)">—</b><small>需組長確認</small></div>
   </div>
+
   <div class="grid grid-2">
     <div class="card">
-      <h3>評鑑缺漏雷達</h3>
-      <div class="radar-grid">
-        <div class="radar-item green"><b>出席統計</b><br><span class="muted">已完成</span></div>
-        <div class="radar-item yellow"><b>訓練日誌</b><br><span class="muted">資料不足</span></div>
-        <div class="radar-item red"><b>獎狀歸檔</b><br><span class="muted">缺資料</span></div>
-        <div class="radar-item gray"><b>場地設備</b><br><span class="muted">尚未開始</span></div>
-      </div>
+      <h3>各隊完成率</h3>
+      <div id="teamRates"><p class="muted">載入中…</p></div>
     </div>
     <div class="card">
-      <h3>缺漏管理表</h3>
-      <p class="muted">體育組長與教練共用：每筆缺漏都有負責人、截止日與狀態，逐筆追到完成。</p>
-      <div class="gap-progress"><div class="gap-progress-bar"><span id="gapBar"></span></div><small id="gapText" class="muted"></small></div>
-      <div class="table-scroll">
-      <table class="field-table" id="gapTable">
-        <thead><tr><th>隊伍</th><th>缺漏項目</th><th>對應評鑑項目</th><th>負責人</th><th>截止日</th><th>狀態</th><th>操作</th></tr></thead>
-        <tbody></tbody>
-      </table>
-      </div>
+      <h3>高風險缺漏（優先處理）</h3>
+      <div id="riskList"><p class="muted">載入中…</p></div>
     </div>
   </div>
+
+  <!-- 缺漏中心 -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+      <h3 style="margin:0;">缺漏中心</h3>
+      <button class="btn btn-sm btn-primary" id="addGap">＋ 新增缺漏</button>
+    </div>
+    <p class="muted" style="margin:6px 0;">每筆缺漏都有對應評鑑指標、負責人、截止日、優先級與狀態，逐筆追到完成。狀態：未開始→處理中→待審核→（通過）已完成 /（退回補件）。</p>
+    <div class="filter-row" id="stateFilter"></div>
+    <div class="gap-progress"><div class="gap-progress-bar"><span id="gapBar"></span></div><small id="gapText" class="muted"></small></div>
+    <div class="table-scroll">
+      <table class="field-table" id="gapTable">
+        <thead><tr><th>缺漏項目</th><th>對應評鑑指標</th><th>隊伍</th><th>負責人</th><th>截止日</th><th>優先級</th><th>狀態</th><th>催繳</th><th>操作</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 佐證庫 -->
+  <div class="card">
+    <h3>佐證資料庫</h3>
+    <p class="muted" style="margin:6px 0;">佐證綁定評鑑指標，檔名自動命名為「學年_學校_隊伍_學生_賽事或活動_組別_名次」。審核狀態：尚未檢查 / 資料不足 / 待補件 / 可採計 / 不建議採計 / 已確認完成。</p>
+    <div class="filter-row" id="reviewFilter"></div>
+    <div class="table-scroll">
+      <table class="field-table" id="evTable">
+        <thead><tr><th>檔名（自動命名）</th><th>類型</th><th>對應評鑑指標</th><th>隊伍 / 學生</th><th>審核狀態</th><th>效度</th><th>審核</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 一鍵輸出 -->
   <div class="card">
     <h3>一鍵輸出</h3>
-    <p class="muted">第一版可產生 HTML / CSV / ZIP 佐證包，供正式填報前整理與人工確認。</p>
+    <p class="muted">可產生 HTML / CSV / ZIP 佐證包，供正式填報前整理與人工確認。</p>
     <div class="export-actions">
-      <button class="btn btn-primary" id="exportEvidence">輸出評鑑佐證包</button>
-      <button class="btn" id="exportCompletion">各隊完成率 Excel/CSV</button>
+      <a class="btn btn-primary" href="export.html">前往官方填報前資料包</a>
+      <button class="btn" id="exportCompletion">各隊完成率 CSV</button>
       <a class="btn" href="handover.html">體育組長交接包</a>
     </div>
   </div>
+
+  <!-- 官方欄位對照（參考） -->
   <div class="grid grid-2">
     <div class="card">
       <h3>學生基本資料完整度（官方欄位對照）</h3>
-      <p class="muted">必填欄位：學校、學生姓名、出生日期、國籍別、身分證字號 / 外籍證號、學生年級、班級、教練、是否為身心障礙學生、運動種類、身分、狀態。</p>
+      <p class="muted">必填欄位：學校、學生姓名、出生日期、國籍別、身分證字號 / 外籍證號、年級、班級、教練、是否身心障礙、運動種類、身分、狀態。</p>
       <table class="field-table">
-        <thead><tr><th>學生運動員</th><th>完成欄位</th><th>缺漏欄位</th><th>可否匯出</th><th>官方填報參考</th></tr></thead>
+        <thead><tr><th>學生運動員</th><th>完成欄位</th><th>缺漏欄位</th><th>可否匯出</th></tr></thead>
         <tbody>
-          <tr><td>陳柏宇</td><td>12 / 12</td><td>—</td><td><span class="status-chip done">可匯出</span></td><td><span class="status-chip done">可作參考</span></td></tr>
-          <tr><td>林冠霖</td><td>10 / 12</td><td>出生日期、身分證號</td><td><span class="status-chip check">待補</span></td><td><span class="status-chip missing">不可作完整資料</span></td></tr>
-          <tr><td>王品潔</td><td>9 / 12</td><td>國籍別、身分、狀態</td><td><span class="status-chip check">待補</span></td><td><span class="status-chip missing">不可作完整資料</span></td></tr>
+          <tr><td>陳柏宇</td><td>12 / 12</td><td>—</td><td><span class="status-chip done">可匯出</span></td></tr>
+          <tr><td>林冠霖</td><td>10 / 12</td><td>出生日期、身分證號</td><td><span class="status-chip check">待補</span></td></tr>
+          <tr><td>王品潔</td><td>9 / 12</td><td>國籍別、身分、狀態</td><td><span class="status-chip check">待補</span></td></tr>
         </tbody>
       </table>
     </div>
     <div class="card">
       <h3>比賽紀錄完整度（官方欄位對照）</h3>
-      <p class="muted">欄位：比賽起迄、學生姓名、教練、運動種類 / 項目、學年度、賽會級別、比賽名稱、天數、名次、成績、備註、狀態、檔案列表。</p>
-      <div class="warn-box">採計提醒：佐證必須清楚包含比賽名稱、獲獎名次、學生姓名、日期、組別。若只有獎盃照片或秩序冊，請標記「可能不採計，請補獎狀或清楚證明文件」。</div>
+      <div class="warn-box">採計提醒：佐證須含比賽名稱、名次、學生姓名、日期、組別。僅獎盃照片或秩序冊請標「待補獎狀」。</div>
       <table class="field-table">
         <thead><tr><th>比賽</th><th>完成</th><th>佐證狀態</th><th>採計風險</th></tr></thead>
         <tbody>
-          <tr><td>縣市中等學校運動會</td><td>15 / 15</td><td><span class="status-chip evidence">獎狀已歸檔</span></td><td><span class="status-chip done">低</span></td></tr>
-          <tr><td>邀請賽</td><td>12 / 15</td><td><span class="status-chip check">僅秩序冊</span></td><td><span class="status-chip check">可能不採計，請補獎狀或清楚證明文件</span></td></tr>
+          <tr><td>全國中等學校運動會</td><td>15 / 15</td><td><span class="status-chip evidence">獎狀已歸檔</span></td><td><span class="status-chip done">低</span></td></tr>
+          <tr><td>邀請賽</td><td>12 / 15</td><td><span class="status-chip check">僅秩序冊</span></td><td><span class="status-chip check">可能不採計</span></td></tr>
         </tbody>
       </table>
     </div>
   </div>
-  <div class="card">
-    <h3>佐證資料箱</h3>
-    <p class="muted">分類：學生名冊、比賽獎狀、秩序冊、訓練照片、補課紀錄、學生公假日數、場地維護紀錄、傷病紀錄、輔導紀錄、畢業銜續資料、其他特色加分資料。</p>
-    <div class="evidence-grid">
-      <div class="evidence-card"><b>比賽獎狀</b><p class="muted">3MB 提醒，5MB 上限；建議壓縮圖片並自動命名：學年度_學生_比賽_組別_名次。</p></div>
-      <div class="evidence-card"><b>訓練照片</b><p class="muted">依評鑑步驟分類到「運作情形」或「訓練績效」，非首要照片建議壓縮後再歸檔。</p></div>
-      <div class="evidence-card"><b>畢業銜續資料</b><p class="muted">對應畢業學生銜續訓練統計表。</p></div>
+</div>
+
+<!-- 新增缺漏 對話框 -->
+<dialog id="gapDialog" style="border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--text);max-width:440px;width:92vw;padding:20px;">
+  <h3 style="margin:0 0 10px;">新增缺漏</h3>
+  <label>缺漏項目</label><input id="gTitle" placeholder="例：縣市賽獎狀照片未上傳">
+  <label>對應評鑑指標</label><input id="gItem" placeholder="例：訓練績效 / 競賽成果">
+  <label>隊伍</label><input id="gTeam" placeholder="例：跆拳道隊">
+  <label>負責人</label><input id="gOwner" placeholder="例：王教練">
+  <div style="display:flex;gap:10px;">
+    <div style="flex:1;"><label>截止日</label><input id="gDue" type="date"></div>
+    <div style="flex:1;"><label>優先級</label>
+      <select id="gPriority"><option value="urgent">緊急</option><option value="high">高</option><option value="normal" selected>一般</option><option value="low">低</option></select>
     </div>
   </div>
-</div>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+    <button class="btn btn-ghost btn-sm" id="gCancel">取消</button>
+    <button class="btn btn-primary btn-sm" id="gSave">新增</button>
+  </div>
+</dialog>
+
+<script src="api.js?v=20260708-school2"></script>
+<script src="gov.js?v=20260708-school2"></script>
 <script>
 (function () {
-  var STORE = 'teampro_school_gaps_v1';
-  var DEFAULT = [
-    { team:'武術隊', item:'6 月訓練日誌缺 3 天', eval:'運作情形 / 訓練日誌', owner:'林教練', due:'2026-07-10', status:'todo' },
-    { team:'跆拳道隊', item:'縣市賽獎狀照片未上傳', eval:'訓練績效 / 競賽成果', owner:'王教練', due:'2026-07-08', status:'todo' },
-    { team:'田徑隊', item:'傷病追蹤缺家長通知紀錄', eval:'運作情形 / 學生輔導', owner:'陳教練', due:'2026-07-12', status:'remind' },
-    { team:'游泳隊', item:'畢業銜續訓練統計待補', eval:'訓練績效 / 銜續統計', owner:'李教練', due:'2026-07-15', status:'uploaded' }
-  ];
-  var STATUS = { todo:['待補','missing'], remind:['已提醒','remind'], uploaded:['已上傳','evidence'], done:['已完成','done'] };
-  var ORDER = ['todo','remind','uploaded','done'];
-  function load(){ try { var v=JSON.parse(localStorage.getItem(STORE)); return (v&&v.length)?v:DEFAULT.slice(); } catch(e){ return DEFAULT.slice(); } }
-  function save(rows){ try { localStorage.setItem(STORE, JSON.stringify(rows)); } catch(e){} }
-  var rows = load();
-  var tbody = document.querySelector('#gapTable tbody');
-  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
-  function chip(st){ var m=STATUS[st]||STATUS.todo; return '<span class="status-chip '+m[1]+'">'+m[0]+'</span>'; }
-  function ops(i,st){
-    var b='';
-    if(st!=='done') b+='<button class="btn btn-sm" data-gremind="'+i+'">提醒負責人</button>';
-    if(st==='todo'||st==='remind') b+='<button class="btn btn-sm" data-upload="'+i+'">標記已上傳</button>';
-    if(st!=='done') b+='<button class="btn btn-sm btn-primary" data-done="'+i+'">標記完成</button>';
-    else b+='<button class="btn btn-sm btn-ghost" data-reopen="'+i+'">重新開啟</button>';
+  var $ = TP.$, esc = TP.esc, toast = TP.toast, gov = TP.gov;
+  var stateFilter = '', reviewFilter = '';
+  var gapTbody = $('#gapTable tbody'), evTbody = $('#evTable tbody');
+
+  function chip(dict) { return '<span class="gchip ' + dict.cls + '">' + esc(dict.label) + '</span>'; }
+
+  /* ---- 總覽 ---- */
+  async function loadOverview() {
+    var r = await gov.overview();
+    if (!r || !r.ok) { toast('載入總覽失敗', true); return; }
+    $('#ovRate').textContent = r.completionRate + '%';
+    $('#ovRateSub').textContent = r.schoolName || '';
+    $('#ovTeams').textContent = (r.teams || []).length;
+    $('#ovRisk').textContent = (r.highRiskGaps || []).length;
+    $('#ovReview').textContent = (r.pendingReview || []).length;
+    $('#teamRates').innerHTML = (r.teams || []).map(function (t) {
+      return '<div class="team-rate"><span class="name">' + esc(t.teamName) + '</span>' +
+        '<span class="bar"><span style="width:' + t.rate + '%"></span></span>' +
+        '<span class="pct">' + t.rate + '%</span></div>';
+    }).join('') || '<p class="muted">尚無隊伍</p>';
+    $('#riskList').innerHTML = (r.highRiskGaps || []).map(function (t) {
+      return '<div style="padding:8px 0;border-bottom:1px solid var(--line);">' +
+        chip(gov.taskState(t.state)) + ' <b>' + esc(t.title) + '</b>' +
+        '<div class="remind-note">' + esc(t.teamName) + '｜' + esc(t.assigneeName) + '｜截止 ' + esc(t.dueDate || '—') + '</div></div>';
+    }).join('') || '<p class="muted">目前沒有高風險缺漏 👍</p>';
+  }
+
+  /* ---- 缺漏中心 ---- */
+  function stateChips() {
+    var states = ['', 'overdue', 'returned', 'not_started', 'in_progress', 'pending_review', 'completed'];
+    $('#stateFilter').innerHTML = states.map(function (s) {
+      var label = s === '' ? '全部' : gov.taskState(s).label;
+      return '<button class="fchip' + (stateFilter === s ? ' active' : '') + '" data-state="' + s + '">' + esc(label) + '</button>';
+    }).join('');
+    $('#stateFilter').querySelectorAll('[data-state]').forEach(function (b) {
+      b.onclick = function () { stateFilter = b.dataset.state; stateChips(); loadTasks(); };
+    });
+  }
+  function taskOps(t) {
+    var s = t.state, id = t.taskId, b = '';
+    function btn(act, label, cls) { return '<button class="btn btn-sm ' + (cls || '') + '" data-act="' + act + '" data-id="' + id + '">' + label + '</button>'; }
+    if (s !== 'completed') b += btn('remind', '催繳');
+    if (s === 'not_started' || s === 'in_progress' || s === 'returned') b += btn('review', '送審');
+    if (s === 'pending_review') { b += btn('pass', '通過', 'btn-primary') + btn('return', '退回補件'); }
+    if (s !== 'completed' && s !== 'pending_review') b += btn('done', '標記完成', 'btn-primary');
+    if (s === 'completed') b += btn('reopen', '重新開啟', 'btn-ghost');
     return b;
   }
-  function render(){
-    tbody.innerHTML = rows.map(function(r,i){
-      return '<tr>'+
-        '<td data-label="隊伍">'+esc(r.team)+'</td>'+
-        '<td data-label="缺漏項目">'+esc(r.item)+'</td>'+
-        '<td data-label="對應評鑑項目">'+esc(r.eval)+'</td>'+
-        '<td data-label="負責人">'+esc(r.owner)+'</td>'+
-        '<td data-label="截止日">'+esc(r.due)+'</td>'+
-        '<td data-label="狀態">'+chip(r.status)+'</td>'+
-        '<td data-label="操作">'+ops(i,r.status)+'</td>'+
+  async function loadTasks() {
+    var r = await gov.listTasks(stateFilter ? { state: stateFilter } : {});
+    if (!r || !r.ok) { toast('載入缺漏失敗', true); return; }
+    var rows = r.tasks || [];
+    gapTbody.innerHTML = rows.map(function (t) {
+      var remind = t.reminderCount ? ('已催 ' + t.reminderCount + ' 次') : '—';
+      return '<tr>' +
+        '<td data-label="缺漏項目"><b>' + esc(t.title) + '</b>' + (t.completionNote ? '<div class="remind-note">' + esc(t.completionNote) + '</div>' : '') + '</td>' +
+        '<td data-label="對應評鑑指標">' + esc(t.evaluationItemLabel || '—') + '</td>' +
+        '<td data-label="隊伍">' + esc(t.teamName || '—') + '</td>' +
+        '<td data-label="負責人">' + esc(t.assigneeName || '—') + '</td>' +
+        '<td data-label="截止日">' + esc(t.dueDate || '—') + '</td>' +
+        '<td data-label="優先級">' + chip(gov.priority(t.priority)) + '</td>' +
+        '<td data-label="狀態">' + chip(gov.taskState(t.state)) + '</td>' +
+        '<td data-label="催繳"><span class="remind-note">' + remind + '</span></td>' +
+        '<td data-label="操作">' + taskOps(t) + '</td>' +
       '</tr>';
+    }).join('') || '<tr><td colspan="9" class="muted">此篩選下沒有缺漏。<button class="btn btn-sm" id="clearFilter" style="margin-left:8px;">清除篩選</button></td></tr>';
+    var cf = $('#clearFilter'); if (cf) cf.onclick = function () { stateFilter = ''; stateChips(); loadTasks(); };
+    bindTaskOps();
+    updateBar(rows);
+  }
+  function updateBar(rows) {
+    var done = rows.filter(function (t) { return t.state === 'completed'; }).length;
+    var pct = rows.length ? Math.round(done / rows.length * 100) : 0;
+    $('#gapBar').style.width = pct + '%';
+    $('#gapText').textContent = '此清單完成 ' + done + ' / ' + rows.length + ' 項';
+  }
+  function bindTaskOps() {
+    gapTbody.querySelectorAll('[data-act]').forEach(function (b) {
+      b.onclick = async function () {
+        var id = b.dataset.id, act = b.dataset.act, r;
+        if (act === 'remind') {
+          r = await gov.remindTask(id, 'line');
+          if (r.ok) { toast('已產生催繳提醒'); if (r.reminderText) TP.copy(r.reminderText); }
+        } else if (act === 'review') { r = await gov.updateTaskState(id, 'pending_review'); toast('已送審，待組長確認'); }
+        else if (act === 'pass') { r = await gov.updateTaskState(id, 'completed', '審核通過'); toast('已通過並標記完成'); }
+        else if (act === 'return') {
+          var note = prompt('退回補件說明（會通知負責人）：', '請補齊清楚的獎狀或證明文件');
+          if (note == null) return;
+          r = await gov.updateTaskState(id, 'returned', note); toast('已退回補件');
+        }
+        else if (act === 'done') { r = await gov.updateTaskState(id, 'completed', '已完成'); toast('已標記完成'); }
+        else if (act === 'reopen') { r = await gov.updateTaskState(id, 'not_started', ''); toast('已重新開啟'); }
+        if (r && !r.ok) { toast(r.error || '操作失敗', true); return; }
+        loadTasks(); loadOverview();
+      };
+    });
+  }
+
+  /* ---- 佐證庫 ---- */
+  function reviewChips() {
+    var opts = ['', 'not_checked', 'need_more', 'insufficient', 'acceptable', 'not_recommended', 'confirmed'];
+    $('#reviewFilter').innerHTML = opts.map(function (s) {
+      var label = s === '' ? '全部' : gov.reviewState(s).label;
+      return '<button class="fchip' + (reviewFilter === s ? ' active' : '') + '" data-review="' + s + '">' + esc(label) + '</button>';
     }).join('');
-    var done = rows.filter(function(r){return r.status==='done';}).length;
-    var pct = rows.length? Math.round(done/rows.length*100):0;
-    document.getElementById('gapBar').style.width = pct+'%';
-    document.getElementById('gapText').textContent = '完成率 '+pct+'%（'+done+' / '+rows.length+' 項已完成）';
-    bind();
+    $('#reviewFilter').querySelectorAll('[data-review]').forEach(function (b) {
+      b.onclick = function () { reviewFilter = b.dataset.review; reviewChips(); loadEvidence(); };
+    });
   }
-  function setStatus(i,st){ rows[i].status=st; save(rows); render(); }
-  function bind(){
-    tbody.querySelectorAll('[data-gremind]').forEach(function(b){ b.onclick=function(){ setStatus(+b.dataset.gremind,'remind'); alert('已產生提醒：請「'+rows[+b.dataset.gremind].owner+'」於 '+rows[+b.dataset.gremind].due+' 前補齊「'+rows[+b.dataset.gremind].item+'」。'); }; });
-    tbody.querySelectorAll('[data-upload]').forEach(function(b){ b.onclick=function(){ setStatus(+b.dataset.upload,'uploaded'); }; });
-    tbody.querySelectorAll('[data-done]').forEach(function(b){ b.onclick=function(){ setStatus(+b.dataset.done,'done'); }; });
-    tbody.querySelectorAll('[data-reopen]').forEach(function(b){ b.onclick=function(){ setStatus(+b.dataset.reopen,'todo'); }; });
+  var VALIDITY = { valid: '有效', expired: '已過期', invalid: '無效', unknown: '待判定' };
+  function evReviewSelect(e) {
+    var opts = ['not_checked', 'insufficient', 'need_more', 'acceptable', 'not_recommended', 'confirmed'];
+    return '<select data-ev="' + e.evidenceId + '">' + opts.map(function (s) {
+      return '<option value="' + s + '"' + (e.reviewStatus === s ? ' selected' : '') + '>' + esc(gov.reviewState(s).label) + '</option>';
+    }).join('') + '</select>';
   }
-  render();
+  async function loadEvidence() {
+    var r = await gov.listEvidence(reviewFilter ? { reviewStatus: reviewFilter } : {});
+    if (!r || !r.ok) { toast('載入佐證失敗', true); return; }
+    evTbody.innerHTML = (r.evidence || []).map(function (e) {
+      return '<tr>' +
+        '<td data-label="檔名"><span class="ev-name">' + esc(e.generatedFilename) + '</span>' + (e.reviewNote ? '<div class="remind-note">' + esc(e.reviewNote) + '</div>' : '') + '</td>' +
+        '<td data-label="類型">' + esc(e.evidenceType || '—') + '</td>' +
+        '<td data-label="對應評鑑指標">' + esc(e.evaluationItemLabel || '—') + '</td>' +
+        '<td data-label="隊伍/學生">' + esc(e.teamName || '—') + (e.athleteName ? ' / ' + esc(e.athleteName) : '') + '</td>' +
+        '<td data-label="審核狀態">' + chip(gov.reviewState(e.reviewStatus)) + '</td>' +
+        '<td data-label="效度">' + esc(VALIDITY[e.validityStatus] || e.validityStatus || '—') + '</td>' +
+        '<td data-label="審核">' + evReviewSelect(e) + '</td>' +
+      '</tr>';
+    }).join('') || '<tr><td colspan="7" class="muted">此篩選下沒有佐證。</td></tr>';
+    evTbody.querySelectorAll('[data-ev]').forEach(function (sel) {
+      sel.onchange = async function () {
+        var note = '';
+        if (sel.value === 'insufficient' || sel.value === 'need_more' || sel.value === 'not_recommended') {
+          note = prompt('審核備註（會回饋給上傳者）：', '') || '';
+        }
+        var r = await gov.reviewEvidence(sel.dataset.ev, sel.value, note);
+        if (r && r.ok) { toast('已更新審核狀態'); loadEvidence(); loadOverview(); }
+        else toast((r && r.error) || '更新失敗', true);
+      };
+    });
+  }
+
+  /* ---- 新增缺漏 ---- */
+  var dlg = $('#gapDialog');
+  $('#addGap').onclick = function () { $('#gDue').value = ''; try { dlg.showModal(); } catch (e) { dlg.setAttribute('open', ''); } };
+  $('#gCancel').onclick = function () { dlg.close(); };
+  $('#gSave').onclick = async function () {
+    var title = $('#gTitle').value.trim();
+    if (!title) { toast('請輸入缺漏項目', true); return; }
+    var r = await gov.createTask({
+      title: title, evaluationItemLabel: $('#gItem').value.trim(), teamName: $('#gTeam').value.trim(),
+      assigneeName: $('#gOwner').value.trim(), dueDate: $('#gDue').value, priority: $('#gPriority').value
+    });
+    if (r && r.ok) {
+      toast('已新增缺漏');
+      ['#gTitle', '#gItem', '#gTeam', '#gOwner'].forEach(function (s) { $(s).value = ''; });
+      dlg.close(); loadTasks(); loadOverview();
+    } else toast((r && r.error) || '新增失敗', true);
+  };
+
+  /* ---- CSV 匯出（各隊完成率）---- */
+  $('#exportCompletion').onclick = async function () {
+    var r = await gov.overview();
+    if (!r || !r.ok) return;
+    var lines = ['隊伍,完成率(%),已完成,總項目'];
+    (r.teams || []).forEach(function (t) { lines.push([t.teamName, t.rate, t.done, t.total].join(',')); });
+    var blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = '各隊評鑑完成率.csv'; a.click(); URL.revokeObjectURL(a.href);
+  };
+
+  /* ---- init ---- */
+  stateChips(); reviewChips();
+  loadOverview(); loadTasks(); loadEvidence();
 })();
 </script>
 <script src="school-tools.js?v=20260627-role2"></script>
