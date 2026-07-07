@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>評鑑範本與營運後台 · TeamPro</title>
+<link rel="stylesheet" href="style.css?v=20260708-evadmin1">
+<link rel="stylesheet" href="role-portal.css?v=20260627-role2">
+<style>
+  .tabbar { display:flex; gap:6px; flex-wrap:wrap; margin:14px 0; }
+  .tabbar .tab { padding:8px 16px; border-radius:999px; border:1px solid var(--line); background:var(--panel); cursor:pointer; font-size:14px; }
+  .tabbar .tab.active { border-color:var(--brand); background:rgba(34,197,94,.14); color:var(--brand); font-weight:700; }
+  .pane { display:none; } .pane.active { display:block; }
+  table { width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td { text-align:left; padding:8px; border-bottom:1px solid var(--line); }
+  th { color:var(--muted); }
+  .tpl-head { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+  .item-row td input, .item-row td select { padding:5px 7px; font-size:13px; width:100%; }
+  .gchip { display:inline-block; font-size:12px; font-weight:700; padding:2px 9px; border-radius:999px; border:1px solid currentColor; }
+  .scroll { overflow-x:auto; }
+  .mini { font-size:12px; color:var(--muted); }
+  select, input { max-width:100%; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="topbar">
+    <div class="logo"><a href="index.html" style="color:inherit;"><img class="logo-img" src="assets/logo.png" width="30" height="30" alt="">TeamPro <span class="mark">評鑑與營運後台</span></a></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;"><a class="btn btn-ghost btn-sm" href="admin.html">帳號/方案</a><a class="btn btn-sm" href="school.html">學校端</a></div>
+  </div>
+
+  <section class="admin-hero">
+    <div class="eyebrow">平台 / 學校管理</div>
+    <h1>評鑑範本、試用申請與授權續約</h1>
+    <p class="muted">評鑑指標可自訂（學年度、指標、必要佐證、權重、負責角色、完成判定），不寫死。完成率依權重自動計算。</p>
+  </section>
+
+  <div class="tabbar">
+    <div class="tab active" data-pane="templates">評鑑範本</div>
+    <div class="tab" data-pane="trials">試用申請</div>
+    <div class="tab" data-pane="usage">使用量與續約</div>
+  </div>
+
+  <!-- 評鑑範本 -->
+  <div class="pane active" id="pane-templates">
+    <div class="card">
+      <div class="tpl-head"><h3 style="margin:0;">評鑑範本</h3><button class="btn btn-sm btn-primary" id="addTpl">＋ 新增範本</button></div>
+      <div id="tplList"><p class="muted">載入中…</p></div>
+    </div>
+  </div>
+
+  <!-- 試用申請 -->
+  <div class="pane" id="pane-trials">
+    <div class="card">
+      <h3>學校試用申請</h3>
+      <p class="muted">狀態：new 待聯繫 → contacted 已聯繫 → onboarding 導入中 → converted 轉付費 / rejected 婉拒。</p>
+      <div class="scroll"><table id="trialTable">
+        <thead><tr><th>學校</th><th>縣市</th><th>聯絡人</th><th>Email</th><th>身分</th><th>隊數</th><th>狀態</th><th>操作</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <!-- 使用量與續約 -->
+  <div class="pane" id="pane-usage">
+    <div class="kpi-row">
+      <div class="kpi-card"><span class="muted">組織總數</span><b id="uTotal">—</b></div>
+      <div class="kpi-card"><span class="muted">啟用中</span><b id="uActive">—</b></div>
+      <div class="kpi-card"><span class="muted">試用中</span><b id="uTrial" style="color:var(--yellow)">—</b></div>
+      <div class="kpi-card"><span class="muted">14 天內到期</span><b id="uExpire" style="color:var(--orange)">—</b></div>
+    </div>
+    <div class="card">
+      <h3>組織授權與使用量</h3>
+      <div class="scroll"><table id="usageTable">
+        <thead><tr><th>組織</th><th>方案</th><th>狀態</th><th>到期日</th><th>隊伍</th><th>教練</th><th>活躍度</th><th>操作</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+  </div>
+</div>
+
+<!-- 範本 dialog -->
+<dialog id="tplDialog" style="border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--text);max-width:440px;width:92vw;padding:20px;">
+  <h3 style="margin:0 0 10px;">新增 / 編輯範本</h3>
+  <input type="hidden" id="tplId">
+  <label>範本名稱</label><input id="tplName" placeholder="例：114 學年度 國中體育班評鑑">
+  <div style="display:flex;gap:10px;">
+    <div style="flex:1;"><label>學年度</label><input id="tplYear" placeholder="114"></div>
+    <div style="flex:1;"><label>縣市</label><input id="tplCity" placeholder="新北市"></div>
+  </div>
+  <label>學制</label>
+  <select id="tplLevel"><option value="junior_high">國中</option><option value="senior_high">高中</option><option value="elementary">國小</option><option value="vocational">高職</option><option value="university">大專</option><option value="other">其他</option></select>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+    <button class="btn btn-ghost btn-sm" id="tplCancel">取消</button>
+    <button class="btn btn-primary btn-sm" id="tplSave">儲存</button>
+  </div>
+</dialog>
+
+<!-- 指標 dialog -->
+<dialog id="itemDialog" style="border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--text);max-width:440px;width:92vw;padding:20px;">
+  <h3 style="margin:0 0 10px;">新增 / 編輯指標</h3>
+  <input type="hidden" id="itTplId"><input type="hidden" id="itItemId">
+  <label>面向</label><input id="itDim" placeholder="例：訓練績效">
+  <label>指標名稱</label><input id="itName" placeholder="例：競賽成果與獎狀">
+  <div style="display:flex;gap:10px;">
+    <div style="flex:1;"><label>權重</label><input id="itWeight" type="number" min="0" step="0.5" value="1"></div>
+    <div style="flex:1;"><label>截止日</label><input id="itDue" type="date"></div>
+  </div>
+  <label>負責角色</label>
+  <select id="itRole"><option value="coach">教練</option><option value="assistant_coach">助理教練</option><option value="school_admin">體育組長</option><option value="director">主任</option></select>
+  <label>完成判定方式</label>
+  <select id="itMode"><option value="evidence">需可採計佐證</option><option value="fields">必填欄位齊全</option><option value="manual">人工勾選</option></select>
+  <label style="display:flex;align-items:center;gap:8px;margin-top:12px;"><input type="checkbox" id="itReview"> 需主管審核</label>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+    <button class="btn btn-ghost btn-sm" id="itCancel">取消</button>
+    <button class="btn btn-primary btn-sm" id="itSave">儲存</button>
+  </div>
+</dialog>
+
+<script src="api.js?v=20260708-evadmin1"></script>
+<script src="gov.js?v=20260708-evadmin1"></script>
+<script>
+(function () {
+  var $ = TP.$, esc = TP.esc, toast = TP.toast, gov = TP.gov;
+
+  // tabs
+  document.querySelectorAll('.tabbar .tab').forEach(function (t) {
+    t.onclick = function () {
+      document.querySelectorAll('.tabbar .tab').forEach(function (x) { x.classList.remove('active'); });
+      document.querySelectorAll('.pane').forEach(function (p) { p.classList.remove('active'); });
+      t.classList.add('active');
+      document.getElementById('pane-' + t.dataset.pane).classList.add('active');
+    };
+  });
+
+  var ROLE_LABEL = { coach: '教練', assistant_coach: '助理教練', school_admin: '體育組長', director: '主任' };
+  var MODE_LABEL = { evidence: '需佐證', fields: '必填欄位', manual: '人工勾選' };
+
+  /* ---- 範本 ---- */
+  async function loadTemplates() {
+    var r = await gov.listTemplates();
+    if (!r || !r.ok) { toast('載入範本失敗', true); return; }
+    $('#tplList').innerHTML = (r.templates || []).map(function (t) {
+      var items = (t.items || []).map(function (it) {
+        return '<tr class="item-row">' +
+          '<td>' + esc(it.dimension || '—') + '</td>' +
+          '<td>' + esc(it.name) + '</td>' +
+          '<td>' + (it.weight || 1) + '</td>' +
+          '<td>' + esc(ROLE_LABEL[it.responsibleRole] || it.responsibleRole || '—') + '</td>' +
+          '<td>' + esc(MODE_LABEL[it.completionMode] || it.completionMode) + (it.requiresReview ? ' · 需審核' : '') + '</td>' +
+          '<td><button class="btn btn-sm" data-edit-item="' + t.templateId + '|' + it.itemId + '">編輯</button>' +
+              '<button class="btn btn-sm btn-danger" data-del-item="' + t.templateId + '|' + it.itemId + '">刪</button></td>' +
+        '</tr>';
+      }).join('') || '<tr><td colspan="6" class="muted">尚無指標</td></tr>';
+      return '<div class="card" style="margin-top:12px;">' +
+        '<div class="tpl-head"><div><b>' + esc(t.name) + '</b> <span class="mini">' + esc(t.academicYear || '') + '學年 · ' + esc(t.city || '') + ' · 指標 ' + t.itemCount + ' · 總權重 ' + t.totalWeight + '</span></div>' +
+        '<div><button class="btn btn-sm" data-add-item="' + t.templateId + '">＋ 指標</button>' +
+        '<button class="btn btn-sm btn-danger" data-del-tpl="' + t.templateId + '">刪除範本</button></div></div>' +
+        '<div class="scroll"><table><thead><tr><th>面向</th><th>指標</th><th>權重</th><th>負責</th><th>判定</th><th>操作</th></tr></thead><tbody>' + items + '</tbody></table></div>' +
+      '</div>';
+    }).join('') || '<p class="muted">尚無範本，點「新增範本」開始。</p>';
+    bindTemplateOps();
+  }
+  function bindTemplateOps() {
+    document.querySelectorAll('[data-del-tpl]').forEach(function (b) {
+      b.onclick = async function () { if (!confirm('刪除整個範本？')) return; await gov.deleteTemplate(b.dataset.delTpl); toast('已刪除範本'); loadTemplates(); };
+    });
+    document.querySelectorAll('[data-add-item]').forEach(function (b) {
+      b.onclick = function () { openItem(b.dataset.addItem, null); };
+    });
+    document.querySelectorAll('[data-edit-item]').forEach(function (b) {
+      b.onclick = async function () {
+        var parts = b.dataset.editItem.split('|');
+        var r = await gov.listTemplates();
+        var tpl = (r.templates || []).filter(function (t) { return t.templateId === parts[0]; })[0];
+        var it = tpl && (tpl.items || []).filter(function (i) { return i.itemId === parts[1]; })[0];
+        openItem(parts[0], it);
+      };
+    });
+    document.querySelectorAll('[data-del-item]').forEach(function (b) {
+      b.onclick = async function () { var p = b.dataset.delItem.split('|'); await gov.deleteItem(p[0], p[1]); toast('已刪除指標'); loadTemplates(); };
+    });
+  }
+
+  var tplDlg = $('#tplDialog');
+  $('#addTpl').onclick = function () { $('#tplId').value = ''; $('#tplName').value = ''; $('#tplYear').value = '114'; $('#tplCity').value = ''; showDlg(tplDlg); };
+  $('#tplCancel').onclick = function () { tplDlg.close(); };
+  $('#tplSave').onclick = async function () {
+    var name = $('#tplName').value.trim();
+    if (!name) { toast('請輸入範本名稱', true); return; }
+    await gov.saveTemplate({ templateId: $('#tplId').value || undefined, name: name, academicYear: $('#tplYear').value.trim(), city: $('#tplCity').value.trim(), schoolLevel: $('#tplLevel').value });
+    tplDlg.close(); toast('已儲存範本'); loadTemplates();
+  };
+
+  var itemDlg = $('#itemDialog');
+  function openItem(tplId, it) {
+    $('#itTplId').value = tplId; $('#itItemId').value = it ? it.itemId : '';
+    $('#itDim').value = it ? (it.dimension || '') : ''; $('#itName').value = it ? it.name : '';
+    $('#itWeight').value = it ? (it.weight || 1) : 1; $('#itDue').value = it ? (it.dueDate || '') : '';
+    $('#itRole').value = it ? (it.responsibleRole || 'coach') : 'coach';
+    $('#itMode').value = it ? (it.completionMode || 'evidence') : 'evidence';
+    $('#itReview').checked = it ? !!it.requiresReview : false;
+    showDlg(itemDlg);
+  }
+  $('#itCancel').onclick = function () { itemDlg.close(); };
+  $('#itSave').onclick = async function () {
+    var name = $('#itName').value.trim();
+    if (!name) { toast('請輸入指標名稱', true); return; }
+    await gov.saveItem($('#itTplId').value, {
+      itemId: $('#itItemId').value || undefined, dimension: $('#itDim').value.trim(), name: name,
+      weight: parseFloat($('#itWeight').value) || 1, dueDate: $('#itDue').value,
+      responsibleRole: $('#itRole').value, completionMode: $('#itMode').value, requiresReview: $('#itReview').checked
+    });
+    itemDlg.close(); toast('已儲存指標'); loadTemplates();
+  };
+
+  function showDlg(d) { try { d.showModal(); } catch (e) { d.setAttribute('open', ''); } }
+
+  /* ---- 試用申請 ---- */
+  var TRIAL_STATUS = ['new', 'contacted', 'onboarding', 'converted', 'rejected'];
+  var TRIAL_LABEL = { new: '待聯繫', contacted: '已聯繫', onboarding: '導入中', converted: '轉付費', rejected: '婉拒' };
+  async function loadTrials() {
+    var r = await gov.listTrials();
+    if (!r || !r.ok) return;
+    $('#trialTable tbody').innerHTML = (r.trials || []).map(function (t) {
+      var sel = '<select data-trial="' + t.trialRequestId + '">' + TRIAL_STATUS.map(function (s) {
+        return '<option value="' + s + '"' + (t.status === s ? ' selected' : '') + '>' + TRIAL_LABEL[s] + '</option>';
+      }).join('') + '</select>';
+      return '<tr><td><b>' + esc(t.schoolName) + '</b></td><td>' + esc(t.city || '—') + '</td><td>' + esc(t.contactName || '—') + '</td>' +
+        '<td>' + esc(t.contactEmail || '—') + '</td><td>' + esc(t.role || '—') + '</td><td>' + esc(t.teamCount || '—') + '</td>' +
+        '<td><span class="gchip status-' + (t.status === 'converted' ? 'done' : t.status === 'rejected' ? 'overdue' : t.status === 'new' ? 'todo' : 'pending') + '">' + TRIAL_LABEL[t.status] + '</span></td>' +
+        '<td>' + sel + '</td></tr>';
+    }).join('') || '<tr><td colspan="8" class="muted">尚無試用申請</td></tr>';
+    $('#trialTable tbody').querySelectorAll('[data-trial]').forEach(function (sel) {
+      sel.onchange = async function () { await gov.updateTrial(sel.dataset.trial, sel.value); toast('已更新狀態'); loadTrials(); };
+    });
+  }
+
+  /* ---- 使用量 ---- */
+  var PLAN_LABEL = { trial: '試用', coach: '教練版', school: '學校版', government: '縣市/組織版' };
+  async function loadUsage() {
+    var r = await gov.usage();
+    if (!r || !r.ok) return;
+    $('#uTotal').textContent = r.totalOrgs; $('#uActive').textContent = r.activeOrgs;
+    $('#uTrial').textContent = r.trialOrgs; $('#uExpire').textContent = (r.expiringSoon || []).length;
+    $('#usageTable tbody').innerHTML = (r.orgs || []).map(function (o) {
+      var soon = (r.expiringSoon || []).some(function (e) { return e.organizationId === o.organizationId; });
+      return '<tr><td><b>' + esc(o.name) + '</b></td><td>' + esc(PLAN_LABEL[o.plan] || o.plan) + '</td>' +
+        '<td><span class="gchip status-' + (o.status === 'active' ? 'done' : o.status === 'trial' ? 'pending' : 'overdue') + '">' + esc(o.status) + '</span></td>' +
+        '<td>' + esc(o.expiresAt || '—') + (soon ? ' <span class="mini" style="color:var(--orange)">即將到期</span>' : '') + '</td>' +
+        '<td>' + o.teamCount + '</td><td>' + o.coachCount + '</td><td>' + o.activity + '%</td>' +
+        '<td>' + (soon ? '<button class="btn btn-sm" data-renew="' + esc(o.name) + '">複製續約提醒</button>' : '—') + '</td></tr>';
+    }).join('') || '<tr><td colspan="8" class="muted">尚無組織</td></tr>';
+    $('#usageTable tbody').querySelectorAll('[data-renew]').forEach(function (b) {
+      b.onclick = function () { TP.copy(b.dataset.renew + ' 您好，貴校的 TeamPro 授權即將到期，為避免評鑑資料與佐證中斷，請於到期前完成續約。若需協助請與我們聯繫。'); };
+    });
+  }
+
+  loadTemplates(); loadTrials(); loadUsage();
+})();
+</script>
+</body>
+</html>
