@@ -46,6 +46,17 @@
     <p class="muted">教練日常紀錄自動彙整為評鑑進度：完成率、缺漏中心、佐證審核與一鍵輸出。正式填報仍需人工進入官方系統確認。</p>
   </section>
 
+  <!-- 新手導引 9 步 -->
+  <div class="card" id="onboardCard" style="display:none;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+      <h3 style="margin:0;">導入進度</h3>
+      <small id="onboardPct" class="muted"></small>
+    </div>
+    <div class="gap-progress"><div class="gap-progress-bar"><span id="onboardBar"></span></div></div>
+    <div id="onboardSteps" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+    <p class="muted" style="font-size:12px;margin:8px 0 0;">點步驟可標記完成；全部完成後此卡片會自動收起。</p>
+  </div>
+
   <!-- 總覽 -->
   <div class="kpi-row">
     <div class="kpi-card"><span class="muted">全校評鑑完成率</span><b id="ovRate">—</b><small id="ovRateSub">載入中…</small></div>
@@ -329,9 +340,34 @@
     a.download = '各隊評鑑完成率.csv'; a.click(); URL.revokeObjectURL(a.href);
   };
 
+  /* ---- 新手導引 ---- */
+  async function loadOnboarding() {
+    var r = await gov.onboarding();
+    if (!r || !r.ok) return;
+    var card = $('#onboardCard');
+    if (r.done >= r.total) { card.style.display = 'none'; return; }
+    card.style.display = '';
+    $('#onboardPct').textContent = '已完成 ' + r.done + ' / ' + r.total + '（' + r.percent + '%）';
+    $('#onboardBar').style.width = r.percent + '%';
+    $('#onboardSteps').innerHTML = r.steps.map(function (s, i) {
+      var cls = s.done ? 'status-done' : 'status-todo';
+      var icon = s.done ? '✓' : (i + 1);
+      return '<button class="fchip ' + (s.done ? 'active' : '') + '" data-step="' + s.stepKey + '"' + (s.done ? ' disabled' : '') + '>' +
+        '<span class="' + cls + '">' + icon + '</span> ' + esc(s.label) + '</button>';
+    }).join('');
+    $('#onboardSteps').querySelectorAll('[data-step]').forEach(function (b) {
+      b.onclick = async function () {
+        if (b.disabled) return;
+        await gov.completeStep(b.dataset.step);
+        toast('已完成：' + b.textContent.trim());
+        loadOnboarding();
+      };
+    });
+  }
+
   /* ---- init ---- */
   stateChips(); reviewChips();
-  loadOverview(); loadTasks(); loadEvidence();
+  loadOnboarding(); loadOverview(); loadTasks(); loadEvidence();
 })();
 </script>
 <script src="school-tools.js?v=20260627-role2"></script>
