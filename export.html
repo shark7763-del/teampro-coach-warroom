@@ -29,6 +29,9 @@
     <p class="muted">輸出結果是可供上傳參考的整理資料；正式填報、確認與送出仍需學校人員到官方系統操作。</p>
   </section>
 
+  <!-- 連線狀態 -->
+  <div id="govConn" class="card" style="margin-bottom:14px;"></div>
+
   <!-- 官方填報前資料包 -->
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -108,8 +111,8 @@
     </div>
   </div>
 </div>
-<script src="api.js?v=20260708-export2"></script>
-<script src="gov.js?v=20260708-export2"></script>
+<script src="api.js?v=20260708-export3"></script>
+<script src="gov.js?v=20260708-export3"></script>
 <script src="school-tools.js?v=20260627-role2"></script>
 <script>
 (function(){ var b=document.getElementById('exportEvidence2'); var m=document.getElementById('exportEvidence');
@@ -189,6 +192,7 @@
     w.document.write(html); w.document.close();
   };
 
+  gov.mountConnBar({ into: $('#govConn'), onChange: load });
   load();
 })();
 </script>

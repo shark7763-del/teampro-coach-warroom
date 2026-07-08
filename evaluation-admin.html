@@ -35,6 +35,8 @@
     <p class="muted">評鑑指標可自訂（學年度、指標、必要佐證、權重、負責角色、完成判定），不寫死。完成率依權重自動計算。</p>
   </section>
 
+  <div id="govConn" class="card" style="margin:14px 0;"></div>
+
   <div class="tabbar">
     <div class="tab active" data-pane="templates">評鑑範本</div>
     <div class="tab" data-pane="trials">試用申請</div>
@@ -117,8 +119,8 @@
   </div>
 </dialog>
 
-<script src="api.js?v=20260708-evadmin1"></script>
-<script src="gov.js?v=20260708-evadmin1"></script>
+<script src="api.js?v=20260708-evadmin2"></script>
+<script src="gov.js?v=20260708-evadmin2"></script>
 <script>
 (function () {
   var $ = TP.$, esc = TP.esc, toast = TP.toast, gov = TP.gov;
@@ -256,7 +258,9 @@
     });
   }
 
-  loadTemplates(); loadTrials(); loadUsage();
+  function reloadAll() { loadTemplates(); loadTrials(); loadUsage(); }
+  gov.mountConnBar({ into: $('#govConn'), onChange: reloadAll });
+  reloadAll();
 })();
 </script>
 </body>

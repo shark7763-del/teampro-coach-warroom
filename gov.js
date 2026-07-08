@@ -217,6 +217,55 @@
     },
     logout() { clearGovSession(); return { ok: true }; },
 
+    /* 共用連線狀態列：任何治理頁掛一個容器即可。opts={into:element, onChange:fn} */
+    mountConnBar(opts) {
+      opts = opts || {};
+      var host = opts.into; if (!host) return;
+      var esc = TP.esc, toast = TP.toast;
+      function openModal() {
+        var dlg = document.getElementById('govConnDialog');
+        if (!dlg) {
+          dlg = document.createElement('dialog');
+          dlg.id = 'govConnDialog';
+          dlg.style.cssText = 'border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--text);max-width:380px;width:92vw;padding:20px;';
+          dlg.innerHTML = '<h3 style="margin:0 0 10px;">登入學校帳號</h3>' +
+            '<p class="muted" style="font-size:12px;margin:0 0 10px;">登入後從 Supabase 讀取真實資料。</p>' +
+            '<label>Email</label><input id="govConnEmail" type="email" placeholder="you@school.edu.tw">' +
+            '<label>密碼</label><input id="govConnPw" type="password">' +
+            '<p class="muted" style="font-size:12px;margin-top:8px;">示範帳號：demo@teampro.tw／TeamPro2026</p>' +
+            '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">' +
+            '<button class="btn btn-ghost btn-sm" id="govConnCancel">取消</button>' +
+            '<button class="btn btn-primary btn-sm" id="govConnDo">登入</button></div>';
+          document.body.appendChild(dlg);
+          dlg.querySelector('#govConnCancel').onclick = function () { dlg.close(); };
+          dlg.querySelector('#govConnDo').onclick = async function () {
+            var email = dlg.querySelector('#govConnEmail').value.trim(), pw = dlg.querySelector('#govConnPw').value;
+            if (!email || !pw) { toast('請輸入 email 與密碼', true); return; }
+            var b = dlg.querySelector('#govConnDo'); b.disabled = true; b.textContent = '登入中…';
+            var r = await gov.login(email, pw); b.disabled = false; b.textContent = '登入';
+            if (!r.ok) { toast(r.error || '登入失敗', true); return; }
+            dlg.close(); toast('已連線真實資料'); render(); if (opts.onChange) opts.onChange();
+          };
+        }
+        dlg.querySelector('#govConnEmail').value = ''; dlg.querySelector('#govConnPw').value = '';
+        try { dlg.showModal(); } catch (e) { dlg.setAttribute('open', ''); }
+      }
+      function render() {
+        var s = govSession();
+        host.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 16px;';
+        if (hasGovSession() && s) {
+          host.innerHTML = '<span class="muted">🟢 已連線 Supabase 真實資料｜<b>' + esc(s.name || '') + '</b>' + (s.planName ? '（' + esc(s.planName) + '）' : '') + '</span>' +
+            '<button class="btn btn-sm btn-ghost" data-gov-logout>登出</button>';
+          host.querySelector('[data-gov-logout]').onclick = function () { gov.logout(); toast('已登出，回到示範資料'); render(); if (opts.onChange) opts.onChange(); };
+        } else {
+          host.innerHTML = '<span class="muted">🟡 目前顯示<b>示範資料</b>。登入學校帳號檢視真實資料。</span>' +
+            '<button class="btn btn-sm btn-primary" data-gov-login>登入看真實資料</button>';
+          host.querySelector('[data-gov-login]').onclick = openModal;
+        }
+      }
+      render();
+    },
+
     async overview() {
       if (!useDemo()) return edge('govOverview', {});
       var d = loadDemo();
