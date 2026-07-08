@@ -44,9 +44,18 @@
   function priority(p) { return PRIORITY[p] || PRIORITY.normal; }
   function reviewState(s) { return REVIEW_STATES[s] || REVIEW_STATES.not_checked; }
 
-  function getEdgeUrl() { try { return (localStorage.getItem(LS_EDGE) || '').trim(); } catch (e) { return ''; } }
+  var LS_GOV_TOKEN = 'teampro_gov_token';   // 治理專用 token（與 GAS 教練 token 分離）
+  var LS_GOV_SESSION = 'teampro_gov_session';
+  function getEdgeUrl() { try { return (localStorage.getItem(LS_EDGE) || '').trim() || DEFAULT_EDGE; } catch (e) { return DEFAULT_EDGE; } }
   function setEdgeUrl(u) { try { localStorage.setItem(LS_EDGE, (u || '').trim()); } catch (e) {} }
-  function useDemo() { return (TP.isDemo && TP.isDemo()) || !getEdgeUrl(); }
+  function govToken() { try { return localStorage.getItem(LS_GOV_TOKEN) || ''; } catch (e) { return ''; } }
+  function setGovToken(t) { try { if (t) localStorage.setItem(LS_GOV_TOKEN, t); } catch (e) {} }
+  function clearGovSession() { try { localStorage.removeItem(LS_GOV_TOKEN); localStorage.removeItem(LS_GOV_SESSION); } catch (e) {} }
+  function govSession() { try { return JSON.parse(localStorage.getItem(LS_GOV_SESSION) || 'null'); } catch (e) { return null; } }
+  function hasGovSession() { return !!govToken(); }
+  function isDemo() { return !!(TP.isDemo && TP.isDemo()); }
+  // 有登入治理帳號才用真 Supabase；否則（含 ?demo 或未登入）走示範資料
+  function useDemo() { return isDemo() || !hasGovSession(); }
 
   function uid(p) { return p + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4); }
   function todayStr() {
@@ -174,7 +183,7 @@
   /* ---- 呼叫 Edge Function ---- */
   async function edge(action, data) {
     var url = getEdgeUrl();
-    var body = Object.assign({ action: action, token: (TP.getToken && TP.getToken()) || '' }, data || {});
+    var body = Object.assign({ action: action, token: govToken() }, data || {});
     try {
       var res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       return await res.json();
@@ -189,6 +198,24 @@
     PRIORITY: PRIORITY, REVIEW_STATES: REVIEW_STATES,
     taskState: taskState, priority: priority, reviewState: reviewState,
     getEdgeUrl: getEdgeUrl, setEdgeUrl: setEdgeUrl, useDemo: useDemo, resetDemo: resetDemo,
+    hasSession: hasGovSession, session: govSession,
+
+    /* 治理登入（Supabase edge，token 與 GAS 教練端分離）*/
+    async login(email, password) {
+      var url = getEdgeUrl();
+      try {
+        var res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'login', email: email, password: password }) });
+        var r = await res.json();
+        if (r && r.ok && r.token) {
+          setGovToken(r.token);
+          try { localStorage.setItem(LS_GOV_SESSION, JSON.stringify(r.coach || {})); } catch (e) {}
+          return { ok: true, coach: r.coach || {} };
+        }
+        return { ok: false, error: (r && r.error) || '登入失敗' };
+      } catch (e) { return { ok: false, error: '連線失敗：' + e.message }; }
+    },
+    logout() { clearGovSession(); return { ok: true }; },
 
     async overview() {
       if (!useDemo()) return edge('govOverview', {});

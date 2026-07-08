@@ -51,12 +51,13 @@ async function govContext(db: Db, body: Data): Promise<GovCtx | { error: string 
     }
   }
 
+  const uniqSchools = [...new Set(schoolIds)];   // 多角色可能重複同一校，需去重
   let schoolId = String(body.schoolId || "");
-  if (!schoolId && schoolIds.length === 1) schoolId = schoolIds[0];
-  if (!isAdmin && schoolId && !schoolIds.includes(schoolId)) return { error: "forbidden_school" };
+  if (!schoolId && uniqSchools.length === 1) schoolId = uniqSchools[0];
+  if (!isAdmin && schoolId && !uniqSchools.includes(schoolId)) return { error: "forbidden_school" };
   if (!isAdmin && !schoolId) return { error: "no_school_scope" };
 
-  return { userId: user?.user_id || null, isAdmin, schoolIds, schoolId, coach };
+  return { userId: user?.user_id || null, isAdmin, schoolIds: uniqSchools, schoolId, coach };
 }
 
 function taskOut(row: Data): Data {

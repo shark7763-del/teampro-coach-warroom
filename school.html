@@ -46,6 +46,12 @@
     <p class="muted">教練日常紀錄自動彙整為評鑑進度：完成率、缺漏中心、佐證審核與一鍵輸出。正式填報仍需人工進入官方系統確認。</p>
   </section>
 
+  <!-- 連線狀態 -->
+  <div id="connBar" class="card" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 16px;margin-bottom:14px;">
+    <span id="connStatus" class="muted"></span>
+    <span id="connActions"></span>
+  </div>
+
   <!-- 新手導引 9 步 -->
   <div class="card" id="onboardCard" style="display:none;">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -164,8 +170,21 @@
   </div>
 </dialog>
 
-<script src="api.js?v=20260708-school2"></script>
-<script src="gov.js?v=20260708-school2"></script>
+<!-- 治理登入 dialog -->
+<dialog id="connDialog" style="border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--text);max-width:380px;width:92vw;padding:20px;">
+  <h3 style="margin:0 0 10px;">登入學校帳號</h3>
+  <p class="muted" style="font-size:12px;margin:0 0 10px;">登入後從 Supabase 讀取真實評鑑資料。</p>
+  <label>Email</label><input id="connEmail" type="email" placeholder="you@school.edu.tw">
+  <label>密碼</label><input id="connPw" type="password">
+  <p class="muted" style="font-size:12px;margin-top:8px;">示範帳號：demo@teampro.tw／TeamPro2026</p>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">
+    <button class="btn btn-ghost btn-sm" id="connCancel">取消</button>
+    <button class="btn btn-primary btn-sm" id="connDo">登入</button>
+  </div>
+</dialog>
+
+<script src="api.js?v=20260708-school3"></script>
+<script src="gov.js?v=20260708-school3"></script>
 <script>
 (function () {
   var $ = TP.$, esc = TP.esc, toast = TP.toast, gov = TP.gov;
@@ -365,7 +384,34 @@
     });
   }
 
+  /* ---- 連線狀態 / 治理登入 ---- */
+  var connDlg = $('#connDialog');
+  function renderConn() {
+    var s = gov.session();
+    if (gov.hasSession() && s) {
+      $('#connStatus').innerHTML = '🟢 已連線 Supabase 真實資料｜<b>' + esc(s.name || '') + '</b>' + (s.planName ? '（' + esc(s.planName) + '）' : '');
+      $('#connActions').innerHTML = '<button class="btn btn-sm btn-ghost" id="connLogout">登出</button>';
+      $('#connLogout').onclick = function () { gov.logout(); toast('已登出，回到示範資料'); reloadAll(); };
+    } else {
+      $('#connStatus').innerHTML = '🟡 目前顯示<b>示範資料</b>。登入學校帳號即可檢視真實評鑑資料。';
+      $('#connActions').innerHTML = '<button class="btn btn-sm btn-primary" id="connLogin">登入看真實資料</button>';
+      $('#connLogin').onclick = function () { $('#connEmail').value = ''; $('#connPw').value = ''; try { connDlg.showModal(); } catch (e) { connDlg.setAttribute('open', ''); } };
+    }
+  }
+  $('#connCancel').onclick = function () { connDlg.close(); };
+  $('#connDo').onclick = async function () {
+    var email = $('#connEmail').value.trim(), pw = $('#connPw').value;
+    if (!email || !pw) { toast('請輸入 email 與密碼', true); return; }
+    var btn = $('#connDo'); btn.disabled = true; btn.textContent = '登入中…';
+    var r = await gov.login(email, pw);
+    btn.disabled = false; btn.textContent = '登入';
+    if (!r.ok) { toast(r.error || '登入失敗', true); return; }
+    connDlg.close(); toast('已連線真實資料'); reloadAll();
+  };
+  function reloadAll() { renderConn(); stateFilter = ''; reviewFilter = ''; stateChips(); reviewChips(); loadOnboarding(); loadOverview(); loadTasks(); loadEvidence(); }
+
   /* ---- init ---- */
+  renderConn();
   stateChips(); reviewChips();
   loadOnboarding(); loadOverview(); loadTasks(); loadEvidence();
 })();
