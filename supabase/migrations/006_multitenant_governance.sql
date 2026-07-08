@@ -651,16 +651,22 @@ create policy eval_templates_read on public.evaluation_templates for select to a
     or organization_id in (select s.organization_id from public.schools s where s.school_id in (select public.user_school_ids())));
 
 -- 範本子表：跟隨 template 可讀
+-- dimensions / items 有 template_id；requirements / evidence_rules 只有 item_id
 do $$
 declare tbl text;
 begin
-  foreach tbl in array array[
-    'evaluation_dimensions','evaluation_items','evaluation_requirements','evaluation_evidence_rules'
-  ] loop
+  foreach tbl in array array['evaluation_dimensions','evaluation_items'] loop
     execute format('drop policy if exists %I_read on public.%I', tbl, tbl);
     execute format(
       'create policy %I_read on public.%I for select to authenticated
          using (public.is_platform_admin() or template_id in (select template_id from public.evaluation_templates))',
+      tbl, tbl);
+  end loop;
+  foreach tbl in array array['evaluation_requirements','evaluation_evidence_rules'] loop
+    execute format('drop policy if exists %I_read on public.%I', tbl, tbl);
+    execute format(
+      'create policy %I_read on public.%I for select to authenticated
+         using (public.is_platform_admin() or item_id in (select item_id from public.evaluation_items))',
       tbl, tbl);
   end loop;
 end $$;
