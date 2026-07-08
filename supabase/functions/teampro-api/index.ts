@@ -8,6 +8,7 @@ import { governanceAction } from "./governance-actions.ts";
 
 const allowedOrigins = new Set([
   "https://shark7763-del.github.io",
+  "https://teampro-tw-coach-warroom.teampro.workers.dev",
   "http://localhost:3000",
   "http://127.0.0.1:3000",
 ]);
