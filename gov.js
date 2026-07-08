@@ -9,6 +9,9 @@
   var TP = global.TP || {};
   var LS_EDGE = 'teampro_edge_url';
   var LS_DEMO = 'teampro_gov_demo_v1';
+  // 已部署的治理 Edge Function（公開動作如試用申請預設打這裡；
+  // 需登入的治理動作仍走 localStorage.teampro_edge_url，未設則用示範資料）
+  var DEFAULT_EDGE = 'https://evkezyvayegdmaeepkyq.supabase.co/functions/v1/teampro-api';
 
   /* ---- 狀態字典（全站一致色系）---- */
   var TASK_STATES = {
@@ -338,9 +341,17 @@
       return this.onboarding();
     },
 
-    /* ---- 學校試用申請 ---- */
+    /* ---- 學校試用申請（公開，直接送真 Supabase）---- */
     async submitTrial(form) {
-      if (!useDemo()) return edge('govSubmitTrial', { form: form });
+      if (!isDemo()) {
+        var url = getEdgeUrl() || DEFAULT_EDGE;
+        try {
+          var res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'govSubmitTrial', form: form }) });
+          var r = await res.json();
+          if (r && r.ok) return r;
+        } catch (e) { /* 連線失敗 → 落回本機暫存，避免遺失 */ }
+      }
       var d = loadDemo(); d.trials = d.trials || [];
       var t = { trialRequestId: uid('trq_'), schoolName: form.schoolName || '', city: form.city || '',
         contactName: form.contactName || '', contactEmail: form.contactEmail || '', contactPhone: form.contactPhone || '',
