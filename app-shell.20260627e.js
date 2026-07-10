@@ -124,7 +124,7 @@ async function showDashboard() {
   $('#featurePanel').classList.add('hidden');
   $('#dashboardPanel').classList.remove('hidden');
   setActiveTab('dashboard');
-  const mod = await import('./app-modules/dashboard.js?v=20260710-warroom');
+  const mod = await import('./app-modules/dashboard.js?v=20260710-loop');
   await mod.mountDashboard({ ensureTeams, today, coachKey, demo: DEMO });
 }
 

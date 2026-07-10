@@ -1001,19 +1001,25 @@
     }).join('');
   }
 
-  // 教練回饋卡（後端 latestFeedback 優先，舊後端則掃 daily）
+  // 教練回饋卡（後端 latestFeedback 優先，舊後端則掃 daily）；含教練今日訓練決策
   function feedbackCard(resp, daily) {
-    var fb = (resp.latestFeedback && String(resp.latestFeedback.msg).trim()) ? String(resp.latestFeedback.msg).trim() : '';
-    var fbDate = fb ? String(resp.latestFeedback.date) : '';
-    if (!fb) {
+    var lf = resp.latestFeedback || null;
+    var fb = (lf && lf.msg && String(lf.msg).trim()) ? String(lf.msg).trim() : '';
+    var decision = (lf && lf.decision && String(lf.decision).trim()) ? String(lf.decision).trim() : '';
+    var fbDate = (fb || decision) && lf ? String(lf.date || '') : '';
+    if (!fb && !decision) {
       for (var i = 0; i < daily.length; i++) {
-        if (daily[i].coachComment && String(daily[i].coachComment).trim()) { fb = String(daily[i].coachComment).trim(); fbDate = String(daily[i].date); break; }
+        var c = daily[i].coachComment && String(daily[i].coachComment).trim();
+        var dec = daily[i].coachDecision && String(daily[i].coachDecision).trim();
+        if (c || dec) { fb = c || ''; decision = dec || ''; fbDate = String(daily[i].date); break; }
       }
     }
-    if (!fb) return '';
+    if (!fb && !decision) return '';
     return '<div class="card" style="background:rgba(34,197,94,.08);border-color:var(--brand);margin-top:12px;">' +
-      '<b style="color:var(--brand);">👨‍🏫 教練回饋</b>' + (fbDate ? '<span class="muted" style="font-size:12px;margin-left:6px;">' + esc(fbDate) + '</span>' : '') +
-      '<div style="margin-top:4px;white-space:pre-wrap;">' + esc(fb) + '</div></div>';
+      '<b style="color:var(--brand);">👨‍🏫 教練回覆</b>' + (fbDate ? '<span class="muted" style="font-size:12px;margin-left:6px;">' + esc(fbDate) + '</span>' : '') +
+      (decision ? '<div style="margin-top:6px;"><span class="pill green">今日訓練安排：' + esc(decision) + '</span></div>' : '') +
+      (fb ? '<div style="margin-top:6px;white-space:pre-wrap;">' + esc(fb) + '</div>' : '') +
+    '</div>';
   }
   // 近期比賽 + 隊友鼓勵
   function perfExtras(resp) {

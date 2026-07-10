@@ -180,7 +180,11 @@ var RECORD_HEADERS = ['recordId', 'coachId', 'teamId', 'athleteId', 'name', 'dat
     // 比賽紀錄（選手回報時填，比賽日才有）
     'compName', 'compDate', 'compLocation', 'compResult', 'compDetail', 'compReflection', 'compAward', 'compAwardLink',
     // 教練點評時的快速整體觀察分（1-5），供 AI 成長目標做「認知落差」分析
-    'coachObservation'
+    'coachObservation',
+    // ── P0 閉環（訓練決策）：AI 原始建議 / 教練最終決策 / 修改原因分開保存 ──
+    'aiSuggestionSnapshot', 'coachDecision', 'coachDecisionReason', 'coachDecisionAt', 'coachReadStatus',
+    // ── 訓練前回報補欄：訓練動機、今日預估可完成訓練比例 ──
+    'motivation', 'expectedCompletion'
   ]);
 
 /* ---------- 方案設定（寫死，不進 Sheet） ---------- */
@@ -1511,6 +1515,9 @@ function warroom(c, d) {
         reportQualityLabel: r.reportQualityLabel, reportQualityReasons: r.reportQualityReasons,
         coachSuggestion: r.coachSuggestion, coachFeedback: r.coachComment || '', coachFeedbackAt: r.coachFeedbackAt || '',
         coachReplyStatus: String(r.coachComment || '').trim() ? 'replied' : 'none',
+        coachDecision: r.coachDecision || '', coachDecisionAt: r.coachDecisionAt || '', aiSuggestionSnapshot: r.aiSuggestionSnapshot || '',
+        motivation: r.motivation || '', expectedCompletion: r.expectedCompletion === 0 ? 0 : (r.expectedCompletion || ''),
+        athleteMessage: r.reflection || r.trainingNotes || r.moodReason || '',
         fatigueLevel: r.fatigue || '', mood: r.moodIndex || '', reportDate: r.date, reportStatus: 'submitted', lightStatus: light
       });
       if (isDeclining) declining.push({ athleteId: a.athleteId, name: a.name });
@@ -1580,16 +1587,30 @@ function coachFeedback(c, d) {
   if (row === -1) return { ok: false, error: '找不到紀錄（可能是舊資料）' };
   var rec = readAll(SHEETS.records)[row - 2];
   if (String(rec.coachId) !== String(c.coachId)) return { ok: false, error: 'forbidden' };
-  sheet(SHEETS.records).getRange(row, RECORD_HEADERS.indexOf('coachComment') + 1).setValue(d.feedback || '');
-  sheet(SHEETS.records).getRange(row, RECORD_HEADERS.indexOf('coachFeedbackAt') + 1).setValue(now());
+  var recSheet = sheet(SHEETS.records);
+  var setCol = function (key, val) { recSheet.getRange(row, RECORD_HEADERS.indexOf(key) + 1).setValue(val); };
+  // 只更新有帶到的欄位，避免「只存決策」把回覆蓋掉（反之亦然）
+  if (d.feedback !== undefined) {
+    setCol('coachComment', d.feedback || '');
+    setCol('coachFeedbackAt', now());
+  }
+  // ── 訓練決策：AI 原始建議 / 教練最終決策 / 修改原因分開保存 ──
+  if (d.decision !== undefined) {
+    setCol('coachDecision', String(d.decision || ''));
+    setCol('coachDecisionAt', now());
+    // AI 原始建議只在第一次決策時快照，之後保留最初版本供事後比對成效
+    if (d.aiSuggestion !== undefined && !String(rec.aiSuggestionSnapshot || '').trim())
+      setCol('aiSuggestionSnapshot', String(d.aiSuggestion || ''));
+  }
+  if (d.decisionReason !== undefined) setCol('coachDecisionReason', String(d.decisionReason || ''));
   // 快速整體觀察分（1-5；空字串=清除）
   if (d.coachObservation !== undefined) {
     var obs = String(d.coachObservation || '');
-    if (obs === '' || /^[1-5]$/.test(obs))
-      sheet(SHEETS.records).getRange(row, RECORD_HEADERS.indexOf('coachObservation') + 1).setValue(obs);
+    if (obs === '' || /^[1-5]$/.test(obs)) setCol('coachObservation', obs);
   }
-  audit(c.email, 'coachFeedback', recId, '');
-  return { ok: true };
+  audit(c.email, 'coachFeedback', recId, String(d.decision || ''));
+  return { ok: true, coachComment: d.feedback !== undefined ? (d.feedback || '') : (rec.coachComment || ''),
+           coachDecision: d.decision !== undefined ? String(d.decision || '') : (rec.coachDecision || '') };
 }
 
 /* 團隊整體報告：彙整某期間全隊（或單一團隊）資料 */
@@ -1844,13 +1865,15 @@ function myRecords(d) {
     return String(r.teamId) === String(t.teamId) && String(r.athleteId) === aId;
   }).sort(byDate).slice(0, lim).map(function (r) {
     return { date: r.date, status: r.status || riskStatus('green', r.painRisk, r.sleepRisk, r.hydrationRisk),
-      coachComment: r.coachComment || '', sleepDurationText: r.sleepDurationText || '',
+      coachComment: r.coachComment || '', coachDecision: r.coachDecision || '', sleepDurationText: r.sleepDurationText || '',
       painScore: r.painScore || '', hydrationRisk: r.hydrationRisk || '' };
   });
   // 最近一則教練回饋（不限是不是最新那筆）
   var latestFeedback = null;
   for (var fi = 0; fi < daily.length; fi++) {
-    if (daily[fi].coachComment && String(daily[fi].coachComment).trim()) { latestFeedback = { msg: daily[fi].coachComment, date: daily[fi].date }; break; }
+    if ((daily[fi].coachComment && String(daily[fi].coachComment).trim()) || String(daily[fi].coachDecision || '').trim()) {
+      latestFeedback = { msg: daily[fi].coachComment, decision: daily[fi].coachDecision, date: daily[fi].date }; break;
+    }
   }
   // 隊友鼓勵：別人填的回報中 encourageName == 這位選手
   var encourages = allRecs.filter(function (r) {
@@ -2233,6 +2256,8 @@ function submitRecord(d) {
     trainingAM: d.trainingAM || '', trainingPM: d.trainingPM || '', trainingEve: d.trainingEve || '', trainingNotes: d.trainingNotes || '',
     sleepHours: sleep.minutes !== '' ? +(sleep.minutes / 60).toFixed(2) : (d.sleepHours || ''),
     fatigue: Number(d.fatigue) || '', injuryAreas: d.injuryAreas || '', injuryNote: d.injuryNote || '',
+    motivation: Number(d.motivation) || '',
+    expectedCompletion: (d.expectedCompletion === '' || d.expectedCompletion == null) ? '' : Number(d.expectedCompletion),
     sleepBedTime: d.sleepBedTime || '', wakeTime: d.wakeTime || '', sleepQuality: d.sleepQuality || '',
     sleepDurationMinutes: sleep.minutes, sleepDurationText: sleep.text, sleepRisk: sleep.risk,
     painStatus: pain.status, painAreas: pain.status === 'none' ? '' : (d.painAreas || d.injuryAreas || ''),
