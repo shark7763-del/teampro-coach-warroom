@@ -8,6 +8,7 @@ let CURRENT_CTX = null;
 
 export async function mountDashboard(ctx) {
   CURRENT_CTX = ctx;
+  injectReadinessCss();
   const root = document.getElementById('dashboardMount');
   root.innerHTML = skeleton();
   const teamId = (document.getElementById('dashTeam') && document.getElementById('dashTeam').value) || '';
@@ -72,10 +73,35 @@ function toTodaySummary(r, date) {
     unreadCoachReplyCount: submitted.filter(s => !String(s.coachFeedback || s.coachComment || '').trim()).length,
     attendanceDone: false,
     concern: buildConcern(submitted),
+    athletes: submitted.map(normalizeAthlete),
     missingNames: (missing || []).map(m => (m && (m.name || m)) || '').filter(Boolean).slice(0, 20),
     updatedAt: new Date().toISOString()
   };
 }
+
+/* 把 warroom 回傳的逐人資料正規化成狀態卡需要的欄位（多種欄名防呆） */
+function normalizeAthlete(s) {
+  s = s || {};
+  return {
+    athleteId: String(s.athleteId || s.id || s.name || ''),
+    name: s.name || '',
+    status: s.status || s.lightStatus || 'green',
+    painScore: numOr0(s.painScore),
+    painImpact: s.painImpact || '',
+    painAreas: s.painAreas || s.injuryAreas || '',
+    sleepMin: numOr0(s.sleepDurationMinutes),
+    sleepText: s.sleepDurationText || '',
+    fatigue: numOr0(s.fatigueLevel != null ? s.fatigueLevel : s.fatigue),
+    mood: numOr0(s.mood != null ? s.mood : s.moodIndex),
+    hydrationRisk: s.hydrationRisk || '',
+    declining: !!s.declining,
+    coachReplyStatus: s.coachReplyStatus || (String(s.coachFeedback || s.coachComment || '').trim() ? 'replied' : 'none'),
+    coachFeedback: s.coachFeedback || s.coachComment || '',
+    coachSuggestion: s.coachSuggestion || '',
+    quality: s.reportQualityLabel || ''
+  };
+}
+function numOr0(v) { const n = Number(v); return isNaN(n) ? 0 : n; }
 function buildConcern(submitted) {
   return submitted.filter(s => s.status === 'red' || Number(s.painScore) >= 4 || (Number(s.sleepDurationMinutes) > 0 && Number(s.sleepDurationMinutes) < 360))
     .slice(0, 8)
@@ -107,22 +133,36 @@ function demoSummary(date) {
     unreadCoachReplyCount: 6,
     attendanceDone: false,
     concern: [
-      { name: '王小明', level: 'red', reason: '疼痛偏高、狀態紅燈' },
-      { name: '陳柏鈞', level: 'yellow', reason: '睡眠不足' }
+      { name: '許晨熙', level: 'red', reason: '疼痛偏高、狀態紅燈' },
+      { name: '王柏鈞', level: 'yellow', reason: '睡眠不足、連續疲勞' }
     ],
+    athletes: [
+      { athleteId: 'd_sc', name: '許晨熙', status: 'red', painScore: 8, painImpact: '影響旋踢', painAreas: '右大腿', sleepMin: 300, fatigue: 5, mood: 2, declining: true, coachReplyStatus: 'none', coachFeedback: '' },
+      { athleteId: 'd_wpj', name: '王柏鈞', status: 'yellow', painScore: 6, painImpact: '踢擊時緊繃', painAreas: '右大腿', sleepMin: 330, fatigue: 4, mood: 3, declining: true, coachReplyStatus: 'none', coachFeedback: '' },
+      { athleteId: 'd_lch', name: '劉承翰', status: 'yellow', painScore: 0, painImpact: '', sleepMin: 345, fatigue: 4, mood: 3, declining: false, coachReplyStatus: 'none', coachFeedback: '' },
+      { athleteId: 'd_thx', name: '唐霈昕', status: 'green', painScore: 0, painImpact: '', sleepMin: 465, fatigue: 2, mood: 5, declining: false, coachReplyStatus: 'replied', coachFeedback: '保持這個狀態，很好！' },
+      { athleteId: 'd_cyt', name: '陳宥廷', status: 'green', painScore: 0, painImpact: '', sleepMin: 450, fatigue: 2, mood: 4, declining: false, coachReplyStatus: 'none', coachFeedback: '' }
+    ].map(normalizeAthlete),
     missingNames: ['林冠霖', '張瀚忠', '李承恩'],
     updatedAt: new Date().toISOString()
   };
 }
 
-/* ============ 主畫面：今日三件事 ============ */
+/* ============ 主畫面：今日戰情室（逐人狀態卡） ============ */
 function renderSummary(root, s, stale, ctx, opts) {
   CURRENT = s;
   opts = opts || {};
+  const date = s.date;
   const rate = s.totalAthletes ? Math.round(s.submittedCount / s.totalAthletes * 100) : 0;
-  const concern = s.concern || [];
-  const redYellow = concern.length;
   const dispOpen = openDispositions().length;
+
+  // 逐人準備度計算 + 依關注優先度排序
+  const ath = (s.athletes || []).map(a => ({ a, r: computeReadiness(a) }));
+  ath.sort((x, y) => y.r.priority - x.r.priority);
+  const avg = ath.length ? Math.round(ath.reduce((n, o) => n + o.r.score, 0) / ath.length) : 0;
+  const concernCount = ath.filter(o => o.r.level !== 'green').length;
+  const replyPending = (s.athletes || []).filter(a =>
+    a.coachReplyStatus !== 'replied' && !((getDecision(a.athleteId, date) || {}).reply)).length;
 
   const banner = opts.noBackend
     ? '<div class="shell-sync-note" style="border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.08);color:#fcd34d;">尚未設定後端網址，目前顯示範例資料。請至「更多 → 設定」由系統管理者填入後端網址。</div>'
@@ -132,55 +172,45 @@ function renderSummary(root, s, stale, ctx, opts) {
         ? '<div class="shell-sync-note" id="dashSyncNote">已先顯示上次資料，正在更新最新狀態…</div>'
         : '<div class="shell-sync-note fresh" id="dashSyncNote">已更新最新狀態' + (opts.demo ? '（展示資料）' : '') + '</div>';
 
+  // 置頂一句話摘要
+  const headline = concernCount || s.notSubmittedCount || replyPending
+    ? '今天有 <b>' + concernCount + '</b> 位需要優先關注、<b>' + s.notSubmittedCount + '</b> 位尚未回報、<b>' + replyPending + '</b> 位等待教練回覆。'
+    : '全隊今天狀態穩定，沒有需要優先處理的選手。';
+
   root.innerHTML =
     banner +
-    // ── 第一次使用任務 ──
     renderOnboarding() +
-    // ── 今日三件事 ──
-    '<h2 class="section-title">📌 今日三件事</h2>' +
-    '<div class="three-things">' +
-      // 1. 誰需要關心
-      '<div class="shell-card tt-card ' + (redYellow ? 'tt-alert' : 'tt-ok') + '">' +
-        '<div class="tt-head"><span class="tt-icon">' + (redYellow ? '🔴' : '🟢') + '</span><b>今天誰需要關心</b></div>' +
-        (redYellow
-          ? '<div class="tt-big">' + redYellow + ' <span class="tt-unit">位需關注</span></div>' +
-            '<div class="concern-chips">' + concern.slice(0, 4).map((c, i) =>
-              '<button class="concern-chip ' + c.level + '" data-concern="' + i + '">' +
-                '<span class="dot"></span>' + esc(c.name) + '<small>' + esc(c.reason) + '</small></button>').join('') +
-            '</div>' +
-            '<button class="btn btn-sm btn-block tt-btn" id="ttOpenDisposition">記錄處置與追蹤</button>'
-          : '<div class="tt-big-ok">全隊狀態穩</div><p class="muted">今天沒有人亮紅燈或黃燈。</p>') +
-        (dispOpen ? '<div class="tt-followup" id="ttFollowupBadge">📋 追蹤中案件 ' + dispOpen + ' 件・點此查看</div>' : '') +
-      '</div>' +
-      // 2. 誰還沒回報
-      '<div class="shell-card tt-card ' + (s.notSubmittedCount ? 'tt-warn' : 'tt-ok') + '">' +
-        '<div class="tt-head"><span class="tt-icon">' + (s.notSubmittedCount ? '🟡' : '✅') + '</span><b>誰還沒回報 / 缺席</b></div>' +
-        '<div class="tt-big">' + s.notSubmittedCount + ' <span class="tt-unit">位未回報</span></div>' +
-        '<div class="summary-row"><span class="summary-pill">' + s.submittedCount + ' 已回報</span><span class="summary-pill">完成率 ' + rate + '%</span></div>' +
-        (s.missingNames && s.missingNames.length
-          ? '<p class="muted tt-names">' + s.missingNames.slice(0, 8).map(esc).join('、') + (s.missingNames.length > 8 ? '…' : '') + '</p>'
-          : (s.notSubmittedCount ? '' : '<p class="muted">今天大家都回報了。</p>')) +
-        '<button class="btn btn-sm btn-block tt-btn" id="ttGoAttendance">去點名 / 催回報</button>' +
-      '</div>' +
-      // 3. 傳給家長
-      '<div class="shell-card tt-card tt-parent">' +
-        '<div class="tt-head"><span class="tt-icon">💬</span><b>今天可以傳給家長</b></div>' +
-        '<p class="muted">一鍵產生本週摘要，可直接貼到 LINE。<b>不含</b>其他學生姓名與敏感原始分數。</p>' +
-        '<button class="btn btn-primary btn-sm btn-block tt-btn" id="ttParentSummary">產生今日家長摘要</button>' +
-        '<div id="ttParentOut" class="parent-out hidden"></div>' +
-      '</div>' +
+    // ── 今日戰情室標題 + 一句話 ──
+    '<div class="war-headline">' + headline + '</div>' +
+    // ── 置頂摘要條 ──
+    '<div class="tp-summary-bar">' +
+      metricTile(s.totalAthletes, '全隊人數') +
+      metricTile(s.submittedCount, '已回報') +
+      metricTile(s.notSubmittedCount, '未回報', s.notSubmittedCount ? 'warn' : '') +
+      metricTile(concernCount, '需要注意', concernCount ? 'alert' : '') +
+      metricTile(replyPending, '待回覆', replyPending ? 'warn' : '') +
+      metricTile(avg || '—', '今日平均準備度') +
     '</div>' +
+    '<div class="summary-actions">' +
+      '<button class="btn btn-primary btn-sm" id="warAttendance">快速點名 / 催回報</button>' +
+      (dispOpen ? '<button class="btn btn-sm btn-ghost" id="ttFollowupBadge">📋 追蹤中案件 ' + dispOpen + ' 件</button>' : '') +
+    '</div>' +
+    (s.missingNames && s.missingNames.length
+      ? '<p class="muted war-missing">尚未回報：' + s.missingNames.slice(0, 10).map(esc).join('、') + (s.missingNames.length > 10 ? ' …' : '') + '</p>'
+      : '') +
 
-    // ── 今日概況（次要）──
-    '<h2 class="section-title">今日概況</h2>' +
-    '<div class="shell-grid">' +
-      '<div class="shell-card"><div class="muted">今日完成率</div><div class="metric-big">' + rate + '%</div>' +
-        '<div class="summary-row"><span class="summary-pill">' + s.submittedCount + ' 已回報</span><span class="summary-pill">' + s.notSubmittedCount + ' 未回報</span></div></div>' +
-      '<div class="shell-card"><div class="muted">紅黃綠燈摘要</div>' +
-        '<div class="summary-row"><span class="summary-pill">🟢 ' + s.greenCount + ' 綠</span><span class="summary-pill">🟡 ' + s.yellowCount + ' 黃</span><span class="summary-pill">🔴 ' + s.redCount + ' 紅</span></div></div>' +
-      '<div class="shell-card"><div class="muted">疼痛 / 疲勞警示</div>' +
-        '<div class="summary-row"><span class="summary-pill">' + s.painCount + ' 疼痛≥4</span><span class="summary-pill">' + s.fatigueHighCount + ' 疲勞高</span><span class="summary-pill">' + s.unreadCoachReplyCount + ' 待回覆</span></div></div>' +
-      '<div class="shell-card"><div class="muted">快速點名</div><p class="muted" style="margin:8px 0;">只載入必要名單，點擊後才進入點名。</p><button class="btn btn-primary btn-block" id="dashQuickAttendance">快速點名</button></div>' +
+    // ── 逐人今日狀態卡 ──
+    '<h2 class="section-title">🎯 今日選手狀態</h2>' +
+    (ath.length
+      ? ath.map(o => renderAthleteCard(o.a, o.r, date)).join('')
+      : '<div class="empty-state"><p>今天還沒有選手回報。</p><button class="btn btn-sm" id="warAttendance2">去點名 / 催回報</button></div>') +
+
+    // ── 傳給家長 ──
+    '<h2 class="section-title">💬 今天可以傳給家長</h2>' +
+    '<div class="shell-card tt-parent">' +
+      '<p class="muted">一鍵產生本週摘要，可直接貼到 LINE。<b>不含</b>其他學生姓名與敏感原始分數。</p>' +
+      '<button class="btn btn-primary btn-sm" id="ttParentSummary">產生今日家長摘要</button>' +
+      '<div id="ttParentOut" class="parent-out hidden"></div>' +
     '</div>' +
 
     // ── 隱私提醒 ──
@@ -190,26 +220,207 @@ function renderSummary(root, s, stale, ctx, opts) {
     renderHealth(s, opts) +
 
     // ── 處置追蹤區塊掛載點 ──
-    '<div id="dispositionSection"></div>';
+    '<div id="dispositionSection"></div>' +
+
+    // ── 行政 / 評鑑入口（降級收納）──
+    renderAdminEntry();
 
   // 事件綁定
   const bind = (id, fn) => { const el = document.getElementById(id); if (el) el.onclick = fn; };
-  bind('dashQuickAttendance', () => document.getElementById('quickAttendance').click());
-  bind('ttGoAttendance', () => document.getElementById('quickAttendance').click());
-  bind('ttOpenDisposition', () => openDispositionForm(null, ctx));
+  const goAttendance = () => document.getElementById('quickAttendance').click();
+  bind('warAttendance', goAttendance);
+  bind('warAttendance2', goAttendance);
   bind('ttFollowupBadge', () => { renderDispositionSection(ctx); scrollToId('dispositionSection'); });
   bind('ttParentSummary', () => { markStep('parent'); toggleParentSummary(s); });
   bindOnboarding(ctx);
   bind('healthTest', () => testConnection());
   bind('healthRefresh', () => mountDashboard(ctx));
-  document.querySelectorAll('[data-concern]').forEach(btn => {
-    btn.onclick = () => {
-      const c = concern[Number(btn.dataset.concern)];
-      openDispositionForm(c, ctx);
-    };
-  });
+  bindAthleteCards(root, ctx, date);
 
   renderDispositionSection(ctx);
+}
+
+/* ============ 今日準備度評分（前端規則引擎） ============ */
+// 依 warroom 現有資料算 0–100「今日訓練準備度」，並給出扣分原因與訓練建議。
+function computeReadiness(a) {
+  a = a || {};
+  let score = 100;
+  const reasons = [];
+  const pain = numOr0(a.painScore);
+  const impact = !!(a.painImpact && !/不影響|沒有|無|否|none|no/i.test(String(a.painImpact)));
+  if (pain >= 7) { score -= 28; reasons.push('疼痛偏高（' + pain + '/10）'); }
+  else if (pain >= 4) { score -= 15; reasons.push('疼痛中等（' + pain + '/10）'); }
+  if (impact) { score -= 10; reasons.push('疼痛影響動作' + (a.painAreas ? '（' + a.painAreas + '）' : '')); }
+  const sm = numOr0(a.sleepMin);
+  if (sm > 0 && sm < 300) { score -= 20; reasons.push('睡眠嚴重不足（' + hoursText(sm) + '）'); }
+  else if (sm > 0 && sm < 360) { score -= 12; reasons.push('睡眠不足（' + hoursText(sm) + '）'); }
+  const f10 = fatigueTo10(a.fatigue);
+  if (f10 >= 8) { score -= 15; reasons.push('疲勞偏高'); }
+  else if (f10 >= 6) { score -= 8; reasons.push('疲勞中等'); }
+  if (String(a.hydrationRisk) === 'red') { score -= 8; reasons.push('水分不足'); }
+  const mood = numOr0(a.mood);
+  if (mood && mood <= 2) { score -= 8; reasons.push('情緒 / 心情偏低'); }
+  if (a.declining) { score -= 6; reasons.push('近期狀態連續下降'); }
+  if (String(a.status) === 'red') score = Math.min(score, 62);
+  score = Math.max(0, Math.min(100, Math.round(score)));
+
+  // 分級（含安全覆蓋：高疼痛一律列優先關注）
+  let level, bandLabel;
+  if (score >= 85) { level = 'green'; bandLabel = '狀態良好'; }
+  else if (score >= 70) { level = 'green'; bandLabel = '基本穩定'; }
+  else if (score >= 50) { level = 'yellow'; bandLabel = '需要調整'; }
+  else { level = 'red'; bandLabel = '優先關注'; }
+  if (pain >= 7 || (impact && pain >= 4) || String(a.status) === 'red') { level = 'red'; bandLabel = '優先關注'; }
+
+  let priority = 100 - score;
+  if (pain >= 7 || impact) priority += 100;
+  if (String(a.status) === 'red') priority += 60;
+  if (a.declining) priority += 30;
+
+  return { score, level, bandLabel, reasons, priority, suggestion: readinessSuggestion(a, { level, score }) };
+}
+function fatigueTo10(f) { f = numOr0(f); if (!f) return 0; return f <= 5 ? f * 2 : f; }
+function hoursText(min) { return (Math.round(min / 6) / 10) + ' 小時'; }
+function readinessSuggestion(a, r) {
+  const pain = numOr0(a.painScore);
+  if (pain >= 7) return '訓練前先確認疼痛部位與活動範圍，今日降低高強度踢擊 / 衝刺量，改以技術修正、低衝擊腳步與恢復為主，訓練後再次確認疼痛變化。';
+  if (pain >= 4) return '今日留意疼痛部位，避免重複刺激，適度降低爆發動作量，訓練後確認是否加重。';
+  if (numOr0(a.sleepMin) > 0 && numOr0(a.sleepMin) < 360) return '睡眠不足，加強熱身與收操，降低最大強度衝刺，注意訓練中專注度與安全。';
+  if (fatigueTo10(a.fatigue) >= 8) return '疲勞偏高，建議降低訓練量一級，安排恢復與伸展，觀察隔日恢復狀況。';
+  if (r.level === 'green' && r.score >= 85) return '狀態良好，可依原訂計畫正常訓練，維持節奏並持續累積。';
+  return '狀態大致穩定，依原訂計畫訓練，留意個別回報的疲勞與睡眠訊號。';
+}
+
+/* ============ 逐人今日狀態卡 ============ */
+const DECISIONS = ['正常訓練', '降低強度', '調整內容', '恢復訓練', '暫停部分', '訓練前面談', '建議評估'];
+
+function renderAthleteCard(a, r, date) {
+  const dec = getDecision(a.athleteId, date) || {};
+  const sleepDisp = a.sleepMin ? hoursText(a.sleepMin) : '—';
+  const fatDisp = a.fatigue ? (fatigueTo10(a.fatigue) + '/10') : '—';
+  const painDisp = a.painScore ? (a.painScore + '/10') : '0';
+  return '<div class="ath-card lv-' + r.level + '" data-aid="' + esc(a.athleteId) + '">' +
+    '<div class="ath-head">' +
+      '<div class="ath-name"><span class="ath-dot ' + r.level + '"></span>' + esc(a.name) + '</div>' +
+      '<div class="ath-score"><b>' + r.score + '</b><small>' + r.bandLabel + '</small></div>' +
+    '</div>' +
+    '<div class="ath-metrics">' +
+      mchip('睡眠', sleepDisp) + mchip('疲勞', fatDisp) + mchip('疼痛', painDisp) + mchip('狀態', lightLabel(a.status)) +
+    '</div>' +
+    (r.reasons.length
+      ? '<div class="ath-why"><b>AI 判讀</b>今日 ' + r.score + ' 分，主要來自：' + esc(r.reasons.join('、')) + '。</div>'
+      : '<div class="ath-why ok"><b>AI 判讀</b>各項指標穩定，今日適合正常投入訓練。</div>') +
+    '<div class="ath-advice"><b>AI 建議</b>' + esc(r.suggestion) + '</div>' +
+    '<div class="ath-decisions">' + DECISIONS.map(d =>
+      '<button class="ath-dec' + (dec.decision === d ? ' sel' : '') + '" data-dec="' + esc(d) + '">' + d + '</button>').join('') + '</div>' +
+    '<div class="ath-reply">' +
+      '<input class="ath-reply-in" placeholder="給選手的一句回覆（選填）" value="' + esc(dec.reply || a.coachFeedback || '') + '">' +
+      '<button class="btn btn-sm ath-reply-btn">回覆</button>' +
+    '</div>' +
+    '<div class="ath-decided muted' + (dec.decision ? '' : ' hidden') + '">已決定：<b>' + esc(dec.decision || '') + '</b>' + (dec.reply ? '・已回覆' : '') + '</div>' +
+    '<div class="ath-foot">' +
+      '<button class="btn btn-sm btn-ghost ath-disp" data-name="' + esc(a.name) + '" data-level="' + (r.level === 'red' ? 'red' : 'yellow') + '">記錄處置與追蹤</button>' +
+    '</div>' +
+    '<p class="ai-note muted">AI 僅提供建議，最終決策由教練完成。</p>' +
+  '</div>';
+}
+function bindAthleteCards(root, ctx, date) {
+  root.querySelectorAll('.ath-card').forEach(card => {
+    const aid = card.dataset.aid;
+    card.querySelectorAll('.ath-dec').forEach(b => b.onclick = () => {
+      const d = b.dataset.dec;
+      saveDecision(aid, date, { decision: d });
+      card.querySelectorAll('.ath-dec').forEach(x => x.classList.remove('sel'));
+      b.classList.add('sel');
+      const line = card.querySelector('.ath-decided');
+      if (line) { line.innerHTML = '已決定：<b>' + esc(d) + '</b>' + ((getDecision(aid, date) || {}).reply ? '・已回覆' : ''); line.classList.remove('hidden'); }
+      TP.toast && TP.toast('已記錄決策：' + d);
+    });
+    const rin = card.querySelector('.ath-reply-in');
+    const rbtn = card.querySelector('.ath-reply-btn');
+    if (rbtn) rbtn.onclick = () => {
+      const v = (rin.value || '').trim();
+      saveDecision(aid, date, { reply: v });
+      const line = card.querySelector('.ath-decided');
+      const cur = getDecision(aid, date) || {};
+      if (line) { line.innerHTML = '已決定：<b>' + esc(cur.decision || '（未選）') + '</b>' + (v ? '・已回覆' : ''); line.classList.remove('hidden'); }
+      TP.toast && TP.toast(v ? '已儲存回覆' : '已清除回覆');
+    };
+    const disp = card.querySelector('.ath-disp');
+    if (disp) disp.onclick = () => openDispositionForm({ name: disp.dataset.name, level: disp.dataset.level, reason: '' }, ctx);
+  });
+}
+function metricTile(n, label, cls) {
+  return '<div class="tp-metric ' + (cls || '') + '"><div class="n">' + esc(String(n)) + '</div><div class="l">' + esc(label) + '</div></div>';
+}
+function mchip(label, val) { return '<span class="mchip">' + esc(label) + ' <b>' + esc(val) + '</b></span>'; }
+function lightLabel(st) { return st === 'red' ? '🔴 紅燈' : st === 'yellow' ? '🟡 黃燈' : '🟢 綠燈'; }
+
+/* 教練決策 / 回覆本機儲存（P0：先存前端 localStorage，之後可接後端同步） */
+function decisionKey() {
+  const k = CURRENT_CTX && CURRENT_CTX.coachKey ? CURRENT_CTX.coachKey() : 'coach';
+  return 'teampro_decisions_' + k;
+}
+function loadDecisions() { try { return JSON.parse(localStorage.getItem(decisionKey()) || '{}'); } catch (e) { return {}; } }
+function getDecision(athleteId, date) { return loadDecisions()[athleteId + '_' + date] || null; }
+function saveDecision(athleteId, date, patch) {
+  const all = loadDecisions();
+  const key = athleteId + '_' + date;
+  all[key] = Object.assign({}, all[key], patch, { at: new Date().toISOString() });
+  try { localStorage.setItem(decisionKey(), JSON.stringify(all)); } catch (e) {}
+  return all[key];
+}
+
+/* 行政 / 評鑑入口（從教練主流程降級收納，避免干擾第一線） */
+function renderAdminEntry() {
+  return '<details class="admin-entry"><summary>🏫 學校行政 / 評鑑 / 官方填報（進階）</summary>' +
+    '<p class="muted" style="font-size:13px;margin:6px 0;">教練日常不需進入；體育組長 / 行政在評鑑前使用。</p>' +
+    '<div class="ae-links">' +
+      '<a class="btn btn-sm btn-ghost" href="school.html">學校評鑑準備</a>' +
+      '<a class="btn btn-sm btn-ghost" href="evaluation.html">評鑑準備流程</a>' +
+      '<a class="btn btn-sm btn-ghost" href="export.html">官方填報包</a>' +
+    '</div>' +
+  '</details>';
+}
+
+/* 逐人狀態卡樣式（以 JS 注入，避免 CSS 快取造成新樣式失效） */
+function injectReadinessCss() {
+  if (document.getElementById('tp-readiness-css')) return;
+  const css =
+    '.war-headline{font-size:15px;line-height:1.6;margin:6px 0 10px;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);}' +
+    '.war-headline b{color:#fbbf24;font-size:17px;}' +
+    '.tp-summary-bar{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0;}' +
+    '.tp-metric{flex:1 1 92px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:10px 12px;text-align:center;}' +
+    '.tp-metric .n{font-size:22px;font-weight:800;line-height:1.1;}' +
+    '.tp-metric .l{font-size:11.5px;opacity:.7;margin-top:2px;}' +
+    '.tp-metric.alert .n{color:#f87171;}.tp-metric.warn .n{color:#fbbf24;}' +
+    '.summary-actions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px;}' +
+    '.war-missing{font-size:13px;margin:2px 0 6px;}' +
+    '.ath-card{border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px;margin:10px 0;background:rgba(255,255,255,.03);}' +
+    '.ath-card.lv-red{border-left:4px solid #ef4444;}.ath-card.lv-yellow{border-left:4px solid #f59e0b;}.ath-card.lv-green{border-left:4px solid #22c55e;}' +
+    '.ath-head{display:flex;justify-content:space-between;align-items:center;gap:10px;}' +
+    '.ath-name{font-weight:700;font-size:16px;display:flex;align-items:center;gap:8px;}' +
+    '.ath-dot{width:10px;height:10px;border-radius:50%;flex:none;}' +
+    '.ath-dot.red{background:#ef4444;}.ath-dot.yellow{background:#f59e0b;}.ath-dot.green{background:#22c55e;}' +
+    '.ath-score{text-align:right;line-height:1.05;}.ath-score b{font-size:26px;font-weight:800;}.ath-score small{display:block;font-size:11px;opacity:.7;}' +
+    '.ath-metrics{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0;}' +
+    '.mchip{background:rgba(255,255,255,.06);border-radius:8px;padding:5px 9px;font-size:12.5px;}' +
+    '.ath-why,.ath-advice{font-size:13px;margin:7px 0;line-height:1.55;}' +
+    '.ath-why b,.ath-advice b{display:inline-block;margin-right:6px;font-size:11px;padding:1px 8px;border-radius:6px;background:rgba(255,255,255,.1);vertical-align:1px;}' +
+    '.ath-advice b{background:rgba(34,197,94,.18);}' +
+    '.ath-decisions{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 6px;}' +
+    '.ath-dec{border:1px solid rgba(255,255,255,.18);background:transparent;color:inherit;border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer;}' +
+    '.ath-dec.sel{background:#22c55e;border-color:#22c55e;color:#04140a;font-weight:700;}' +
+    '.ath-reply{display:flex;gap:6px;margin:6px 0;}.ath-reply-in{flex:1;min-width:0;}' +
+    '.ath-decided{font-size:12.5px;margin-top:4px;}' +
+    '.ath-foot{margin-top:8px;}.ai-note{font-size:11px;margin:8px 0 0;opacity:.55;}' +
+    '.admin-entry{margin-top:20px;border-top:1px solid rgba(255,255,255,.08);padding-top:12px;}' +
+    '.admin-entry summary{cursor:pointer;font-weight:600;opacity:.8;}' +
+    '.admin-entry .ae-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}';
+  const st = document.createElement('style');
+  st.id = 'tp-readiness-css';
+  st.textContent = css;
+  document.head.appendChild(st);
 }
 
 /* ============ 第一次使用任務 ============ */

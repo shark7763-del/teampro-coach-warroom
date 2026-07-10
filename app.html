@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TeamPro 體育班與代表隊管理系統</title>
+<title>TeamPro 教練戰情室｜選手訓練日誌</title>
 <meta name="theme-color" content="#22c55e">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -17,7 +17,7 @@
   <header class="shell-header">
     <div class="logo">
       <picture><source srcset="assets/logo.webp" type="image/webp"><img class="logo-img" src="assets/logo.png" alt="TeamPro logo" width="32" height="32" fetchpriority="high" decoding="async"></picture>
-      TeamPro <span class="mark">體育班與代表隊管理系統</span>
+      TeamPro <span class="mark">教練戰情室</span>
     </div>
     <div class="shell-user">
       <span id="shellCoach" class="muted">載入中…</span>
@@ -29,52 +29,32 @@
   <main id="shellMain">
     <section id="authPanel" class="shell-card hidden">
       <h2>教練登入</h2>
-      <p class="muted">平常紀錄，自動整理成評鑑佐證。登入後先載入今日摘要；報告、AI、PDF 與管理功能點擊後才載入。</p>
+      <p class="muted">登入後直接進入今日戰情室：每位選手的今日準備度、異常原因與待處理事項，一頁掌握。</p>
       <label>Email</label>
       <input id="loginEmail" type="email" autocomplete="email" placeholder="coach@example.com">
       <label>密碼</label>
       <input id="loginPassword" type="password" autocomplete="current-password" placeholder="至少 6 碼">
       <button class="btn btn-primary btn-block" id="loginBtn">登入</button>
-      <p class="muted" style="font-size:12px;text-align:center;">需要註冊或完整設定時，請至「更多」開啟完整管理頁。</p>
-      <div class="mode-entry-grid auth-modes">
-        <a class="mode-entry coach" href="app.html">
-          <b>教練日常紀錄 <small class="mode-en">Coach Mode</small></b>
-          <span>登入後進入 60 秒日常紀錄流程。</span>
-        </a>
-        <a class="mode-entry school" href="school.html">
-          <b>學校評鑑準備 <small class="mode-en">School Mode</small></b>
-          <span>查看準備度、缺漏雷達、官方欄位對照。</span>
-        </a>
-        <a class="mode-entry export" href="export.html">
-          <b>官方填報包 <small class="mode-en">Export Mode</small></b>
-          <span>下載官方填報前資料包與佐證 ZIP。</span>
-        </a>
-      </div>
+      <p class="muted" style="font-size:12px;text-align:center;">需要註冊或完整設定時，請至「更多」開啟完整管理頁。學校行政 / 評鑑功能登入後於戰情室底部「進階」開啟。</p>
     </section>
 
     <section id="dashboardPanel" class="hidden">
       <div class="shell-hero">
         <div>
-          <div class="eyebrow">TeamPro 體育班與代表隊管理系統</div>
-          <h1>平常紀錄，自動整理成評鑑佐證。</h1>
-          <p class="muted shell-subtitle">教練平常簡單記；學校在官方填報前檢查缺漏、整理佐證與輸出填報包。</p>
+          <div class="eyebrow">今日戰情室</div>
+          <h1>今天，每位選手該怎麼練？</h1>
+          <p class="muted shell-subtitle">選手每天回報，AI 整理今日準備度與異常原因，教練 10 秒掌握全隊、做出訓練決策。</p>
         </div>
         <button class="btn btn-primary" id="quickAttendance">快速點名</button>
       </div>
-      <div class="mode-entry-grid" aria-label="TeamPro 模式入口">
-        <button class="mode-entry coach" data-tab="dashboard">
-          <b>教練日常紀錄 <small class="mode-en">Coach Mode</small></b>
-          <span>60 秒完成點名、訓練、異常、傷病 / 比賽與 AI 整理。</span>
-        </button>
-        <a class="mode-entry school" href="school.html">
-          <b>學校評鑑準備 <small class="mode-en">School Mode</small></b>
-          <span>全校準備度、缺漏雷達、官方欄位對照與佐證資料箱。</span>
-        </a>
-        <a class="mode-entry export" href="export.html">
-          <b>官方填報包 <small class="mode-en">Export Mode</small></b>
-          <span>輸出官方填報前資料包，可供上傳參考。</span>
-        </a>
+      <div id="dashboardMount">
+        <div class="shell-grid">
+          <div class="shell-card"><div class="skel w-40"></div><div class="skel w-90"></div></div>
+          <div class="shell-card"><div class="skel w-40"></div><div class="skel w-70"></div></div>
+          <div class="shell-card"><div class="skel w-40"></div><div class="skel w-90"></div></div>
+        </div>
       </div>
+      <h2 class="section-title">60 秒日常紀錄</h2>
       <div class="coach-flow">
         <button class="flow-step" data-tab="attendance"><b>10 秒</b><span>今日點名</span></button>
         <button class="flow-step" id="focusTrainingNote"><b>20 秒</b><span>訓練日誌</span></button>
@@ -84,19 +64,12 @@
       </div>
       <section class="shell-card coach-ai-card">
         <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;">
-          <div><b>AI 短文字整理</b><div class="muted" style="font-size:13px;">輸入口語紀錄，整理成正式訓練紀錄、月/學期/年度成果摘要與評鑑自評草稿。</div></div>
+          <div><b>AI 短文字整理</b><div class="muted" style="font-size:13px;">輸入口語紀錄，整理成正式訓練紀錄與成果摘要。</div></div>
           <button class="btn btn-sm" id="aiOrganizeNow">整理</button>
         </div>
         <textarea id="quickTrainingText" placeholder="例：今天練反擊，冠霖膝蓋不舒服，柏鈞狀態很好，瀚忠遲到。"></textarea>
         <div id="aiOrganizedOutput" class="ai-output hidden"></div>
       </section>
-      <div id="dashboardMount">
-        <div class="shell-grid">
-          <div class="shell-card"><div class="skel w-40"></div><div class="skel w-90"></div></div>
-          <div class="shell-card"><div class="skel w-40"></div><div class="skel w-70"></div></div>
-          <div class="shell-card"><div class="skel w-40"></div><div class="skel w-90"></div></div>
-        </div>
-      </div>
     </section>
 
     <section id="featurePanel" class="hidden">
@@ -118,6 +91,6 @@
 </nav>
 
 <script src="api.js?v=20260627-shell1"></script>
-<script type="module" src="app-shell.20260627e.js?v=20260708-tabs"></script>
+<script type="module" src="app-shell.20260627e.js?v=20260710-warroom"></script>
 </body>
 </html>
