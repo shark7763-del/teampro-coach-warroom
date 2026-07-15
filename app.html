@@ -47,6 +47,13 @@
         </div>
         <button class="btn btn-primary" id="quickAttendance">快速點名</button>
       </div>
+      <div class="dash-datebar" id="dashDateBar">
+        <button class="dash-day-nav" id="dashPrevDay" type="button" aria-label="前一天">◀</button>
+        <input type="date" id="dashDate" class="dash-date-input" aria-label="檢視日期">
+        <button class="dash-day-nav" id="dashNextDay" type="button" aria-label="後一天">▶</button>
+        <button class="dash-today-btn" id="dashToday" type="button">今天</button>
+        <span class="dash-date-hint" id="dashDateHint"></span>
+      </div>
       <div id="dashboardMount">
         <div class="shell-grid">
           <div class="shell-card"><div class="skel w-40"></div><div class="skel w-90"></div></div>
@@ -91,6 +98,6 @@
 </nav>
 
 <script src="api.js?v=20260627-shell1"></script>
-<script type="module" src="app-shell.20260627e.js?v=20260710-loop"></script>
+<script type="module" src="app-shell.20260627e.js?v=20260716-datebar"></script>
 </body>
 </html>

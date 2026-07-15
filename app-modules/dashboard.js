@@ -9,10 +9,11 @@ let CURRENT_CTX = null;
 export async function mountDashboard(ctx) {
   CURRENT_CTX = ctx;
   injectReadinessCss();
+  ensureDateBar(ctx);
   const root = document.getElementById('dashboardMount');
   root.innerHTML = skeleton();
   const teamId = (document.getElementById('dashTeam') && document.getElementById('dashTeam').value) || '';
-  const date = ctx.today();
+  const date = currentDate(ctx);
   const cacheKey = 'teampro_shell_todaySummary_' + (ctx.coachKey ? ctx.coachKey() : 'coach') + '_' + teamId + '_' + date;
   const cached = readSummary(cacheKey);
   if (cached) renderSummary(root, cached, true, ctx);
@@ -422,6 +423,52 @@ function renderAdminEntry() {
 }
 
 /* 逐人狀態卡樣式（以 JS 注入，避免 CSS 快取造成新樣式失效） */
+/* ============ 戰情室日期切換（可回看歷史回報，不再只顯示當天） ============ */
+function currentDate(ctx) {
+  const el = document.getElementById('dashDate');
+  return (el && el.value) || ctx.today();
+}
+function shiftDate(dateStr, days) {
+  const p = String(dateStr).split('-');
+  if (p.length !== 3) return dateStr;
+  const dt = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2] + Number(days || 0), 12));
+  return dt.getUTCFullYear() + '-' + String(dt.getUTCMonth() + 1).padStart(2, '0') + '-' + String(dt.getUTCDate()).padStart(2, '0');
+}
+function weekdayLabel(dateStr) {
+  const p = String(dateStr).split('-');
+  if (p.length !== 3) return dateStr;
+  const dt = new Date(+p[0], +p[1] - 1, +p[2]);
+  if (isNaN(dt.getTime())) return dateStr;
+  return (dt.getMonth() + 1) + '/' + dt.getDate() + '（週' + '日一二三四五六'[dt.getDay()] + '）';
+}
+function updateDateHint(ctx) {
+  const el = document.getElementById('dashDate');
+  const hint = document.getElementById('dashDateHint');
+  const isToday = el && el.value === ctx.today();
+  const nextBtn = document.getElementById('dashNextDay');
+  if (nextBtn) nextBtn.disabled = !!isToday;
+  if (!hint || !el) return;
+  hint.textContent = isToday ? '今天' : weekdayLabel(el.value) + '・檢視歷史回報';
+  hint.classList.toggle('is-history', !isToday);
+}
+function ensureDateBar(ctx) {
+  const el = document.getElementById('dashDate');
+  if (!el) return;
+  if (!el.value) el.value = ctx.today();
+  el.max = ctx.today();
+  updateDateHint(ctx);
+  if (el.dataset.bound) return;
+  el.dataset.bound = '1';
+  const go = (v) => { if (v && v <= ctx.today()) { el.value = v; updateDateHint(ctx); mountDashboard(ctx); } };
+  el.addEventListener('change', () => { if (el.value > ctx.today()) el.value = ctx.today(); updateDateHint(ctx); mountDashboard(ctx); });
+  const prev = document.getElementById('dashPrevDay');
+  const next = document.getElementById('dashNextDay');
+  const todayBtn = document.getElementById('dashToday');
+  if (prev) prev.addEventListener('click', () => go(shiftDate(el.value || ctx.today(), -1)));
+  if (next) next.addEventListener('click', () => go(shiftDate(el.value || ctx.today(), 1)));
+  if (todayBtn) todayBtn.addEventListener('click', () => go(ctx.today()));
+}
+
 function injectReadinessCss() {
   if (document.getElementById('tp-readiness-css')) return;
   const css =
@@ -457,7 +504,14 @@ function injectReadinessCss() {
     '.ath-foot{margin-top:8px;}.ai-note{font-size:11px;margin:8px 0 0;opacity:.55;}' +
     '.admin-entry{margin-top:20px;border-top:1px solid rgba(255,255,255,.08);padding-top:12px;}' +
     '.admin-entry summary{cursor:pointer;font-weight:600;opacity:.8;}' +
-    '.admin-entry .ae-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}';
+    '.admin-entry .ae-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}' +
+    '.dash-datebar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:2px 0 12px;}' +
+    '.dash-day-nav{width:34px;height:34px;flex:none;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);color:inherit;border-radius:9px;font-size:14px;cursor:pointer;line-height:1;}' +
+    '.dash-day-nav:disabled{opacity:.3;cursor:not-allowed;}' +
+    '.dash-date-input{height:34px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);color:inherit;border-radius:9px;padding:0 8px;font-size:14px;color-scheme:dark;}' +
+    '.dash-today-btn{height:34px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);color:inherit;border-radius:9px;padding:0 12px;font-size:13px;cursor:pointer;}' +
+    '.dash-date-hint{font-size:12.5px;opacity:.7;margin-left:2px;}' +
+    '.dash-date-hint.is-history{color:#fbbf24;opacity:1;font-weight:600;}';
   const st = document.createElement('style');
   st.id = 'tp-readiness-css';
   st.textContent = css;
