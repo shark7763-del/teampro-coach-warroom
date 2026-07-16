@@ -4,3 +4,10 @@ node_modules/
 .DS_Store
 migration-data/
 teampro-supabase-export-*.json
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
