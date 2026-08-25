@@ -63,8 +63,8 @@
   function athleteImportTemplateRows() {
     return [
       ['teamName', 'name', 'gradeClass', 'grp', 'lastPerformanceVisibility'],
-      ['跆拳道隊', '陳柏宇', '八年級', 'A', 'self_coach_only'],
-      ['跆拳道隊', '林冠廷', '八年級', 'A', 'coach_assistant']
+      ['跆拳道隊', 'Demo 選手01', '八年級', 'A', 'self_coach_only'],
+      ['跆拳道隊', 'Demo 選手02', '八年級', 'A', 'coach_assistant']
     ];
   }
   function downloadBlob(name, blob) {
@@ -289,8 +289,18 @@
     if (params.get('signup') === '1') mode = 'signup';
     if (TP.getToken()) {
       TP.callAuth('me').then(function (r) {
-        if (r.ok) { state.coach = r.coach; if (state.coach) state.coach.isAsst = !!r.isAsst; showApp(); }
-        else { showAuth(); }
+        if (r.ok) {
+          TP.setAuthVerified && TP.setAuthVerified(true);
+          state.coach = r.coach; if (state.coach) state.coach.isAsst = !!r.isAsst; showApp();
+        }
+        else {
+          TP.setAuthVerified && TP.setAuthVerified(false);
+          if (r.needLogin || r.error === 'unauthorized') {
+            if (TP.logoutLocal) TP.logoutLocal();
+            else TP.clearToken();
+          }
+          showAuth();
+        }
       });
     } else { showAuth(); }
   }
@@ -343,7 +353,8 @@
         r = await TP.call('login', { email: email, password: pw });
       }
       if (!r.ok) { toast(r.error || '失敗', true); return; }
-      TP.setToken(r.token); state.coach = r.coach;
+      TP.clearSensitiveCache && TP.clearSensitiveCache();
+      TP.setToken(r.token); TP.setAuthVerified && TP.setAuthVerified(true); state.coach = r.coach;
       signupJustCompleted = (mode === 'signup');
       toast(mode === 'signup' ? '註冊成功，歡迎！' : '登入成功');
       showApp();
@@ -533,7 +544,10 @@
 
   $('#btnLogout').onclick = async function () {
     if (DEMO) { location.href = 'index.html'; return; }
-    await TP.callAuth('logout'); TP.clearToken(); location.reload();
+    await TP.callAuth('logout');
+    if (TP.logoutLocal) TP.logoutLocal();
+    else TP.clearToken();
+    location.reload();
   };
 
   $('#btnResetDemo').onclick = async function () {
@@ -1038,6 +1052,7 @@
   $('#warDate').onchange = loadWarroom;
 
   var lastWar = null;
+  var warroomOffline = false;
   function skeletonRows(n) {
     var one = '<div class="skel-card"><div class="skel w-40"></div><div class="skel w-90"></div><div class="skel w-70"></div></div>';
     return new Array(n).fill(one).join('');
@@ -1048,20 +1063,28 @@
     // 體感加速：先用上次快取「秒開」，背景再抓最新覆蓋
     var ck = warroomCacheKey(), cached = null;
     try { cached = JSON.parse(localStorage.getItem(ck) || 'null'); } catch (e) {}
-    if (cached && cached.ok) renderWarroom(cached);
+    if (cached && cached.ok) renderWarroom(cached, { stale: true });
     else { $('#pendingReplyList').innerHTML = skeletonRows(2); $('#repliedList').innerHTML = skeletonRows(1); $('#missList').innerHTML = ''; }
     var r = await TP.callAuth('warroom', { teamId: $('#warTeam').value, date: $('#warDate').value });
     if (!r.ok) {
-      if (cached && cached.ok) { toast('更新失敗，顯示的是上次資料', true); return; }
+      if (cached && cached.ok) {
+        renderWarroom(cached, { offline: true });
+        toast('後端無法連線，畫面為離線資料 / 非即時資料。', true);
+        return;
+      }
       $('#pendingReplyList').innerHTML = '<div class="empty-state">載入失敗，可能是網路或連線問題。<div style="margin-top:12px;"><button class="btn btn-sm" id="warRetry">↻ 重新載入</button></div></div>';
       var rt = $('#warRetry'); if (rt) rt.onclick = loadWarroom;
       toast(r.error, true); return;
     }
+    r.syncedAt = new Date().toISOString();
     try { localStorage.setItem(ck, JSON.stringify(r)); } catch (e) {}
-    renderWarroom(r);
+    renderWarroom(r, { fresh: true });
   }
-  function renderWarroom(r) {
+  function renderWarroom(r, opts) {
+    opts = opts || {};
+    warroomOffline = !!opts.offline;
     lastWar = r;
+    renderWarSyncNotice(r, opts);
     if (r.submittedCount > 0) {
       localStorage.setItem(coachLS('first_report_seen'), '1');
       markTask('first_report', true);
@@ -1110,6 +1133,38 @@
         '<span class="muted" style="max-width:60%;text-align:right;">' + esc(e.msg) + '</span></div>';
     }).join('');
     renderOnboarding();
+  }
+
+  function renderWarSyncNotice(r, opts) {
+    var anchor = document.querySelector('.war-context-bar');
+    if (!anchor) return;
+    var note = document.getElementById('warSyncNotice');
+    if (!note) {
+      note = document.createElement('div');
+      note.id = 'warSyncNotice';
+      note.className = 'shell-sync-note';
+      anchor.parentNode.insertBefore(note, anchor.nextSibling);
+    }
+    var when = formatWarSyncTime((r && (r.syncedAt || r.updatedAt)) || localStorage.getItem('teampro_lastSyncAt') || '');
+    if (opts.offline) {
+      note.className = 'shell-sync-note';
+      note.innerHTML = '<b>離線資料 / 非即時</b>：後端無法連線。最後成功同步：' + esc(when) + '。需要寫入後端的操作已暫停，請重新同步後再送出。';
+    } else if (opts.stale) {
+      note.className = 'shell-sync-note';
+      note.innerHTML = '<b>暫存資料 / 更新中</b>：目前先顯示上次同步結果。最後成功同步：' + esc(when) + '。';
+    } else {
+      note.className = 'shell-sync-note fresh';
+      note.innerHTML = '已更新最新狀態。同步時間：' + esc(when);
+      try { localStorage.setItem('teampro_lastSyncAt', r.syncedAt || new Date().toISOString()); } catch (e) {}
+    }
+  }
+
+  function formatWarSyncTime(iso) {
+    if (!iso) return '尚無紀錄';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '尚無紀錄';
+    return d.getFullYear() + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0') +
+      ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
   }
 
   var currentRiskFilter = 'all';
@@ -2790,6 +2845,7 @@
 
   $('#fbSend').onclick = async function () {
     if (DEMO) { demoBlock(); return; }
+    if (warroomOffline) { toast('目前顯示離線資料，請重新同步成功後再送出回覆。', true); return; }
     if (!fbCtx.recordId) { toast('找不到紀錄 id（可能是舊資料）', true); return; }
     var btn = this; btn.disabled = true;
     var r = await TP.callAuth('coachFeedback', { recordId: fbCtx.recordId, feedback: $('#fbText').value.trim(), coachObservation: fbCtx.coachObs || '' });
@@ -2983,49 +3039,49 @@
       { teamId: 'demoB', coachId: 'demo', teamName: '飛鷹培訓隊', sport: '跆拳道', shareToken: 'demo-b', status: 'active' }
     ],
     athletes: [
-      { athleteId: 'd1', teamId: 'demoA', name: '陳柏宇', gradeClass: '八年級', active: true },
-      { athleteId: 'd2', teamId: 'demoA', name: '林冠廷', gradeClass: '八年級', active: true },
-      { athleteId: 'd3', teamId: 'demoA', name: '黃于軒', gradeClass: '九年級', active: true },
-      { athleteId: 'd4', teamId: 'demoA', name: '張承恩', gradeClass: '九年級', active: true },
-      { athleteId: 'd5', teamId: 'demoA', name: '吳宥辰', gradeClass: '七年級', active: true },
-      { athleteId: 'd6', teamId: 'demoA', name: '李芷瑄', gradeClass: '八年級', active: true },
-      { athleteId: 'd7', teamId: 'demoA', name: '王思妤', gradeClass: '九年級', active: true },
-      { athleteId: 'd8', teamId: 'demoA', name: '蔡承翰', gradeClass: '七年級', active: true },
-      { athleteId: 'd9', teamId: 'demoB', name: '周子晴', gradeClass: '七年級', active: true },
-      { athleteId: 'd10', teamId: 'demoB', name: '許哲維', gradeClass: '八年級', active: true },
-      { athleteId: 'd11', teamId: 'demoB', name: '郭庭瑄', gradeClass: '七年級', active: true },
-      { athleteId: 'd12', teamId: 'demoB', name: '鄭宇翔', gradeClass: '九年級', active: true },
-      { athleteId: 'd13', teamId: 'demoB', name: '何品妤', gradeClass: '八年級', active: true },
-      { athleteId: 'd14', teamId: 'demoB', name: '羅冠宇', gradeClass: '七年級', active: true },
-      { athleteId: 'd15', teamId: 'demoB', name: '謝語恩', gradeClass: '九年級', active: true }
+      { athleteId: 'd1', teamId: 'demoA', name: 'Demo 選手01', gradeClass: '八年級', active: true },
+      { athleteId: 'd2', teamId: 'demoA', name: 'Demo 選手02', gradeClass: '八年級', active: true },
+      { athleteId: 'd3', teamId: 'demoA', name: 'Demo 選手03', gradeClass: '九年級', active: true },
+      { athleteId: 'd4', teamId: 'demoA', name: 'Demo 選手04', gradeClass: '九年級', active: true },
+      { athleteId: 'd5', teamId: 'demoA', name: 'Demo 選手05', gradeClass: '七年級', active: true },
+      { athleteId: 'd6', teamId: 'demoA', name: 'Demo 選手06', gradeClass: '八年級', active: true },
+      { athleteId: 'd7', teamId: 'demoA', name: 'Demo 選手07', gradeClass: '九年級', active: true },
+      { athleteId: 'd8', teamId: 'demoA', name: 'Demo 選手08', gradeClass: '七年級', active: true },
+      { athleteId: 'd9', teamId: 'demoB', name: 'Demo 選手09', gradeClass: '七年級', active: true },
+      { athleteId: 'd10', teamId: 'demoB', name: 'Demo 選手10', gradeClass: '八年級', active: true },
+      { athleteId: 'd11', teamId: 'demoB', name: 'Demo 選手11', gradeClass: '七年級', active: true },
+      { athleteId: 'd12', teamId: 'demoB', name: 'Demo 選手12', gradeClass: '九年級', active: true },
+      { athleteId: 'd13', teamId: 'demoB', name: 'Demo 選手13', gradeClass: '八年級', active: true },
+      { athleteId: 'd14', teamId: 'demoB', name: 'Demo 選手14', gradeClass: '七年級', active: true },
+      { athleteId: 'd15', teamId: 'demoB', name: 'Demo 選手15', gradeClass: '九年級', active: true }
     ],
     warroom: {
       ok: true, date: localToday(),
       total: 15, submittedCount: 11, missingCount: 4, completionRate: 73,
       lights: { green: 5, yellow: 4, red: 2 },
       submitted: [
-        { athleteId: 'd1', name: '陳柏宇', totalScore: 4.7, status: 'green', sleepDurationMinutes:460, sleepDurationText:'7 小時 40 分', sleepRisk:'green', painScore:0, painRisk:'green', waterAmount:'enough', sweatAmount:'normal', urineColor:'pale_yellow', hydrationRisk:'green', reportQualityScore:92, reportQualityLabel:'正常', coachSuggestion:'今日狀態穩定，可依原定計畫訓練並持續觀察。', coachFeedback:'狀態穩定，維持原定訓練節奏。', coachFeedbackAt:localToday()+'T08:20:00', coachReplyStatus:'replied' },
-        { athleteId: 'd2', name: '林冠廷', totalScore: 4.5, status: 'yellow', sleepDurationMinutes:380, sleepDurationText:'6 小時 20 分', sleepRisk:'yellow', painAreas:'右膝', painScore:5, painRisk:'yellow', waterAmount:'normal', sweatAmount:'high', urineColor:'dark', hydrationRisk:'yellow', hydrationFlags:'dark_urine,high_sweat_low_water', hydrationAdvice:'今日訓練前後加強補水。', reportQualityScore:88, reportQualityLabel:'正常', coachSuggestion:'今日降低高衝擊與疼痛部位負荷，訓練中持續觀察。' },
-        { athleteId: 'd7', name: '王思妤', totalScore: 4.4, status: 'green' },
-        { athleteId: 'd9', name: '周子晴', totalScore: 4.3, status: 'green', coachFeedback:'回報完整，明天持續觀察睡眠。', coachFeedbackAt:localToday()+'T08:35:00', coachReplyStatus:'replied' },
-        { athleteId: 'd10', name: '許哲維', totalScore: 4.2, status: 'green' },
-        { athleteId: 'd11', name: '郭庭瑄', totalScore: 4.0, status: 'green' },
-        { athleteId: 'd3', name: '黃于軒', totalScore: 3.7, status: 'yellow', declining: true },
-        { athleteId: 'd5', name: '吳宥辰', totalScore: 3.4, status: 'yellow' },
-        { athleteId: 'd12', name: '鄭宇翔', totalScore: 3.1, status: 'yellow', declining: true },
-        { athleteId: 'd8', name: '蔡承翰', totalScore: 2.7, status: 'red', sleepDurationMinutes:280, sleepDurationText:'4 小時 40 分', sleepRisk:'red', painAreas:'腳踝', painScore:8, painRisk:'red', waterAmount:'very_little', sweatAmount:'very_high', urineColor:'abnormal', hydrationRisk:'red', hydrationFlags:'abnormal_urine,high_sweat_low_water', reportQualityScore:55, reportQualityLabel:'疑似敷衍', reportQualityReasons:'心得過短、高疼痛但狀態分數過高', coachSuggestion:'建議停止專項訓練，立即確認疼痛並通知教練／家長。' },
-        { athleteId: 'd13', name: '何品妤', totalScore: 2.5, status: 'red', sleepDurationMinutes:330, sleepDurationText:'5 小時 30 分', sleepRisk:'yellow', painScore:0, painRisk:'green', waterAmount:'normal', sweatAmount:'high', urineColor:'dark', hydrationRisk:'red', hydrationFlags:'dark_urine,consecutive_dark', reportQualityScore:70, reportQualityLabel:'需確認', reportQualityReasons:'KPI 與昨日高度相同', coachSuggestion:'水分狀態需立即確認並加強補水。' }
+        { athleteId: 'd1', name: 'Demo 選手01', totalScore: 4.7, status: 'green', sleepDurationMinutes:460, sleepDurationText:'7 小時 40 分', sleepRisk:'green', painScore:0, painRisk:'green', waterAmount:'enough', sweatAmount:'normal', urineColor:'pale_yellow', hydrationRisk:'green', reportQualityScore:92, reportQualityLabel:'正常', coachSuggestion:'今日狀態穩定，可依原定計畫訓練並持續觀察。', coachFeedback:'狀態穩定，維持原定訓練節奏。', coachFeedbackAt:localToday()+'T08:20:00', coachReplyStatus:'replied' },
+        { athleteId: 'd2', name: 'Demo 選手02', totalScore: 4.5, status: 'yellow', sleepDurationMinutes:380, sleepDurationText:'6 小時 20 分', sleepRisk:'yellow', painAreas:'右膝', painScore:5, painRisk:'yellow', waterAmount:'normal', sweatAmount:'high', urineColor:'dark', hydrationRisk:'yellow', hydrationFlags:'dark_urine,high_sweat_low_water', hydrationAdvice:'今日訓練前後加強補水。', reportQualityScore:88, reportQualityLabel:'正常', coachSuggestion:'今日降低高衝擊與疼痛部位負荷，訓練中持續觀察。' },
+        { athleteId: 'd7', name: 'Demo 選手07', totalScore: 4.4, status: 'green' },
+        { athleteId: 'd9', name: 'Demo 選手09', totalScore: 4.3, status: 'green', coachFeedback:'回報完整，明天持續觀察睡眠。', coachFeedbackAt:localToday()+'T08:35:00', coachReplyStatus:'replied' },
+        { athleteId: 'd10', name: 'Demo 選手10', totalScore: 4.2, status: 'green' },
+        { athleteId: 'd11', name: 'Demo 選手11', totalScore: 4.0, status: 'green' },
+        { athleteId: 'd3', name: 'Demo 選手03', totalScore: 3.7, status: 'yellow', declining: true },
+        { athleteId: 'd5', name: 'Demo 選手05', totalScore: 3.4, status: 'yellow' },
+        { athleteId: 'd12', name: 'Demo 選手12', totalScore: 3.1, status: 'yellow', declining: true },
+        { athleteId: 'd8', name: 'Demo 選手08', totalScore: 2.7, status: 'red', sleepDurationMinutes:280, sleepDurationText:'4 小時 40 分', sleepRisk:'red', painAreas:'腳踝', painScore:8, painRisk:'red', waterAmount:'very_little', sweatAmount:'very_high', urineColor:'abnormal', hydrationRisk:'red', hydrationFlags:'abnormal_urine,high_sweat_low_water', reportQualityScore:55, reportQualityLabel:'疑似敷衍', reportQualityReasons:'心得過短、高疼痛但狀態分數過高', coachSuggestion:'建議停止專項訓練，立即確認疼痛並通知教練／家長。' },
+        { athleteId: 'd13', name: 'Demo 選手13', totalScore: 2.5, status: 'red', sleepDurationMinutes:330, sleepDurationText:'5 小時 30 分', sleepRisk:'yellow', painScore:0, painRisk:'green', waterAmount:'normal', sweatAmount:'high', urineColor:'dark', hydrationRisk:'red', hydrationFlags:'dark_urine,consecutive_dark', reportQualityScore:70, reportQualityLabel:'需確認', reportQualityReasons:'KPI 與昨日高度相同', coachSuggestion:'水分狀態需立即確認並加強補水。' }
       ],
-      missing: [ { athleteId: 'd4', name: '張承恩' }, { athleteId: 'd6', name: '李芷瑄' }, { athleteId: 'd14', name: '羅冠宇' }, { athleteId: 'd15', name: '謝語恩' } ],
+      missing: [ { athleteId: 'd4', name: 'Demo 選手04' }, { athleteId: 'd6', name: 'Demo 選手06' }, { athleteId: 'd14', name: 'Demo 選手14' }, { athleteId: 'd15', name: 'Demo 選手15' } ],
       priority: {
-        red: [ { name: '蔡承翰' }, { name: '何品妤' } ],
-        missing: [ { name: '張承恩' }, { name: '李芷瑄' }, { name: '羅冠宇' }, { name: '謝語恩' } ],
-        declining: [ { name: '黃于軒' }, { name: '鄭宇翔' } ],
-        encouraging: [ { name: '陳柏宇' }, { name: '王思妤' }, { name: '周子晴' } ]
+        red: [ { name: 'Demo 選手08' }, { name: 'Demo 選手13' } ],
+        missing: [ { name: 'Demo 選手04' }, { name: 'Demo 選手06' }, { name: 'Demo 選手14' }, { name: 'Demo 選手15' } ],
+        declining: [ { name: 'Demo 選手03' }, { name: 'Demo 選手12' } ],
+        encouraging: [ { name: 'Demo 選手01' }, { name: 'Demo 選手07' }, { name: 'Demo 選手09' } ]
       },
       encourages: [
-        { from: '陳柏宇', to: '蔡承翰', msg: '今天實戰很拚，下次一定更好！' },
-        { from: '王思妤', to: '吳宥辰', msg: '你的踢靶很有力，繼續加油！' }
+        { from: 'Demo 選手01', to: 'Demo 選手08', msg: '今天實戰很拚，下次一定更好！' },
+        { from: 'Demo 選手07', to: 'Demo 選手05', msg: '你的踢靶很有力，繼續加油！' }
       ]
     },
     teamReport: {
@@ -3034,13 +3090,13 @@
       lights: { green: 48, yellow: 32, red: 12 },
       trend: [ { avg: 3.3 }, { avg: 3.4 }, { avg: 3.5 }, { avg: 3.6 }, { avg: 3.5 }, { avg: 3.8 }, { avg: 3.9 } ],
       athletes: [
-        { name: '陳柏宇', filledDays: 13, avgTotal: 4.4, delta: 0.6, lastStatus: 'green' },
-        { name: '林冠廷', filledDays: 12, avgTotal: 4.1, delta: 0.3, lastStatus: 'green' },
-        { name: '王思妤', filledDays: 14, avgTotal: 3.9, delta: 0.4, lastStatus: 'green' },
-        { name: '黃于軒', filledDays: 11, avgTotal: 3.6, delta: 0.1, lastStatus: 'yellow' },
-        { name: '吳宥辰', filledDays: 10, avgTotal: 3.4, delta: -0.2, lastStatus: 'yellow' },
-        { name: '蔡承翰', filledDays: 9, avgTotal: 2.8, delta: -0.4, lastStatus: 'red' },
-        { name: '何品妤', filledDays: 8, avgTotal: 2.7, delta: -0.5, lastStatus: 'red' }
+        { name: 'Demo 選手01', filledDays: 13, avgTotal: 4.4, delta: 0.6, lastStatus: 'green' },
+        { name: 'Demo 選手02', filledDays: 12, avgTotal: 4.1, delta: 0.3, lastStatus: 'green' },
+        { name: 'Demo 選手07', filledDays: 14, avgTotal: 3.9, delta: 0.4, lastStatus: 'green' },
+        { name: 'Demo 選手03', filledDays: 11, avgTotal: 3.6, delta: 0.1, lastStatus: 'yellow' },
+        { name: 'Demo 選手05', filledDays: 10, avgTotal: 3.4, delta: -0.2, lastStatus: 'yellow' },
+        { name: 'Demo 選手08', filledDays: 9, avgTotal: 2.8, delta: -0.4, lastStatus: 'red' },
+        { name: 'Demo 選手13', filledDays: 8, avgTotal: 2.7, delta: -0.5, lastStatus: 'red' }
       ]
     },
     trialSummary: {

@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#22c55e">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=20260627-shell1">
+<link rel="stylesheet" href="style.css?v=20260825-sec1">
 <link rel="stylesheet" href="app-shell.20260627e.css">
-<script src="pwa.js?v=20260627-shell1" defer></script>
-<script src="native.js?v=20260627-shell1" defer></script>
+<script src="pwa.js?v=20260825-sec1" defer></script>
+<script src="native.js?v=20260825-sec1" defer></script>
 </head>
 <body class="app-shell">
 <div id="shellRoot">
@@ -43,7 +43,7 @@
         <div>
           <div class="eyebrow">今日戰情室</div>
           <h1>今天，每位選手該怎麼練？</h1>
-          <p class="muted shell-subtitle">選手每天回報，AI 整理今日準備度與異常原因，教練 10 秒掌握全隊、做出訓練決策。</p>
+          <p class="muted shell-subtitle">選手每天回報，系統整理今日風險、待回覆與未結案追蹤，教練照清單完成處理。</p>
         </div>
         <button class="btn btn-primary" id="quickAttendance">快速點名</button>
       </div>
@@ -61,13 +61,13 @@
           <div class="shell-card"><div class="skel w-40"></div><div class="skel w-90"></div></div>
         </div>
       </div>
-      <h2 class="section-title">60 秒日常紀錄</h2>
+      <h2 class="section-title">每日處理手順</h2>
       <div class="coach-flow">
-        <button class="flow-step" data-tab="attendance"><b>10 秒</b><span>今日點名</span></button>
-        <button class="flow-step" id="focusTrainingNote"><b>20 秒</b><span>訓練日誌</span></button>
-        <button class="flow-step"><b>10 秒</b><span>標記異常學生</span></button>
-        <button class="flow-step"><b>10 秒</b><span>傷病 / 比賽成果</span></button>
-        <button class="flow-step" id="organizeAiBtn"><b>10 秒</b><span>AI 整理送出</span></button>
+        <button class="flow-step" data-tab="attendance"><b>先補資料</b><span>點名 / 催回報</span></button>
+        <button class="flow-step" data-tab="tracking"><b>先處理風險</b><span>紅黃燈追蹤</span></button>
+        <button class="flow-step" data-tab="athletes"><b>看長期變化</b><span>選手成長曲線</span></button>
+        <button class="flow-step" id="focusTrainingNote"><b>留下脈絡</b><span>訓練日誌</span></button>
+        <button class="flow-step" data-tab="report"><b>月底回顧</b><span>月報輸出</span></button>
       </div>
       <section class="shell-card coach-ai-card">
         <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;">
@@ -91,13 +91,13 @@
 
 <nav class="mobile-tabbar" id="mobileTabbar">
   <button data-tab="dashboard" class="active"><span class="ic">🏠</span>今日</button>
-  <button data-tab="attendance"><span class="ic">✅</span>點名</button>
-  <button data-tab="athletes"><span class="ic">🏃</span>選手</button>
-  <button data-tab="training"><span class="ic">📝</span>紀錄</button>
+  <button data-tab="tracking"><span class="ic">📌</span>追蹤</button>
+  <button data-tab="athletes"><span class="ic">📈</span>選手</button>
+  <button data-tab="attendance"><span class="ic">✅</span>回報</button>
   <button data-tab="report"><span class="ic">📊</span>報告</button>
 </nav>
 
-<script src="api.js?v=20260627-shell1"></script>
-<script type="module" src="app-shell.20260627e.js?v=20260716-datebar"></script>
+<script src="api.js?v=20260825-sec1"></script>
+<script type="module" src="app-shell.20260627e.js?v=20260825-sec1"></script>
 </body>
 </html>

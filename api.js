@@ -5,6 +5,7 @@
 (function (global) {
   var LS_URL = 'teampro_webapp_url';
   var LS_TOKEN = 'teampro_token';
+  var LS_AUTH_VERIFIED = 'teampro_auth_verified';
   var DEFAULT_LINE_URL = 'https://line.me/R/ti/p/@529utwnh';
 
   /* ============================================================
@@ -36,7 +37,34 @@
   function getPlanLimits(plan) { return PLAN_LIMITS[plan] || PLAN_LIMITS.free; }
   function getToken() { return localStorage.getItem(LS_TOKEN) || ''; }
   function setToken(t) { if (t) localStorage.setItem(LS_TOKEN, t); }
-  function clearToken() { localStorage.removeItem(LS_TOKEN); }
+  function clearToken() { localStorage.removeItem(LS_TOKEN); setAuthVerified(false); }
+  function setAuthVerified(ok) {
+    try {
+      if (ok) localStorage.setItem(LS_AUTH_VERIFIED, new Date().toISOString());
+      else localStorage.removeItem(LS_AUTH_VERIFIED);
+    } catch (e) {}
+  }
+  function isAuthVerified() {
+    try { return !!(getToken() && localStorage.getItem(LS_AUTH_VERIFIED)); }
+    catch (e) { return false; }
+  }
+  function sensitiveKey(name) {
+    return /^teampro_(shell_coach|shell_todaySummary_|lastTodaySummary|lastAthleteBasicList|lastAttendanceList|lastSyncAt|dispositions_|decisions_|warcache_|parent_notice_count_|task_|first_report_seen|onboard|.*_guest$)/.test(name);
+  }
+  function clearSensitiveCache() {
+    try {
+      var remove = [];
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && sensitiveKey(k)) remove.push(k);
+      }
+      remove.forEach(function (k) { localStorage.removeItem(k); });
+    } catch (e) {}
+  }
+  function logoutLocal() {
+    clearToken();
+    clearSensitiveCache();
+  }
 
   var activeCalls = 0;
   function setApiBusy(busy) {
@@ -77,7 +105,9 @@
 
   /* 需登入教練的呼叫：自動帶 token */
   async function callAuth(action, data) {
-    return call(action, Object.assign({ token: getToken() }, data || {}));
+    var r = await call(action, Object.assign({ token: getToken() }, data || {}));
+    if (r && (r.needLogin || r.error === 'unauthorized')) logoutLocal();
+    return r;
   }
 
   /* ---- 小工具 ---- */
@@ -322,6 +352,8 @@
   global.TP = {
     isDemo: isDemo, mountDemoBanner: mountDemoBanner,
     getUrl: getUrl, setUrl: setUrl, getToken: getToken, setToken: setToken, clearToken: clearToken,
+    setAuthVerified: setAuthVerified, isAuthVerified: isAuthVerified,
+    clearSensitiveCache: clearSensitiveCache, logoutLocal: logoutLocal,
     getLineUrl: getLineUrl, setLineUrl: setLineUrl,
     planLimits: PLAN_LIMITS, getPlanLimits: getPlanLimits,
     call: call, callAuth: callAuth,

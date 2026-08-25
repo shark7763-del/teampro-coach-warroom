@@ -1,4 +1,5 @@
 import { escapeHtml } from './legacy-frame.js';
+import { evaluateReadiness } from './readiness-rules.js';
 
 const APP_VERSION = 'v2026.07.04';
 const esc = escapeHtml;
@@ -15,17 +16,21 @@ export async function mountDashboard(ctx) {
   const teamId = (document.getElementById('dashTeam') && document.getElementById('dashTeam').value) || '';
   const date = currentDate(ctx);
   const cacheKey = 'teampro_shell_todaySummary_' + (ctx.coachKey ? ctx.coachKey() : 'coach') + '_' + teamId + '_' + date;
-  const cached = readSummary(cacheKey);
-  if (cached) renderSummary(root, cached, true, ctx);
+  const canReadSensitiveCache = !!(ctx.demo || (TP.isAuthVerified && TP.isAuthVerified()));
+  const cached = canReadSensitiveCache ? readSummary(cacheKey) : null;
+  if (cached) renderSummary(root, cached, true, ctx, { stale: true });
   if (ctx.demo) {
     const demo = cached || demoSummary(date);
     if (!cached) writeSummary(cacheKey, demo);
     renderSummary(root, demo, false, ctx, { offline: false, demo: true });
     return;
   }
+  if (!(TP.isAuthVerified && TP.isAuthVerified())) {
+    renderSummary(root, emptySummary(date), false, ctx, { locked: true });
+    return;
+  }
   if (!TP.getUrl()) {
-    // 後端網址尚未設定：不報錯，顯示引導 + 可用離線資料
-    renderSummary(root, cached || demoSummary(date), false, ctx, { offline: true, noBackend: true });
+    renderSummary(root, cached || emptySummary(date), !!cached, ctx, { offline: true, noBackend: true });
     return;
   }
   const r = await TP.callAuth('warroom', { teamId, date });
@@ -34,7 +39,7 @@ export async function mountDashboard(ctx) {
       renderSummary(root, cached, true, ctx, { offline: true });
       return;
     }
-    renderSummary(root, demoSummary(date), false, ctx, { offline: true, error: true });
+    renderSummary(root, emptySummary(date), false, ctx, { offline: true, error: true });
     return;
   }
   const summary = toTodaySummary(r, date);
@@ -55,7 +60,6 @@ function readSummary(key) {
 }
 function writeSummary(key, summary) {
   try { localStorage.setItem(key, JSON.stringify(summary)); } catch (e) {}
-  try { localStorage.setItem('teampro_lastTodaySummary', JSON.stringify(summary)); } catch (e) {}
   try { localStorage.setItem('teampro_lastSyncAt', new Date().toISOString()); } catch (e) {}
 }
 function toTodaySummary(r, date) {
@@ -77,6 +81,25 @@ function toTodaySummary(r, date) {
     athletes: submitted.map(normalizeAthlete),
     missingNames: (missing || []).map(m => (m && (m.name || m)) || '').filter(Boolean).slice(0, 20),
     updatedAt: new Date().toISOString()
+  };
+}
+function emptySummary(date) {
+  return {
+    date,
+    totalAthletes: 0,
+    submittedCount: 0,
+    notSubmittedCount: 0,
+    redCount: 0,
+    yellowCount: 0,
+    greenCount: 0,
+    painCount: 0,
+    fatigueHighCount: 0,
+    unreadCoachReplyCount: 0,
+    attendanceDone: false,
+    concern: [],
+    athletes: [],
+    missingNames: [],
+    updatedAt: ''
   };
 }
 
@@ -140,17 +163,17 @@ function demoSummary(date) {
     unreadCoachReplyCount: 6,
     attendanceDone: false,
     concern: [
-      { name: '許晨熙', level: 'red', reason: '疼痛偏高、狀態紅燈' },
-      { name: '王柏鈞', level: 'yellow', reason: '睡眠不足、連續疲勞' }
+      { name: 'Demo 選手A', level: 'red', reason: '疼痛偏高、狀態紅燈' },
+      { name: 'Demo 選手B', level: 'yellow', reason: '睡眠不足、連續疲勞' }
     ],
     athletes: [
-      { athleteId: 'd_sc', recordId: 'd_sc', name: '許晨熙', group: '對打組', status: 'red', painScore: 8, painImpact: '影響旋踢', painAreas: '右大腿', sleepMin: 300, fatigue: 5, mood: 2, motivation: 2, expectedCompletion: 40, athleteMessage: '右大腿旋踢時會痛，昨天練完更明顯。', declining: true, coachReplyStatus: 'none', coachFeedback: '' },
-      { athleteId: 'd_wpj', recordId: 'd_wpj', name: '王柏鈞', group: '對打組', status: 'yellow', painScore: 6, painImpact: '踢擊時緊繃', painAreas: '右大腿', sleepMin: 330, fatigue: 4, mood: 3, motivation: 3, expectedCompletion: 70, athleteMessage: '睡不太好，但想練。', declining: true, coachReplyStatus: 'none', coachFeedback: '' },
-      { athleteId: 'd_lch', recordId: 'd_lch', name: '劉承翰', group: '品勢組', status: 'yellow', painScore: 0, painImpact: '', sleepMin: 345, fatigue: 4, mood: 3, motivation: 4, expectedCompletion: 85, athleteMessage: '', declining: false, coachReplyStatus: 'none', coachFeedback: '' },
-      { athleteId: 'd_thx', recordId: 'd_thx', name: '唐霈昕', group: '品勢組', status: 'green', painScore: 0, painImpact: '', sleepMin: 465, fatigue: 2, mood: 5, motivation: 5, expectedCompletion: 100, athleteMessage: '今天狀態很好！', declining: false, coachReplyStatus: 'replied', coachFeedback: '保持這個狀態，很好！', coachDecision: '正常訓練' },
-      { athleteId: 'd_cyt', recordId: 'd_cyt', name: '陳宥廷', group: '對打組', status: 'green', painScore: 0, painImpact: '', sleepMin: 450, fatigue: 2, mood: 4, motivation: 4, expectedCompletion: 95, athleteMessage: '', declining: false, coachReplyStatus: 'none', coachFeedback: '' }
+      { athleteId: 'd_sc', recordId: 'd_sc', name: 'Demo 選手A', group: '對打組', status: 'red', painScore: 8, painImpact: '影響旋踢', painAreas: '右大腿', sleepMin: 300, fatigue: 5, mood: 2, motivation: 2, expectedCompletion: 40, athleteMessage: '右大腿旋踢時會痛，昨天練完更明顯。', declining: true, coachReplyStatus: 'none', coachFeedback: '' },
+      { athleteId: 'd_wpj', recordId: 'd_wpj', name: 'Demo 選手B', group: '對打組', status: 'yellow', painScore: 6, painImpact: '踢擊時緊繃', painAreas: '右大腿', sleepMin: 330, fatigue: 4, mood: 3, motivation: 3, expectedCompletion: 70, athleteMessage: '睡不太好，但想練。', declining: true, coachReplyStatus: 'none', coachFeedback: '' },
+      { athleteId: 'd_lch', recordId: 'd_lch', name: 'Demo 選手C', group: '品勢組', status: 'yellow', painScore: 0, painImpact: '', sleepMin: 345, fatigue: 4, mood: 3, motivation: 4, expectedCompletion: 85, athleteMessage: '', declining: false, coachReplyStatus: 'none', coachFeedback: '' },
+      { athleteId: 'd_thx', recordId: 'd_thx', name: 'Demo 選手D', group: '品勢組', status: 'green', painScore: 0, painImpact: '', sleepMin: 465, fatigue: 2, mood: 5, motivation: 5, expectedCompletion: 100, athleteMessage: '今天狀態很好！', declining: false, coachReplyStatus: 'replied', coachFeedback: '保持這個狀態，很好！', coachDecision: '正常訓練' },
+      { athleteId: 'd_cyt', recordId: 'd_cyt', name: 'Demo 選手E', group: '對打組', status: 'green', painScore: 0, painImpact: '', sleepMin: 450, fatigue: 2, mood: 4, motivation: 4, expectedCompletion: 95, athleteMessage: '', declining: false, coachReplyStatus: 'none', coachFeedback: '' }
     ].map(normalizeAthlete),
-    missingNames: ['林冠霖', '張瀚忠', '李承恩'],
+    missingNames: ['Demo 選手F', 'Demo 選手G', 'Demo 選手H'],
     updatedAt: new Date().toISOString()
   };
 }
@@ -164,20 +187,22 @@ function renderSummary(root, s, stale, ctx, opts) {
   const dispOpen = openDispositions().length;
 
   // 逐人準備度計算 + 依關注優先度排序
-  const ath = (s.athletes || []).map(a => ({ a, r: computeReadiness(a) }));
+  const ath = (s.athletes || []).map(a => ({ a, r: evaluateReadiness(a) }));
   ath.sort((x, y) => y.r.priority - x.r.priority);
   const avg = ath.length ? Math.round(ath.reduce((n, o) => n + o.r.score, 0) / ath.length) : 0;
   const concernCount = ath.filter(o => o.r.level !== 'green').length;
-  const replyPending = (s.athletes || []).filter(a =>
-    a.coachReplyStatus !== 'replied' && !((getDecision(a.athleteId, date) || {}).reply)).length;
+  const replyPending = ath.filter(o => isUnhandled(o.a, date)).length;
 
-  const banner = opts.noBackend
-    ? '<div class="shell-sync-note" style="border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.08);color:#fcd34d;">尚未設定後端網址，目前顯示範例資料。請至「更多 → 設定」由系統管理者填入後端網址。</div>'
+  const lastSyncText = fmtTime(s.updatedAt || (() => { try { return localStorage.getItem('teampro_lastSyncAt'); } catch (e) { return ''; } })());
+  const banner = opts.locked
+    ? '<div class="shell-sync-note" style="border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.08);color:#fecaca;">尚未完成登入驗證，已停止載入選手資料。請重新登入。</div>'
+    : opts.noBackend
+    ? '<div class="shell-sync-note" style="border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.08);color:#fcd34d;">尚未設定後端網址，未載入正式選手資料。請至「更多 → 設定」由系統管理者填入後端網址。</div>'
     : opts.offline
-      ? '<div class="shell-sync-note" style="border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.08);color:#fcd34d;">目前無法連線到後端，已暫存並顯示上次資料，請稍後重新同步。</div>'
+      ? '<div class="shell-sync-note" style="border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.08);color:#fcd34d;"><b>離線資料 / 非即時</b>：目前無法連線到後端。最後成功同步：' + esc(lastSyncText) + '。寫入類操作請重新連線後再執行。</div>'
       : stale
-        ? '<div class="shell-sync-note" id="dashSyncNote">已先顯示上次資料，正在更新最新狀態…</div>'
-        : '<div class="shell-sync-note fresh" id="dashSyncNote">已更新最新狀態' + (opts.demo ? '（展示資料）' : '') + '</div>';
+        ? '<div class="shell-sync-note" id="dashSyncNote"><b>暫存資料 / 更新中</b>：目前先顯示上次同步結果。最後成功同步：' + esc(lastSyncText) + '。</div>'
+        : '<div class="shell-sync-note fresh" id="dashSyncNote">已更新最新狀態' + (opts.demo ? '（展示資料）' : '') + '。同步時間：' + esc(lastSyncText) + '</div>';
 
   // 置頂一句話摘要
   const headline = concernCount || s.notSubmittedCount || replyPending
@@ -206,8 +231,10 @@ function renderSummary(root, s, stale, ctx, opts) {
       ? '<p class="muted war-missing">尚未回報：' + s.missingNames.slice(0, 10).map(esc).join('、') + (s.missingNames.length > 10 ? ' …' : '') + '</p>'
       : '') +
 
+    renderActionQueue(ath, s, date, dispOpen) +
+
     // ── 逐人今日狀態卡 ──
-    '<h2 class="section-title">🎯 今日選手狀態</h2>' +
+    '<h2 class="section-title">今日選手狀態</h2>' +
     (ath.length
       ? ath.map(o => renderAthleteCard(o.a, o.r, date)).join('')
       : '<div class="empty-state"><p>今天還沒有選手回報。</p><button class="btn btn-sm" id="warAttendance2">去點名 / 催回報</button></div>') +
@@ -239,6 +266,8 @@ function renderSummary(root, s, stale, ctx, opts) {
   bind('warAttendance2', goAttendance);
   bind('ttFollowupBadge', () => { renderDispositionSection(ctx); scrollToId('dispositionSection'); });
   bind('ttParentSummary', () => { markStep('parent'); toggleParentSummary(s); });
+  bind('queueMissingBtn', goAttendance);
+  bind('queueFollowupBtn', () => { renderDispositionSection(ctx); scrollToId('dispositionSection'); });
   bindOnboarding(ctx);
   bind('healthTest', () => testConnection());
   bind('healthRefresh', () => mountDashboard(ctx));
@@ -247,61 +276,49 @@ function renderSummary(root, s, stale, ctx, opts) {
   renderDispositionSection(ctx);
 }
 
-/* ============ 今日準備度評分（前端規則引擎） ============ */
-// 依 warroom 現有資料算 0–100「今日訓練準備度」，並給出扣分原因與訓練建議。
-function computeReadiness(a) {
-  a = a || {};
-  let score = 100;
-  const reasons = [];
-  const pain = numOr0(a.painScore);
-  const impact = !!(a.painImpact && !/不影響|沒有|無|否|none|no/i.test(String(a.painImpact)));
-  if (pain >= 7) { score -= 28; reasons.push('疼痛偏高（' + pain + '/10）'); }
-  else if (pain >= 4) { score -= 15; reasons.push('疼痛中等（' + pain + '/10）'); }
-  if (impact) { score -= 10; reasons.push('疼痛影響動作' + (a.painAreas ? '（' + a.painAreas + '）' : '')); }
-  const sm = numOr0(a.sleepMin);
-  if (sm > 0 && sm < 300) { score -= 20; reasons.push('睡眠嚴重不足（' + hoursText(sm) + '）'); }
-  else if (sm > 0 && sm < 360) { score -= 12; reasons.push('睡眠不足（' + hoursText(sm) + '）'); }
-  const f10 = fatigueTo10(a.fatigue);
-  if (f10 >= 8) { score -= 15; reasons.push('疲勞偏高'); }
-  else if (f10 >= 6) { score -= 8; reasons.push('疲勞中等'); }
-  if (String(a.hydrationRisk) === 'red') { score -= 8; reasons.push('水分不足'); }
-  const mood = numOr0(a.mood);
-  if (mood && mood <= 2) { score -= 8; reasons.push('情緒 / 心情偏低'); }
-  const moti = numOr0(a.motivation);
-  if (moti && moti <= 2) { score -= 8; reasons.push('訓練動機偏低'); }
-  const canTrain = (typeof a.expectedCompletion === 'number' && a.expectedCompletion > 0) ? a.expectedCompletion : null;
-  const cantTrain = canTrain !== null && canTrain <= 30;
-  if (canTrain !== null && canTrain <= 50) { score -= 10; reasons.push('自評今日僅能完成約 ' + canTrain + '% 訓練'); }
-  if (a.declining) { score -= 6; reasons.push('近期狀態連續下降'); }
-  if (String(a.status) === 'red' || cantTrain) score = Math.min(score, 62);
-  score = Math.max(0, Math.min(100, Math.round(score)));
-
-  // 分級（含安全覆蓋：高疼痛一律列優先關注）
-  let level, bandLabel;
-  if (score >= 85) { level = 'green'; bandLabel = '狀態良好'; }
-  else if (score >= 70) { level = 'green'; bandLabel = '基本穩定'; }
-  else if (score >= 50) { level = 'yellow'; bandLabel = '需要調整'; }
-  else { level = 'red'; bandLabel = '優先關注'; }
-  if (pain >= 7 || (impact && pain >= 4) || cantTrain || String(a.status) === 'red') { level = 'red'; bandLabel = '優先關注'; }
-
-  let priority = 100 - score;
-  if (pain >= 7 || impact) priority += 100;
-  if (String(a.status) === 'red') priority += 60;
-  if (a.declining) priority += 30;
-
-  return { score, level, bandLabel, reasons, priority, suggestion: readinessSuggestion(a, { level, score }) };
+function isHandled(a, date) {
+  const dec = getDecision(a.athleteId, date) || {};
+  return a.coachReplyStatus === 'replied' || !!a.coachFeedback || !!a.coachDecision || !!dec.reply || !!dec.decision;
 }
+function isUnhandled(a, date) {
+  return !isHandled(a, date);
+}
+function renderActionQueue(ath, s, date, dispOpen) {
+  const urgent = ath.filter(o => o.r.level === 'red' && isUnhandled(o.a, date));
+  const adjust = ath.filter(o => o.r.level === 'yellow' && isUnhandled(o.a, date));
+  const gray = ath.filter(o => o.r.level === 'gray');
+  const missing = (s.missingNames || []).filter(Boolean);
+  const items = [];
+  urgent.slice(0, 5).forEach(o => items.push(actionItem('優先關注', o.a.name, o.r.reasons[0] || o.r.bandLabel, 'red')));
+  adjust.slice(0, Math.max(0, 5 - items.length)).forEach(o => items.push(actionItem('需要調整', o.a.name, o.r.reasons[0] || o.r.bandLabel, 'yellow')));
+  gray.slice(0, Math.max(0, 5 - items.length)).forEach(o => items.push(actionItem('資料不足', o.a.name, '先補資料再判斷', 'gray')));
+  missing.slice(0, Math.max(0, 5 - items.length)).forEach(name => items.push(actionItem('尚未回報', name, '點名或催回報', 'missing')));
+  if (!items.length && dispOpen) items.push(actionItem('追蹤中', dispOpen + ' 件未結案', '訓練前確認狀態', 'yellow'));
+  const done = !items.length && !dispOpen;
+  return '<section class="daily-action-panel" id="dailyActionPanel">' +
+    '<div class="daily-action-head">' +
+      '<div><h2>今日處理清單</h2><p class="muted">依紅黃燈、資料不足、未回報與未結案追蹤排序。</p></div>' +
+      '<div class="daily-action-count">' + (done ? '已清空' : (items.length + dispOpen) + ' 件') + '</div>' +
+    '</div>' +
+    (done
+      ? '<div class="daily-action-empty">目前沒有未處理紅黃燈或未回報名單。訓練前再確認一次即可。</div>'
+      : '<div class="daily-action-list">' + items.join('') + '</div>') +
+    '<div class="daily-action-tools">' +
+      '<button class="btn btn-sm" id="queueMissingBtn">點名 / 催回報</button>' +
+      '<button class="btn btn-sm btn-ghost" id="queueFollowupBtn">查看追蹤案件</button>' +
+    '</div>' +
+  '</section>';
+}
+function actionItem(kind, name, reason, level) {
+  return '<div class="daily-action-item ' + esc(level || '') + '">' +
+    '<span class="daily-action-kind">' + esc(kind) + '</span>' +
+    '<b>' + esc(name || '未命名選手') + '</b>' +
+    '<span class="muted">' + esc(reason || '待確認') + '</span>' +
+  '</div>';
+}
+
 function fatigueTo10(f) { f = numOr0(f); if (!f) return 0; return f <= 5 ? f * 2 : f; }
 function hoursText(min) { return (Math.round(min / 6) / 10) + ' 小時'; }
-function readinessSuggestion(a, r) {
-  const pain = numOr0(a.painScore);
-  if (pain >= 7) return '訓練前先確認疼痛部位與活動範圍，今日降低高強度踢擊 / 衝刺量，改以技術修正、低衝擊腳步與恢復為主，訓練後再次確認疼痛變化。';
-  if (pain >= 4) return '今日留意疼痛部位，避免重複刺激，適度降低爆發動作量，訓練後確認是否加重。';
-  if (numOr0(a.sleepMin) > 0 && numOr0(a.sleepMin) < 360) return '睡眠不足，加強熱身與收操，降低最大強度衝刺，注意訓練中專注度與安全。';
-  if (fatigueTo10(a.fatigue) >= 8) return '疲勞偏高，建議降低訓練量一級，安排恢復與伸展，觀察隔日恢復狀況。';
-  if (r.level === 'green' && r.score >= 85) return '狀態良好，可依原訂計畫正常訓練，維持節奏並持續累積。';
-  return '狀態大致穩定，依原訂計畫訓練，留意個別回報的疲勞與睡眠訊號。';
-}
 
 /* ============ 逐人今日狀態卡 ============ */
 const DECISIONS = ['正常訓練', '降低強度一級', '降低強度兩級', '改技術訓練', '改恢復訓練', '暫停部分動作', '訓練前面談', '持續觀察', '建議進一步評估', '自訂'];
@@ -315,6 +332,7 @@ function renderAthleteCard(a, r, date) {
   // 後端已回覆/已決策（教練在別台裝置或上次已處理）也算數
   const decided = dec.decision || a.coachDecision || '';
   const replied = dec.reply || a.coachFeedback || '';
+  const handled = isHandled(a, date);
   const sleepDisp = a.sleepMin ? hoursText(a.sleepMin) : '—';
   const fatDisp = a.fatigue ? (fatigueTo10(a.fatigue) + '/10') : '—';
   const painDisp = a.painScore ? (a.painScore + '/10' + (a.painAreas ? '・' + a.painAreas : '')) : '0';
@@ -324,6 +342,10 @@ function renderAthleteCard(a, r, date) {
       '<div class="ath-name">' + avatarInitial(a.name) +
         '<span><span class="ath-dot ' + r.level + '"></span>' + esc(a.name) + (a.group ? '<small class="ath-grp">' + esc(a.group) + '</small>' : '') + '</span></div>' +
       '<div class="ath-score"><b>' + r.score + '</b><small>' + r.bandLabel + '</small></div>' +
+    '</div>' +
+    '<div class="ath-status-line">' +
+      '<span class="status-chip ' + (handled ? 'done' : (r.level === 'green' ? 'done' : 'missing')) + '">' + (handled ? '已處理' : (r.level === 'green' ? '可正常訓練' : '待教練處理')) + '</span>' +
+      '<span class="muted">回報時間：' + esc(fmtTime(a.submittedAt || a.createdAt || a.updatedAt || '')) + '</span>' +
     '</div>' +
     '<div class="ath-metrics">' +
       mchip('睡眠', sleepDisp) + mchip('疲勞', fatDisp) + mchip('痠痛 / 疼痛', painDisp) + mchip('動機', motiDisp) +
@@ -344,8 +366,9 @@ function renderAthleteCard(a, r, date) {
     '<div class="ath-decided muted' + (decided ? '' : ' hidden') + '">已決定：<b>' + esc(decided) + '</b>' + (replied ? '・已回覆選手' : '') + '</div>' +
     '<div class="ath-foot">' +
       '<button class="btn btn-sm btn-ghost ath-disp" data-name="' + esc(a.name) + '" data-level="' + (r.level === 'red' ? 'red' : 'yellow') + '">記錄處置與追蹤</button>' +
+      '<button class="btn btn-sm btn-ghost ath-profile" data-name="' + esc(a.name) + '">看 30 天成長</button>' +
     '</div>' +
-    '<p class="ai-note muted">AI 僅提供建議，最終決策由教練完成。此為狀態監控，非醫療診斷。</p>' +
+    '<p class="ai-note muted">' + esc(r.disclaimer || 'AI僅提供訓練管理建議，不是醫療診斷，最終決策由教練完成。') + '</p>' +
   '</div>';
 }
 function bindAthleteCards(root, ctx, date) {
@@ -359,41 +382,72 @@ function bindAthleteCards(root, ctx, date) {
       const d = cur.decision || '';
       if (line) { line.innerHTML = '已決定：<b>' + esc(d || '（未選）') + '</b>' + (cur.reply ? '・已回覆選手' : ''); line.classList.toggle('hidden', !d && !cur.reply); }
     };
-    card.querySelectorAll('.ath-dec').forEach(b => b.onclick = () => {
+    card.querySelectorAll('.ath-dec').forEach(b => b.onclick = async () => {
       const d = b.dataset.dec;
       if (d === '自訂') { const inp = card.querySelector('.ath-reply-in'); if (inp) inp.focus(); return; }
+      const old = b.textContent;
+      b.disabled = true;
+      b.textContent = '儲存中…';
+      const ok = await pushCoachFeedback(rid, { decision: d, aiSuggestion: aisug }, '已記錄決策：' + d);
+      b.disabled = false;
+      b.textContent = old;
+      if (!ok) return;
       saveDecision(aid, date, { decision: d });
       card.querySelectorAll('.ath-dec').forEach(x => x.classList.remove('sel'));
       b.classList.add('sel');
       refreshLine();
-      pushCoachFeedback(rid, { decision: d, aiSuggestion: aisug }, '已記錄決策：' + d);
     });
     const rin = card.querySelector('.ath-reply-in');
     const rbtn = card.querySelector('.ath-reply-btn');
-    if (rbtn) rbtn.onclick = () => {
+    if (rbtn) rbtn.onclick = async () => {
       const v = (rin.value || '').trim();
+      const old = rbtn.textContent;
+      rbtn.disabled = true;
+      rbtn.textContent = '送出中…';
+      const ok = await pushCoachFeedback(rid, { feedback: v }, v ? '已回覆選手' : '已清除回覆');
+      rbtn.disabled = false;
+      rbtn.textContent = old;
+      if (!ok) return;
       saveDecision(aid, date, { reply: v });
       refreshLine();
-      pushCoachFeedback(rid, { feedback: v }, v ? '已回覆選手' : '已清除回覆');
     };
     const disp = card.querySelector('.ath-disp');
     if (disp) disp.onclick = () => openDispositionForm({ name: disp.dataset.name, level: disp.dataset.level, reason: '' }, ctx);
+    const profile = card.querySelector('.ath-profile');
+    if (profile) profile.onclick = () => {
+      const nav = document.querySelector('#mobileTabbar button[data-tab="athletes"]');
+      if (nav) nav.click();
+      else TP.toast && TP.toast('請到「選手」查看成長曲線。');
+    };
   });
 }
-// 決策 / 回覆同步後端（有 recordId 且非展示模式才送；失敗保留本機、提示離線）
-function pushCoachFeedback(recordId, payload, okMsg) {
+// 決策 / 回覆同步後端；正式資料必須後端成功後才更新成功狀態。
+async function pushCoachFeedback(recordId, payload, okMsg) {
   const demo = CURRENT_CTX && CURRENT_CTX.demo;
-  if (demo || !recordId || !TP.getUrl || !TP.getUrl()) { TP.toast && TP.toast(okMsg + '（本機）'); return; }
-  TP.callAuth('coachFeedback', Object.assign({ recordId }, payload)).then(r => {
-    if (r && r.ok) TP.toast && TP.toast(okMsg + '，已同步選手');
-    else TP.toast && TP.toast(okMsg + '（暫存，稍後重試同步）', true);
-  }).catch(() => { TP.toast && TP.toast(okMsg + '（暫存，稍後重試同步）', true); });
+  if (demo) { TP.toast && TP.toast(okMsg + '（展示模式）'); return true; }
+  if (!(TP.isAuthVerified && TP.isAuthVerified())) {
+    TP.toast && TP.toast('登入狀態未驗證，請重新登入後再送出。', true);
+    return false;
+  }
+  if (!recordId || !TP.getUrl || !TP.getUrl()) {
+    TP.toast && TP.toast('無法送出：缺少紀錄 id 或後端網址。你的輸入仍保留在畫面上。', true);
+    return false;
+  }
+  try {
+    const r = await TP.callAuth('coachFeedback', Object.assign({ recordId }, payload));
+    if (r && r.ok) { TP.toast && TP.toast(okMsg + '，已同步選手'); return true; }
+    TP.toast && TP.toast((r && (r.message || r.error)) || '送出失敗，請稍後重試。', true);
+    return false;
+  } catch (e) {
+    TP.toast && TP.toast('送出失敗，請確認網路後重試。你的輸入仍保留在畫面上。', true);
+    return false;
+  }
 }
 function metricTile(n, label, cls) {
   return '<div class="tp-metric ' + (cls || '') + '"><div class="n">' + esc(String(n)) + '</div><div class="l">' + esc(label) + '</div></div>';
 }
 function mchip(label, val) { return '<span class="mchip">' + esc(label) + ' <b>' + esc(val) + '</b></span>'; }
-function lightLabel(st) { return st === 'red' ? '🔴 紅燈' : st === 'yellow' ? '🟡 黃燈' : '🟢 綠燈'; }
+function lightLabel(st) { return st === 'red' ? '🔴 紅燈' : st === 'yellow' ? '🟡 黃燈' : st === 'gray' ? '灰色：資料不足' : '🟢 綠燈'; }
 
 /* 教練決策 / 回覆本機儲存（P0：先存前端 localStorage，之後可接後端同步） */
 function decisionKey() {
@@ -481,16 +535,26 @@ function injectReadinessCss() {
     '.tp-metric.alert .n{color:#f87171;}.tp-metric.warn .n{color:#fbbf24;}' +
     '.summary-actions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px;}' +
     '.war-missing{font-size:13px;margin:2px 0 6px;}' +
+    '.daily-action-panel{border:1px solid rgba(34,197,94,.22);border-radius:14px;padding:14px;margin:12px 0 14px;background:rgba(34,197,94,.06);}' +
+    '.daily-action-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px;}' +
+    '.daily-action-head h2{font-size:17px;margin:0 0 2px;}.daily-action-head p{margin:0;font-size:12.5px;}' +
+    '.daily-action-count{flex:none;border:1px solid rgba(255,255,255,.16);border-radius:9px;padding:5px 9px;font-size:12px;font-weight:800;background:rgba(255,255,255,.06);}' +
+    '.daily-action-list{display:grid;gap:7px;}.daily-action-item{display:grid;grid-template-columns:auto minmax(90px,1fr) minmax(120px,1.3fr);gap:8px;align-items:center;border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:8px;background:rgba(0,0,0,.13);font-size:13px;}' +
+    '.daily-action-item.red{border-left:4px solid #ef4444;}.daily-action-item.yellow{border-left:4px solid #f59e0b;}.daily-action-item.gray{border-left:4px solid #94a3b8;}.daily-action-item.missing{border-left:4px solid #38bdf8;}' +
+    '.daily-action-kind{font-size:11px;font-weight:800;border-radius:7px;padding:3px 7px;background:rgba(255,255,255,.09);white-space:nowrap;}' +
+    '.daily-action-empty{border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px;background:rgba(0,0,0,.12);font-size:13px;}' +
+    '.daily-action-tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}' +
     '.ath-card{border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px;margin:10px 0;background:rgba(255,255,255,.03);}' +
-    '.ath-card.lv-red{border-left:4px solid #ef4444;}.ath-card.lv-yellow{border-left:4px solid #f59e0b;}.ath-card.lv-green{border-left:4px solid #22c55e;}' +
+    '.ath-card.lv-red{border-left:4px solid #ef4444;}.ath-card.lv-yellow{border-left:4px solid #f59e0b;}.ath-card.lv-green{border-left:4px solid #22c55e;}.ath-card.lv-gray{border-left:4px solid #94a3b8;opacity:.92;}' +
     '.ath-head{display:flex;justify-content:space-between;align-items:center;gap:10px;}' +
     '.ath-name{font-weight:700;font-size:16px;display:flex;align-items:center;gap:8px;}' +
     '.ath-ava{width:34px;height:34px;border-radius:50%;flex:none;display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#2563eb,#22c55e);color:#fff;font-size:15px;font-weight:700;}' +
     '.ath-grp{display:block;font-size:11px;font-weight:500;opacity:.6;margin-top:1px;}' +
     '.ath-msg{font-size:13px;line-height:1.5;margin:8px 0;padding:8px 10px;border-radius:10px;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.2);}' +
     '.ath-dot{width:10px;height:10px;border-radius:50%;flex:none;}' +
-    '.ath-dot.red{background:#ef4444;}.ath-dot.yellow{background:#f59e0b;}.ath-dot.green{background:#22c55e;}' +
+    '.ath-dot.red{background:#ef4444;}.ath-dot.yellow{background:#f59e0b;}.ath-dot.green{background:#22c55e;}.ath-dot.gray{background:#94a3b8;}' +
     '.ath-score{text-align:right;line-height:1.05;}.ath-score b{font-size:26px;font-weight:800;}.ath-score small{display:block;font-size:11px;opacity:.7;}' +
+    '.ath-status-line{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 0;font-size:12px;}' +
     '.ath-metrics{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0;}' +
     '.mchip{background:rgba(255,255,255,.06);border-radius:8px;padding:5px 9px;font-size:12.5px;}' +
     '.ath-why,.ath-advice{font-size:13px;margin:7px 0;line-height:1.55;}' +
@@ -501,7 +565,7 @@ function injectReadinessCss() {
     '.ath-dec.sel{background:#22c55e;border-color:#22c55e;color:#04140a;font-weight:700;}' +
     '.ath-reply{display:flex;gap:6px;margin:6px 0;}.ath-reply-in{flex:1;min-width:0;}' +
     '.ath-decided{font-size:12.5px;margin-top:4px;}' +
-    '.ath-foot{margin-top:8px;}.ai-note{font-size:11px;margin:8px 0 0;opacity:.55;}' +
+    '.ath-foot{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}.ai-note{font-size:11px;margin:8px 0 0;opacity:.55;}' +
     '.admin-entry{margin-top:20px;border-top:1px solid rgba(255,255,255,.08);padding-top:12px;}' +
     '.admin-entry summary{cursor:pointer;font-weight:600;opacity:.8;}' +
     '.admin-entry .ae-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}' +
@@ -511,7 +575,8 @@ function injectReadinessCss() {
     '.dash-date-input{height:34px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);color:inherit;border-radius:9px;padding:0 8px;font-size:14px;color-scheme:dark;}' +
     '.dash-today-btn{height:34px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);color:inherit;border-radius:9px;padding:0 12px;font-size:13px;cursor:pointer;}' +
     '.dash-date-hint{font-size:12.5px;opacity:.7;margin-left:2px;}' +
-    '.dash-date-hint.is-history{color:#fbbf24;opacity:1;font-weight:600;}';
+    '.dash-date-hint.is-history{color:#fbbf24;opacity:1;font-weight:600;}' +
+    '@media(max-width:520px){.daily-action-head{align-items:stretch;flex-direction:column;}.daily-action-count{align-self:flex-start;}.daily-action-item{grid-template-columns:1fr;gap:3px;}.ath-status-line{align-items:flex-start;flex-direction:column;}}';
   const st = document.createElement('style');
   st.id = 'tp-readiness-css';
   st.textContent = css;
@@ -596,7 +661,7 @@ function renderHealth(s, opts) {
   const statusChip = opts.noBackend
     ? '<span class="status-chip check">未設定後端</span>'
     : online ? '<span class="status-chip done">連線正常</span>' : '<span class="status-chip missing">連線異常</span>';
-  const unsynced = opts.offline ? '<span class="status-chip check">有暫存未同步資料</span>' : '<span class="status-chip done">無</span>';
+  const unsynced = opts.offline ? '<span class="status-chip check">目前顯示離線資料</span>' : '<span class="status-chip done">無</span>';
   return '<details class="health-card"><summary>🩺 系統健康檢查</summary>' +
     '<div class="health-grid">' +
       '<div><span class="muted">後端連線</span>' + statusChip + '</div>' +
@@ -626,7 +691,7 @@ async function testConnection() {
   if (!TP.getUrl()) { if (out) out.textContent = '⚠ 尚未設定後端網址，請至「更多 → 設定」。'; return; }
   const r = await TP.callAuth('me');
   if (r && r.ok) { if (out) out.textContent = '✅ 後端連線正常。'; try { localStorage.setItem('teampro_lastSyncAt', new Date().toISOString()); } catch (e) {} }
-  else { if (out) out.textContent = '❌ 目前無法連線到後端，已暫存資料，請稍後重新同步。'; }
+  else { if (out) out.textContent = '❌ 目前無法連線到後端；請把畫面視為離線資料 / 非即時資料，稍後重新同步。'; }
 }
 
 /* ============ 家長安全摘要 ============ */

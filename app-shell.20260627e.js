@@ -4,6 +4,7 @@ const $$ = (s, root = document) => Array.from(root.querySelectorAll(s));
 const state = { coach: null, teams: null };
 const params = new URLSearchParams(location.search);
 const DEMO = params.get('demo') === '1';
+let routeWriteLock = false;
 const featureMap = {
   attendance: { title: '快速點名', module: './app-modules/attendance.js' },
   athletes: { title: '選手管理', module: './app-modules/athletes.js' },
@@ -25,6 +26,7 @@ async function boot() {
   bindTabs();
   if (DEMO) {
     state.coach = demoCoach();
+    TP.setAuthVerified && TP.setAuthVerified(true);
     showDashboard();
     return;
   }
@@ -32,9 +34,10 @@ async function boot() {
     showAuth();
     return;
   }
-  state.coach = cachedCoach() || { name: '教練', planName: '載入中' };
-  showDashboard();
-  refreshMeInBackground();
+  $('#shellCoach').textContent = '驗證登入中…';
+  const ok = await verifySession();
+  if (ok) openInitialRoute();
+  else showAuth('登入狀態已失效或暫時無法驗證，請重新登入。');
 }
 
 function bindAuth() {
@@ -59,25 +62,35 @@ function bindAuth() {
       TP.toast((r && r.error) || '登入失敗', true);
       return;
     }
+    TP.clearSensitiveCache && TP.clearSensitiveCache();
     TP.setToken(r.token);
+    TP.setAuthVerified && TP.setAuthVerified(true);
     state.coach = r.coach;
     cacheCoach(r.coach);
     showDashboard();
-    refreshMeInBackground();
   };
   $('#shellLogout').onclick = async () => {
     await TP.callAuth('logout');
-    TP.clearToken();
+    if (TP.logoutLocal) TP.logoutLocal();
+    else TP.clearToken();
     location.reload();
   };
   $('#quickAttendance').onclick = () => openFeature('attendance');
   const moreBtn = $('#shellMore');
   if (moreBtn) moreBtn.onclick = () => openFeature('more');
   $('#backDashboard').onclick = () => showDashboard();
-  $('#focusTrainingNote').onclick = () => $('#quickTrainingText').focus();
-  $('#organizeAiBtn').onclick = organizeTrainingText;
-  $('#aiOrganizeNow').onclick = organizeTrainingText;
-  $$('.flow-step[data-tab]').forEach(btn => btn.onclick = () => openFeature(btn.dataset.tab));
+  const focusTraining = $('#focusTrainingNote');
+  if (focusTraining) focusTraining.onclick = () => $('#quickTrainingText').focus();
+  const organizeBtn = $('#organizeAiBtn');
+  if (organizeBtn) organizeBtn.onclick = organizeTrainingText;
+  const aiNow = $('#aiOrganizeNow');
+  if (aiNow) aiNow.onclick = organizeTrainingText;
+  $$('.flow-step[data-tab]').forEach(btn => btn.onclick = () => {
+    const tab = btn.dataset.tab;
+    if (tab === 'tracking') openTracking();
+    else if (tab === 'dashboard') showDashboard();
+    else openFeature(tab);
+  });
   $$('.mode-entry[data-tab]').forEach(btn => btn.onclick = () => {
     const tab = btn.dataset.tab;
     if (tab === 'dashboard') showDashboard();
@@ -91,8 +104,17 @@ function bindTabs() {
       const tab = btn.dataset.tab;
       if (tab === 'dashboard') showDashboard();
       else if (tab === 'training') openTraining();
+      else if (tab === 'tracking') openTracking();
       else openFeature(tab);
     };
+  });
+  window.addEventListener('popstate', () => {
+    if (!DEMO && !(TP.isAuthVerified && TP.isAuthVerified())) {
+      showAuth();
+      return;
+    }
+    routeWriteLock = true;
+    openRoute(routeFromLocation() || 'dashboard').finally(() => { routeWriteLock = false; });
   });
 }
 
@@ -100,32 +122,73 @@ function bindTabs() {
 async function openTraining() {
   await showDashboard();
   setActiveTab('training');
+  setRoute('training');
   const el = $('#quickTrainingText');
   if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus(); }
+}
+
+async function openTracking() {
+  await showDashboard();
+  setActiveTab('tracking');
+  setRoute('tracking');
+  const el = $('#dailyActionPanel') || $('#dispositionSection');
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function setActiveTab(tab) {
   $$('#mobileTabbar button').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
 }
 
-function showAuth() {
+function showAuth(message) {
   $('#shellCoach').textContent = '尚未登入';
   $('#shellLogout').classList.add('hidden');
   $('#authPanel').classList.remove('hidden');
   $('#dashboardPanel').classList.add('hidden');
   $('#featurePanel').classList.add('hidden');
+  if (message) TP.toast(message, true);
   setActiveTab('dashboard');
 }
 
 async function showDashboard() {
+  if (!DEMO && !(TP.isAuthVerified && TP.isAuthVerified())) {
+    showAuth('請先登入後再查看戰情室。');
+    return;
+  }
   $('#shellCoach').textContent = state.coach ? `${state.coach.name || '教練'}｜${state.coach.planName || ''}` : '已登入';
   $('#shellLogout').classList.remove('hidden');
   $('#authPanel').classList.add('hidden');
   $('#featurePanel').classList.add('hidden');
   $('#dashboardPanel').classList.remove('hidden');
   setActiveTab('dashboard');
-  const mod = await import('./app-modules/dashboard.js?v=20260716-datebar');
+  setRoute('dashboard');
+  const mod = await import('./app-modules/dashboard.js?v=20260825-sec1');
   await mod.mountDashboard({ ensureTeams, today, coachKey, demo: DEMO });
+}
+
+async function openInitialRoute() {
+  const tab = routeFromLocation() || 'dashboard';
+  await openRoute(tab);
+}
+
+async function openRoute(tab) {
+  if (tab === 'dashboard') return showDashboard();
+  if (tab === 'training') return openTraining();
+  if (tab === 'tracking') return openTracking();
+  return openFeature(tab);
+}
+
+function routeFromLocation() {
+  const raw = String(location.hash || '').replace(/^#/, '');
+  const m = raw.match(/(?:^|&)tab=([^&]+)/);
+  const tab = m ? decodeURIComponent(m[1]) : '';
+  return ['dashboard', 'tracking', 'attendance', 'athletes', 'training', 'report', 'teams', 'settings', 'more'].indexOf(tab) !== -1 ? tab : '';
+}
+
+function setRoute(tab) {
+  if (routeWriteLock) return;
+  const hash = '#tab=' + encodeURIComponent(tab || 'dashboard');
+  if (location.hash === hash) return;
+  history.pushState({ tab }, '', hash);
 }
 
 function coachKey() {
@@ -142,14 +205,25 @@ function demoCoach() {
   return { coachId: 'demo-shell', email: 'demo@teampro.tw', name: 'Demo 教練', planName: '展示模式' };
 }
 async function refreshMeInBackground() {
+  return verifySession();
+}
+
+async function verifySession() {
   const r = await TP.callAuth('me');
   if (!r || !r.ok) {
-    if (!cachedCoach()) { TP.clearToken(); showAuth(); }
-    return;
+    TP.setAuthVerified && TP.setAuthVerified(false);
+    if (r && (r.needLogin || r.error === 'unauthorized')) {
+      if (TP.logoutLocal) TP.logoutLocal();
+      else TP.clearToken();
+    }
+    state.coach = null;
+    return false;
   }
   state.coach = r.coach;
+  TP.setAuthVerified && TP.setAuthVerified(true);
   cacheCoach(r.coach);
   $('#shellCoach').textContent = `${state.coach.name || '教練'}｜${state.coach.planName || ''}`;
+  return true;
 }
 
 async function ensureTeams() {
@@ -160,9 +234,8 @@ async function ensureTeams() {
 }
 
 async function openFeature(tab) {
-  const publicFeature = tab === 'more' || tab === 'settings';
-  if (!TP.getToken() && !publicFeature) {
-    showAuth();
+  if (!DEMO && !(TP.isAuthVerified && TP.isAuthVerified())) {
+    showAuth('請先登入後再開啟功能。');
     return;
   }
   const cfg = featureMap[tab] || featureMap.more;
@@ -172,8 +245,9 @@ async function openFeature(tab) {
   $('#featureTitle').textContent = cfg.title;
   $('#featureMount').innerHTML = '<div class="shell-card shell-loading">載入 ' + TP.esc(cfg.title) + '…</div>';
   setActiveTab(tab === 'more' ? 'more' : tab);
+  setRoute(tab);
   try {
-    const mod = await import(cfg.module + '?v=20260627-shell4');
+    const mod = await import(cfg.module + '?v=20260825-sec1');
     mod.mount($('#featureMount'));
   } catch (err) {
     console.error('TeamPro feature load failed:', tab, err);

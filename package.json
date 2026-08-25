@@ -1,0 +1,11 @@
+{
+  "type": "module",
+  "scripts": {
+    "test": "node tests/readiness-rules.test.mjs && node tests/static-security.test.mjs",
+    "test:browser": "playwright test tests/playwright-auth-nav.spec.cjs --reporter=line"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "http-server": "^14.1.1"
+  }
+}
