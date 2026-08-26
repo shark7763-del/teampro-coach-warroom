@@ -9,6 +9,7 @@ const sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
 const worker = readFileSync(new URL('../cloudflare-worker.js', import.meta.url), 'utf8');
 const headers = readFileSync(new URL('../_headers', import.meta.url), 'utf8');
 const gas = readFileSync(new URL('../apps-script/Code.gs', import.meta.url), 'utf8');
+const pwa = readFileSync(new URL('../pwa.js', import.meta.url), 'utf8');
 
 assert.match(api, /function logoutLocal\(\)/, 'api exposes local logout cleanup');
 assert.match(api, /clearSensitiveCache/, 'api exposes sensitive cache cleanup');
@@ -32,6 +33,9 @@ assert.match(sw, /'\/app', '\/join'/, 'service worker precaches extensionless ap
 assert.match(sw, /function isFastShell/, 'service worker has a fast shell route classifier');
 assert.match(sw, /if \(req\.method !== 'GET'\) return;/, 'service worker leaves POST APIs network-only');
 assert.match(sw, /stale-while-revalidate=86400/, 'service worker uses SWR for app/join shells');
+assert.match(sw, /teampro-v19-embed/, 'service worker cache version is bumped for embedded chrome fix');
+assert.match(pwa, /reg\.update\(\)/, 'PWA registration actively checks for service worker updates');
+assert.match(pwa, /controllerchange[\s\S]*tp_sw_updated/, 'PWA records when a new service worker takes control without interrupting current work');
 assert.match(worker, /url\.pathname === \"\/sw\.js\"[\s\S]*?no-cache/, 'worker keeps sw.js no-cache');
 assert.match(worker, /function isFastShell/, 'worker marks app/join shell routes separately');
 assert.match(headers, /\/sw\.js[\s\S]*?Cache-Control: no-cache/, '_headers keeps sw.js no-cache');

@@ -6,7 +6,23 @@
   // 1) 註冊 Service Worker
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('sw.js').catch(function () {/* 靜默失敗，不影響使用 */});
+      navigator.serviceWorker.register('sw.js').then(function (reg) {
+        try { reg.update(); } catch (e) {}
+        if (reg.waiting) reg.waiting.postMessage('skipWaiting');
+        reg.addEventListener('updatefound', function () {
+          var nw = reg.installing;
+          if (!nw) return;
+          nw.addEventListener('statechange', function () {
+            if (nw.state === 'installed' && navigator.serviceWorker.controller) nw.postMessage('skipWaiting');
+          });
+        });
+      }).catch(function () {/* 靜默失敗，不影響使用 */});
+      var reloaded = false;
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        if (reloaded) return;
+        reloaded = true;
+        try { sessionStorage.setItem('tp_sw_updated', '1'); } catch (e) {}
+      });
     });
   }
 
