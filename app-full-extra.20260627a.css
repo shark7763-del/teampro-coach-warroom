@@ -137,6 +137,18 @@
   /* 手機底部 5 分頁（更像 App） */
   .mobile-tabbar { display:none; }
   .embedded-appfull .mobile-tabbar { display:none !important; }
+  .embedded-appfull #appView { max-width:none; padding:0; }
+  .embedded-appfull #appView > .topbar,
+  .embedded-appfull #appView > .plan-banner,
+  .embedded-appfull #appView > .plan-insight,
+  .embedded-appfull #appView > .onboard-wrap,
+  .embedded-appfull #appView > .tabs,
+  .embedded-appfull #assistantBanner,
+  .embedded-appfull #signupWelcome {
+    display:none !important;
+  }
+  .embedded-appfull #appView > section { margin-top:0; }
+  .embedded-appfull .war-context-bar { margin-top:0; }
   @media (max-width:760px) {
     .tabs { display:none !important; }
     body { padding-bottom: calc(66px + env(safe-area-inset-bottom)); }

@@ -10,7 +10,7 @@ var CORE = [
   './', '/app', '/join', 'index.html', 'app.html', 'join.html', 'school.html', 'principal.html', 'handover.html', 'evaluation.html', 'export.html',
   'style.css?v=20260826-perf1', 'app-shell.20260627e.css', 'api.js?v=20260826-perf1', 'app-shell.20260627e.js?v=20260826-perf1',
   'app-modules/dashboard.js?v=20260826-perf1', 'app-modules/readiness-rules.js?v=20260826-perf1', 'app-modules/legacy-frame.js?v=20260826-perf1',
-  'app-full.html', 'app-full-extra.20260627a.css', 'app-full.20260627f.js?v=20260826-perf1',
+  'app-full.html', 'app-full-extra.20260627a.css?v=20260826-embed1', 'app-full.20260627f.js?v=20260826-perf1',
   'role-portal.css?v=20260627-role2', 'school-tools.js?v=20260627-role2', 'evaluation-tools.js?v=20260627-eval1', 'pwa.js?v=20260826-perf1', 'offline.html',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
   'assets/logo.webp'

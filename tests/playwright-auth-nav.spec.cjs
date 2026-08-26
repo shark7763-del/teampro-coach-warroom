@@ -205,6 +205,13 @@ test('priority retest 3: authenticated workflow navigation, history, and reload 
     await expect(page.locator('#featurePanel')).toBeVisible();
     await expect(page.locator('#featurePanel iframe.legacy-frame')).toHaveAttribute('src', new RegExp(`lazyTab=${tab}`));
     await expect(page.locator(`#mobileTabbar button[data-tab="${tab}"]`)).toHaveClass(/active/);
+    if (tab === 'attendance') {
+      const frame = page.frameLocator('#featurePanel iframe.legacy-frame');
+      await expect(frame.locator('#appView > .topbar')).toBeHidden();
+      await expect(frame.locator('#appView > .tabs')).toBeHidden();
+      await expect(frame.locator('#mobileTabbar')).toBeHidden();
+      await expect(frame.locator('#tab-attendance')).toBeVisible();
+    }
   }
 
   await page.locator('#mobileTabbar button[data-tab="dashboard"]').click();
