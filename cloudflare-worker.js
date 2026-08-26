@@ -39,7 +39,11 @@ export default {
     const headers = new Headers(response.headers);
 
     if (request.method === "GET") {
-      if (STATIC_RE.test(url.pathname)) {
+      if (url.pathname === "/sw.js") {
+        headers.set("Cache-Control", "no-cache");
+      } else if (isFastShell(path, url.pathname)) {
+        headers.set("Cache-Control", "public, max-age=60, stale-while-revalidate=86400");
+      } else if (STATIC_RE.test(url.pathname)) {
         headers.set("Cache-Control", "public, max-age=31536000, immutable");
       } else if (url.pathname.endsWith(".html") || request.headers.get("accept")?.includes("text/html")) {
         headers.set("Cache-Control", "no-cache");
@@ -53,3 +57,7 @@ export default {
     });
   },
 };
+
+function isFastShell(cleanPath, assetPath) {
+  return cleanPath === "/app" || cleanPath === "/join" || assetPath === "/app.html" || assetPath === "/join.html";
+}

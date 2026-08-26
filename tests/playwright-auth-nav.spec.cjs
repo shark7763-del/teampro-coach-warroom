@@ -19,8 +19,13 @@ async function mockGas(page, handler) {
 
 async function seedVerifiedSession(page, coachId = 'c_test') {
   await page.evaluate((coachIdArg) => {
-    localStorage.setItem('teampro_token', 'valid-test-token');
-    localStorage.setItem('teampro_auth_verified', new Date().toISOString());
+    if (window.TP && window.TP.setToken && window.TP.setAuthVerified) {
+      window.TP.setToken('valid-test-token');
+      window.TP.setAuthVerified(true);
+    } else {
+      localStorage.setItem('teampro_token', 'valid-test-token');
+      localStorage.setItem('teampro_auth_verified', new Date().toISOString());
+    }
     localStorage.setItem('teampro_shell_coach', JSON.stringify({
       coachId: coachIdArg,
       email: 'coach@example.test',
@@ -250,6 +255,48 @@ test('daily action queue prioritizes unhandled red and missing reports', async (
   await expect(page.locator('#dailyActionPanel')).toContainText('未回報測試選手');
   await expect(page.locator('.ath-card').filter({ hasText: '紅燈測試選手' })).toContainText('待教練處理');
   await expect(page.locator('.ath-card').filter({ hasText: '綠燈測試選手' })).toContainText('已處理');
+});
+
+test('repeated open renders verified cached warroom within 500ms without remote data', async ({ page }) => {
+  let releaseRemote;
+  const remoteGate = new Promise((resolve) => { releaseRemote = resolve; });
+  await page.route('https://script.google.com/macros/s/**/exec', async (route) => {
+    await remoteGate;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ ok: false, error: 'mock delayed' }),
+    });
+  });
+
+  await page.goto(`${BASE_URL}/app.html`);
+  await seedVerifiedSession(page, 'c_fast');
+  await page.evaluate(({ today }) => {
+    localStorage.setItem(`teampro_shell_todaySummary_c_fast__${today}`, JSON.stringify({
+      ok: true,
+      date: today,
+      totalAthletes: 1,
+      submittedCount: 1,
+      notSubmittedCount: 0,
+      athletes: [{
+        athleteId: 'a_fast',
+        recordId: 'r_fast',
+        name: '快取速度測試選手',
+        status: 'yellow',
+        painScore: 0,
+        fatigue: 7,
+        motivation: 4,
+      }],
+      missingNames: [],
+      updatedAt: new Date().toISOString(),
+    }));
+  }, { today: TODAY });
+
+  const start = Date.now();
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await expect(page.locator('.ath-card').filter({ hasText: '快取速度測試選手' })).toBeVisible({ timeout: 500 });
+  expect(Date.now() - start).toBeLessThan(500);
+  releaseRemote();
 });
 
 for (const viewport of [

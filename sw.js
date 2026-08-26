@@ -1,16 +1,17 @@
 /* TeamPro 教練戰情室 — Service Worker
    策略：
-   - 導覽請求 (navigate)：network-first，離線時回 cache，再不行回 /offline.html
+   - /app、/join 殼層導覽：cache-first + 背景更新，重複開啟優先速度
+   - 其他導覽請求：network-first，離線時回 cache，再不行回 /offline.html
    - 同源靜態檔 (css/js/png)：stale-while-revalidate
    - 跨來源 / 非 GET（GAS API 等）：完全不攔截，永遠走網路（資料即時、不快取）
 */
-var CACHE = 'teampro-v17-security';
+var CACHE = 'teampro-v18-perf';
 var CORE = [
-  './', 'index.html', 'app.html', 'join.html', 'school.html', 'principal.html', 'handover.html', 'evaluation.html', 'export.html',
-  'style.css?v=20260825-sec1', 'app-shell.20260627e.css', 'api.js?v=20260825-sec1', 'app-shell.20260627e.js?v=20260825-sec1',
-  'app-modules/dashboard.js?v=20260825-sec1', 'app-modules/readiness-rules.js', 'app-modules/legacy-frame.js',
-  'app-full.html', 'app-full-extra.20260627a.css', 'app-full.20260627f.js?v=20260825-sec1',
-  'role-portal.css?v=20260627-role2', 'school-tools.js?v=20260627-role2', 'evaluation-tools.js?v=20260627-eval1', 'pwa.js?v=20260825-sec1', 'offline.html',
+  './', '/app', '/join', 'index.html', 'app.html', 'join.html', 'school.html', 'principal.html', 'handover.html', 'evaluation.html', 'export.html',
+  'style.css?v=20260826-perf1', 'app-shell.20260627e.css', 'api.js?v=20260826-perf1', 'app-shell.20260627e.js?v=20260826-perf1',
+  'app-modules/dashboard.js?v=20260826-perf1', 'app-modules/readiness-rules.js?v=20260826-perf1', 'app-modules/legacy-frame.js?v=20260826-perf1',
+  'app-full.html', 'app-full-extra.20260627a.css', 'app-full.20260627f.js?v=20260826-perf1',
+  'role-portal.css?v=20260627-role2', 'school-tools.js?v=20260627-role2', 'evaluation-tools.js?v=20260627-eval1', 'pwa.js?v=20260826-perf1', 'offline.html',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
   'assets/logo.webp'
 ];
@@ -39,8 +40,25 @@ self.addEventListener('fetch', function (e) {
   var url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
-  // 導覽：network-first → cache → 離線頁
+  // /app、/join 殼層：cache-first → 背景更新 → 離線頁
   if (req.mode === 'navigate') {
+    if (isFastShell(url.pathname)) {
+      e.respondWith(
+        caches.match(req).then(function (hit) {
+          var net = fetch(req).then(function (res) {
+            if (res && res.status === 200) {
+              var copy = withCacheHeader(res.clone(), 'public, max-age=60, stale-while-revalidate=86400');
+              caches.open(CACHE).then(function (c) { c.put(req, copy); });
+            }
+            return withCacheHeader(res, 'public, max-age=60, stale-while-revalidate=86400');
+          }).catch(function () { return hit || caches.match('offline.html'); });
+          return hit || net;
+        })
+      );
+      return;
+    }
+
+    // 其他導覽：network-first → cache → 離線頁
     e.respondWith(
       fetch(req).then(function (res) {
         var copy = withCacheHeader(res.clone(), 'no-cache');
@@ -79,6 +97,10 @@ function withCacheHeader(res, value) {
   } catch (e) {
     return res;
   }
+}
+
+function isFastShell(pathname) {
+  return pathname === '/app' || pathname === '/join' || pathname === '/app.html' || pathname === '/join.html';
 }
 
 // 讓頁面可叫 SW 立即更新

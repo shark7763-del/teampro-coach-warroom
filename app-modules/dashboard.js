@@ -1,5 +1,5 @@
-import { escapeHtml } from './legacy-frame.js';
-import { evaluateReadiness } from './readiness-rules.js';
+import { escapeHtml } from './legacy-frame.js?v=20260826-perf1';
+import { evaluateReadiness } from './readiness-rules.js?v=20260826-perf1';
 
 const APP_VERSION = 'v2026.07.04';
 const esc = escapeHtml;
@@ -12,13 +12,13 @@ export async function mountDashboard(ctx) {
   injectReadinessCss();
   ensureDateBar(ctx);
   const root = document.getElementById('dashboardMount');
-  root.innerHTML = skeleton();
   const teamId = (document.getElementById('dashTeam') && document.getElementById('dashTeam').value) || '';
   const date = currentDate(ctx);
   const cacheKey = 'teampro_shell_todaySummary_' + (ctx.coachKey ? ctx.coachKey() : 'coach') + '_' + teamId + '_' + date;
   const canReadSensitiveCache = !!(ctx.demo || (TP.isAuthVerified && TP.isAuthVerified()));
   const cached = canReadSensitiveCache ? readSummary(cacheKey) : null;
   if (cached) renderSummary(root, cached, true, ctx, { stale: true });
+  else root.innerHTML = skeleton();
   if (ctx.demo) {
     const demo = cached || demoSummary(date);
     if (!cached) writeSummary(cacheKey, demo);
@@ -33,7 +33,18 @@ export async function mountDashboard(ctx) {
     renderSummary(root, cached || emptySummary(date), !!cached, ctx, { offline: true, noBackend: true });
     return;
   }
-  const r = await TP.callAuth('warroom', { teamId, date });
+  refreshWarroom(root, ctx, cacheKey, date, teamId, cached);
+}
+
+async function refreshWarroom(root, ctx, cacheKey, date, teamId, cached) {
+  const boot = ctx.getBootstrap ? ctx.getBootstrap() : null;
+  let r = boot && boot.warroom && String(boot.warroom.date || date) === String(date) ? boot.warroom : null;
+  if (!r && ctx.getBootstrapPromise) {
+    const ok = await ctx.getBootstrapPromise();
+    const nextBoot = ok && ctx.getBootstrap ? ctx.getBootstrap() : null;
+    r = nextBoot && nextBoot.warroom && String(nextBoot.warroom.date || date) === String(date) ? nextBoot.warroom : null;
+  }
+  if (!r) r = await TP.callAuth('warroom', { teamId, date });
   if (!r || !r.ok) {
     if (cached) {
       renderSummary(root, cached, true, ctx, { offline: true });

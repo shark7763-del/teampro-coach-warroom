@@ -6,6 +6,8 @@
   var LS_URL = 'teampro_webapp_url';
   var LS_TOKEN = 'teampro_token';
   var LS_AUTH_VERIFIED = 'teampro_auth_verified';
+  var LS_AUTH_TOKEN_SIG = 'teampro_auth_token_sig';
+  var AUTH_FAST_TTL_MS = 30 * 60 * 1000;
   var DEFAULT_LINE_URL = 'https://line.me/R/ti/p/@529utwnh';
 
   /* ============================================================
@@ -40,13 +42,38 @@
   function clearToken() { localStorage.removeItem(LS_TOKEN); setAuthVerified(false); }
   function setAuthVerified(ok) {
     try {
-      if (ok) localStorage.setItem(LS_AUTH_VERIFIED, new Date().toISOString());
-      else localStorage.removeItem(LS_AUTH_VERIFIED);
+      if (ok) {
+        localStorage.setItem(LS_AUTH_VERIFIED, new Date().toISOString());
+        localStorage.setItem(LS_AUTH_TOKEN_SIG, tokenSig(getToken()));
+      } else {
+        localStorage.removeItem(LS_AUTH_VERIFIED);
+        localStorage.removeItem(LS_AUTH_TOKEN_SIG);
+      }
     } catch (e) {}
   }
   function isAuthVerified() {
     try { return !!(getToken() && localStorage.getItem(LS_AUTH_VERIFIED)); }
     catch (e) { return false; }
+  }
+  function authVerifiedAt() {
+    try {
+      var raw = localStorage.getItem(LS_AUTH_VERIFIED);
+      var t = raw ? new Date(raw).getTime() : 0;
+      return isFinite(t) ? t : 0;
+    } catch (e) { return 0; }
+  }
+  function hasRecentAuth() {
+    var t = authVerifiedAt();
+    try {
+      return !!(getToken() && t && (Date.now() - t) < AUTH_FAST_TTL_MS &&
+        localStorage.getItem(LS_AUTH_TOKEN_SIG) === tokenSig(getToken()));
+    } catch (e) { return false; }
+  }
+  function tokenSig(token) {
+    var s = String(token || '');
+    var h = 0;
+    for (var i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+    return String(s.length) + ':' + String(h);
   }
   function sensitiveKey(name) {
     return /^teampro_(shell_coach|shell_todaySummary_|lastTodaySummary|lastAthleteBasicList|lastAttendanceList|lastSyncAt|dispositions_|decisions_|warcache_|parent_notice_count_|task_|first_report_seen|onboard|.*_guest$)/.test(name);
@@ -352,7 +379,7 @@
   global.TP = {
     isDemo: isDemo, mountDemoBanner: mountDemoBanner,
     getUrl: getUrl, setUrl: setUrl, getToken: getToken, setToken: setToken, clearToken: clearToken,
-    setAuthVerified: setAuthVerified, isAuthVerified: isAuthVerified,
+    setAuthVerified: setAuthVerified, isAuthVerified: isAuthVerified, authVerifiedAt: authVerifiedAt, hasRecentAuth: hasRecentAuth,
     clearSensitiveCache: clearSensitiveCache, logoutLocal: logoutLocal,
     getLineUrl: getLineUrl, setLineUrl: setLineUrl,
     planLimits: PLAN_LIMITS, getPlanLimits: getPlanLimits,

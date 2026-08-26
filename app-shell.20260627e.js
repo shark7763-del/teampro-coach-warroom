@@ -5,6 +5,8 @@ const state = { coach: null, teams: null };
 const params = new URLSearchParams(location.search);
 const DEMO = params.get('demo') === '1';
 let routeWriteLock = false;
+let bootstrapPromise = null;
+let bootstrapData = null;
 const featureMap = {
   attendance: { title: '快速點名', module: './app-modules/attendance.js' },
   athletes: { title: '選手管理', module: './app-modules/athletes.js' },
@@ -34,8 +36,16 @@ async function boot() {
     showAuth();
     return;
   }
+  const cached = cachedCoach();
+  if (TP.hasRecentAuth && TP.hasRecentAuth() && cached && (cached.coachId || cached.email)) {
+    state.coach = cached;
+    $('#shellCoach').textContent = `${cached.name || '教練'}｜${cached.planName || ''}`;
+    startBootstrap();
+    openInitialRoute();
+    return;
+  }
   $('#shellCoach').textContent = '驗證登入中…';
-  const ok = await verifySession();
+  const ok = await startBootstrap();
   if (ok) openInitialRoute();
   else showAuth('登入狀態已失效或暫時無法驗證，請重新登入。');
 }
@@ -67,6 +77,7 @@ function bindAuth() {
     TP.setAuthVerified && TP.setAuthVerified(true);
     state.coach = r.coach;
     cacheCoach(r.coach);
+    bootstrapData = { coach: r.coach, teams: null, warroom: null };
     showDashboard();
   };
   $('#shellLogout').onclick = async () => {
@@ -128,11 +139,13 @@ async function openTraining() {
 }
 
 async function openTracking() {
-  await showDashboard();
+  showDashboard();
   setActiveTab('tracking');
   setRoute('tracking');
-  const el = $('#dailyActionPanel') || $('#dispositionSection');
-  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  requestAnimationFrame(() => {
+    const el = $('#dailyActionPanel') || $('#dispositionSection');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 }
 
 function setActiveTab(tab) {
@@ -161,8 +174,8 @@ async function showDashboard() {
   $('#dashboardPanel').classList.remove('hidden');
   setActiveTab('dashboard');
   setRoute('dashboard');
-  const mod = await import('./app-modules/dashboard.js?v=20260825-sec1');
-  await mod.mountDashboard({ ensureTeams, today, coachKey, demo: DEMO });
+  const mod = await import('./app-modules/dashboard.js?v=20260826-perf1');
+  mod.mountDashboard({ ensureTeams, today, coachKey, demo: DEMO, getBootstrap, getBootstrapPromise });
 }
 
 async function openInitialRoute() {
@@ -205,7 +218,7 @@ function demoCoach() {
   return { coachId: 'demo-shell', email: 'demo@teampro.tw', name: 'Demo 教練', planName: '展示模式' };
 }
 async function refreshMeInBackground() {
-  return verifySession();
+  return startBootstrap();
 }
 
 async function verifySession() {
@@ -224,6 +237,45 @@ async function verifySession() {
   cacheCoach(r.coach);
   $('#shellCoach').textContent = `${state.coach.name || '教練'}｜${state.coach.planName || ''}`;
   return true;
+}
+
+function getBootstrap() {
+  return bootstrapData;
+}
+
+function getBootstrapPromise() {
+  return bootstrapPromise;
+}
+
+function startBootstrap() {
+  if (bootstrapPromise) return bootstrapPromise;
+  const date = today();
+  bootstrapPromise = TP.callAuth('bootstrap', { date }).then(async (r) => {
+    if (!r || !r.ok || !r.coach) {
+      if (r && (r.needLogin || r.error === 'unauthorized')) return false;
+      const fallback = await Promise.all([
+        TP.callAuth('me'),
+        TP.callAuth('listTeams'),
+        TP.callAuth('warroom', { date })
+      ]);
+      const meRes = fallback[0], teamsRes = fallback[1], warroomRes = fallback[2];
+      if (!meRes || !meRes.ok) return false;
+      r = {
+        ok: true,
+        coach: meRes.coach,
+        teams: teamsRes && teamsRes.ok ? teamsRes.teams : [],
+        warroom: warroomRes && warroomRes.ok ? warroomRes : null
+      };
+    }
+    state.coach = r.coach;
+    state.teams = r.teams || [];
+    bootstrapData = r;
+    TP.setAuthVerified && TP.setAuthVerified(true);
+    cacheCoach(r.coach);
+    $('#shellCoach').textContent = `${state.coach.name || '教練'}｜${state.coach.planName || ''}`;
+    return true;
+  }).catch(() => false).finally(() => { bootstrapPromise = null; });
+  return bootstrapPromise;
 }
 
 async function ensureTeams() {
@@ -247,7 +299,7 @@ async function openFeature(tab) {
   setActiveTab(tab === 'more' ? 'more' : tab);
   setRoute(tab);
   try {
-    const mod = await import(cfg.module + '?v=20260825-sec1');
+    const mod = await import(cfg.module + '?v=20260826-perf1');
     mod.mount($('#featureMount'));
   } catch (err) {
     console.error('TeamPro feature load failed:', tab, err);

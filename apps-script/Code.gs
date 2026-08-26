@@ -272,6 +272,7 @@ function handle(action, d) {
     /* ---- 教練帳號 ---- */
     case 'register':        return jsonOut(register(d));
     case 'login':           return jsonOut(login(d));
+    case 'bootstrap':       return jsonOut(withCoach(d, bootstrap));
     case 'me':              return jsonOut(me(d));
     case 'logout':          return jsonOut(logout(d));
     case 'updateProfile':   return jsonOut(withCoach(d, updateProfile));
@@ -653,6 +654,18 @@ function me(d) {
   var c = coachFromToken(d.token);
   if (!c) return { ok: false, error: 'unauthorized', needLogin: true };
   return { ok: true, coach: publicCoach(c.coachId), isAsst: !!c._isAsst };
+}
+
+function bootstrap(c, d) {
+  var date = d.date || todayStr();
+  var teamId = d.teamId || '';
+  return {
+    ok: true,
+    coach: publicCoach(c.coachId),
+    isAsst: !!c._isAsst,
+    teams: listTeams(c).teams || [],
+    warroom: warroom(c, { date: date, teamId: teamId })
+  };
 }
 
 /* ============================================================
@@ -1460,6 +1473,9 @@ function assistantPinStatus(c, d) {
 function warroom(c, d) {
   var date = d.date || todayStr();
   var teamId = d.teamId || '';
+  var cacheKey = warroomCacheKey_(c.coachId, teamId, date);
+  var cached = cacheGetJson_(cacheKey);
+  if (cached) return cached;
   var athletes = readAll(SHEETS.athletes).filter(function (a) {
     return String(a.coachId) === String(c.coachId) &&
            (String(a.active) !== 'false' && a.active !== false) &&
@@ -1533,7 +1549,7 @@ function warroom(c, d) {
     if (effectiveIds[String(a.athleteId)] && (weeklyByAthlete[String(a.athleteId)] || []).some(function (x) { return String(x.weekStart) === reviewWeek; })) weeklyCompleted++;
   });
   var weeklyTotal = athletes.filter(function (a) { return effectiveIds[String(a.athleteId)]; }).length;
-  return {
+  var out = {
     ok: true, date: date,
     total: athletes.length, submittedCount: submitted.length, missingCount: missing.length,
     completionRate: athletes.length ? Math.round(submitted.length / athletes.length * 100) : 0,
@@ -1546,6 +1562,29 @@ function warroom(c, d) {
       missing: missing, declining: declining, encouraging: worthEncouraging
     }
   };
+  cachePutJson_(cacheKey, out, 45);
+  return out;
+}
+
+function warroomCacheKey_(coachId, teamId, date) {
+  return ['warroom', coachId || '', teamId || 'all', date || todayStr()].join(':');
+}
+function cacheGetJson_(key) {
+  try {
+    var raw = CacheService.getScriptCache().get(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+function cachePutJson_(key, value, seconds) {
+  try { CacheService.getScriptCache().put(key, JSON.stringify(value), seconds || 45); } catch (e) {}
+}
+function clearWarroomCache_(coachId, teamId, date) {
+  try {
+    CacheService.getScriptCache().removeAll([
+      warroomCacheKey_(coachId, teamId || '', date || todayStr()),
+      warroomCacheKey_(coachId, '', date || todayStr())
+    ]);
+  } catch (e) {}
 }
 
 function trialSummary(c) {
@@ -1608,6 +1647,7 @@ function coachFeedback(c, d) {
     var obs = String(d.coachObservation || '');
     if (obs === '' || /^[1-5]$/.test(obs)) setCol('coachObservation', obs);
   }
+  clearWarroomCache_(c.coachId, rec.teamId || '', rec.date || todayStr());
   audit(c.email, 'coachFeedback', recId, String(d.decision || ''));
   return { ok: true, coachComment: d.feedback !== undefined ? (d.feedback || '') : (rec.coachComment || ''),
            coachDecision: d.decision !== undefined ? String(d.decision || '') : (rec.coachDecision || '') };
@@ -2298,10 +2338,12 @@ function submitRecord(d) {
   if (hitRow !== -1) {
     rec.recordId = existing[hitRow - 2].recordId || rec.recordId;
     sheet(SHEETS.records).getRange(hitRow, 1, 1, RECORD_HEADERS.length).setValues([toRow(SHEETS.records, rec)]);
+    clearWarroomCache_(t.coachId, t.teamId, date);
     return { ok: true, updated: true, totalScore: total, status: status, dimAvg: dimAvg,
              sleep: sleep, pain: pain, hydration: hydration, quality: quality };
   }
   appendObj(SHEETS.records, rec);
+  clearWarroomCache_(t.coachId, t.teamId, date);
   return { ok: true, updated: false, totalScore: total, status: status, dimAvg: dimAvg,
            sleep: sleep, pain: pain, hydration: hydration, quality: quality };
 }
