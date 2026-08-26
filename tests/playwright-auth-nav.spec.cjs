@@ -270,6 +270,7 @@ test('repeated open renders verified cached warroom within 500ms without remote 
   });
 
   await page.goto(`${BASE_URL}/app.html`);
+  await page.evaluate(() => navigator.serviceWorker ? navigator.serviceWorker.ready.then(() => true) : true);
   await seedVerifiedSession(page, 'c_fast');
   await page.evaluate(({ today }) => {
     localStorage.setItem(`teampro_shell_todaySummary_c_fast__${today}`, JSON.stringify({
