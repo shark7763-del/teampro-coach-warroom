@@ -54,6 +54,26 @@ for (const key of ['sleep', 'energy', 'fatigue', 'pain', 'mood', 'performance'])
   assert.ok(metrics.includes("'" + key + "'"), 'quick scale covers ' + key);
 }
 assert.match(join, /id="improveToday"/, 'join page asks what to improve today');
+
+// 量表是唯一輸入來源：下面的選填區塊不可以再問一次同一件事
+for (const [id, label] of [
+  ['sleepQuality', '睡眠品質下拉'],
+  ['fatigue"', '疲勞滑桿'],
+  ['painScore', '疼痛分數滑桿'],
+  ['moodRow', '心情表情列'],
+  ['painStatusChoices', '今日是否有疼痛'],
+]) {
+  assert.equal(join.includes('id="' + id), false, label + ' 與六題量表重複，應該只留量表');
+}
+assert.match(join, /var derived = \{ sleepQuality/, 'mapped values live in derived, not in duplicated inputs');
+assert.match(join, /sleepQuality: derived\.sleepQuality/, 'submit sends the derived sleep quality');
+assert.match(join, /fatigue: derived\.fatigue/, 'submit sends the derived fatigue');
+
+// 比賽紀錄已從每日回報移除
+for (const id of ['hasCompChoices', 'compBlock', 'compSelect', 'compPhotoBtn', 'compAwardLink']) {
+  assert.equal(join.includes('id="' + id + '"'), false, '比賽紀錄欄位 ' + id + ' 應已從日報移除');
+}
+assert.equal(join.includes('collectCompName'), false, 'daily payload no longer collects competition fields');
 assert.match(join, /function syncKpiEntry\(\)/, 'join page still exposes the KPI form when it is due');
 assert.match(
   join,

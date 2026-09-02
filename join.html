@@ -210,42 +210,26 @@
       <p class="muted" style="font-size:12px;">尿液顏色只是水分狀態參考，不是醫療診斷。若出現紅色、茶色、異常混濁或身體明顯不適，請主動告知教練與家長。</p>
     </details>
     <details class="card optional-daily">
-      <summary>選填：睡眠時間與疲勞細節</summary>
-      <h2 style="margin-top:0;">今日身體監控</h2>
+      <summary>選填：實際睡眠時間</summary>
+      <p class="muted" style="margin:8px 0 0;font-size:13px;">睡眠恢復與疲勞程度已在上面的量表填過，這裡只補「幾點睡、幾點起」，系統會換算實際時數。</p>
       <div class="grid grid-2">
         <div><label>昨晚幾點睡</label><input id="sleepBedTime" type="time"></div>
         <div><label>今天幾點起床</label><input id="wakeTime" type="time"></div>
-        <div><label>睡眠品質</label><select id="sleepQuality"><option value="good">好</option><option value="normal" selected>普通</option><option value="poor">差</option></select></div>
-        <div><label>系統計算</label><div id="sleepCalc" class="risk-note">請選擇就寢與起床時間</div></div>
-        <div>
-          <label>疲勞指數（1 很輕鬆 ～ 10 非常疲勞）</label>
-          <div class="slider-row" style="margin:2px 0;">
-            <div class="top"><span class="muted" id="fatigueHint">適中</span><span class="val" id="fatigueVal">5</span></div>
-            <input type="range" min="1" max="10" step="1" value="5" id="fatigue">
-          </div>
-        </div>
       </div>
+      <div id="sleepCalc" class="risk-note" style="margin-top:10px;">請選擇就寢與起床時間</div>
     </details>
     <details class="card optional-daily">
-      <summary>選填：傷勢細節</summary>
-      <h2 style="margin-top:0;">傷勢狀況</h2>
-      <label>今日是否有疼痛</label><div class="choice-grid" id="painStatusChoices"></div>
+      <summary>選填：疼痛部位與影響</summary>
+      <p class="muted" id="painStateNote" style="margin:8px 0 0;font-size:13px;"></p>
       <div id="painDetails" class="hidden">
         <label>疼痛部位（可複選）</label><div class="nutri-chips" id="injuryChips"></div>
-        <label>疼痛分數 0–10</label>
-        <div class="slider-row"><div class="top"><span id="painHint">完全不痛</span><span class="val" id="painVal">0</span></div><input id="painScore" type="range" min="0" max="10" step="1" value="0"></div>
-        <p class="muted" id="painScaleHelp" style="font-size:13px;margin:4px 0 10px;">0 分：完全不痛，身體感覺正常。</p>
         <label>功能影響</label><div class="choice-grid" id="painImpactChoices"></div>
         <label>疼痛補充說明（選填）</label><input id="injuryNote" placeholder="例：右膝外側，跳躍落地時會痛">
       </div>
     </details>
     <details class="card optional-daily">
       <summary>選填：心情補充</summary>
-      <h2 style="margin-top:0;">今日心情</h2>
-      <div class="mood-row" id="moodRow">
-        <button data-m="1">😣</button><button data-m="2">😕</button><button data-m="3">😐</button>
-        <button data-m="4">🙂</button><button data-m="5">😄</button>
-      </div>
+      <p class="muted" style="margin:8px 0 0;font-size:13px;">心情分數已在上面的量表填過，這裡補原因與想說的話就好。</p>
       <label>心情原因（選填）</label><input id="moodReason">
       <label>今天我想感謝的人事物（選填）</label><input id="gratitude">
       <label>想鼓勵的隊友（選填）</label><select id="encourageName"><option value="">—</option></select>
@@ -260,35 +244,6 @@
       <label>明天準備怎麼調整？</label>
       <textarea id="reflection" placeholder="例：早點睡，訓練前先把膝蓋熱開。"></textarea>
     </div>
-    <details class="card optional-daily">
-      <summary>選填：比賽紀錄</summary>
-      <h2 style="margin-top:0;">🏆 比賽紀錄</h2>
-      <div class="choice-grid" id="hasCompChoices"></div>
-      <div id="compBlock" class="hidden">
-        <label>比賽名稱（沒看到就輸入新的，隊友下次就能直接選）</label>
-        <select id="compSelect"></select>
-        <input id="compNew" class="hidden" placeholder="輸入新比賽名稱" style="margin-top:8px;">
-        <div class="grid grid-2">
-          <div><label>比賽日期</label><input id="compDate" type="date"></div>
-          <div><label>地點（選填）</label><input id="compLocation" placeholder="例：林口體育館"></div>
-        </div>
-        <label>成績</label>
-        <div class="choice-grid" id="compResultChoices"></div>
-        <label>細節（選填，例：秒數 / 比分 / 對手）</label><input id="compDetail">
-        <label>比賽心得（點選 + 選填）</label>
-        <div class="nutri-chips" id="compReflChips"></div>
-        <input id="compReflNote" placeholder="選填，一句話">
-        <label>🏅 獎狀照片</label>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <input id="compPhotoFile" type="file" accept="image/*" capture="environment" style="display:none;">
-          <button type="button" class="btn btn-sm" id="compPhotoBtn">📷 上傳獎狀照</button>
-          <span id="compPhotoStatus" class="muted" style="font-size:13px;"></span>
-        </div>
-        <img id="compPhotoPreview" class="hidden" style="max-width:160px;border-radius:10px;margin-top:8px;" alt="獎狀預覽">
-        <label class="consent" for="compAward" style="margin-top:10px;"><input type="checkbox" id="compAward"><span>🏅 已拍獎狀照（先記錄有拍，未上傳也可）</span></label>
-        <input id="compAwardLink" placeholder="或貼獎狀 / 相簿連結（選填）" style="margin-top:6px;">
-      </div>
-    </details>
     <div class="card">
       <div class="risk-note yellow">這份回報會影響教練今天的訓練安排，請依照真實狀況填寫。</div>
       <div id="painSubmitWarn" class="risk-note yellow hidden">你填寫的疼痛狀況會提醒教練調整訓練內容，請確認是否符合真實感受。</div>
@@ -350,7 +305,7 @@
   var $ = TP.$, esc = TP.esc, toast = TP.toast;
   var params = new URLSearchParams(location.search);
   var shareToken = params.get('t') || '';
-  var ctx = { team: null, athletes: [], athleteId: '', name: '', last: null, result: null, kpiState: null, pin: '', compPhotoUrl: '' };
+  var ctx = { team: null, athletes: [], athleteId: '', name: '', last: null, result: null, kpiState: null, pin: '' };
   var mood = 3;
 
   /* ---------- 啟動 ---------- */
@@ -465,8 +420,10 @@
   var INJURY = ['頭頸', '肩', '手肘', '手腕', '背', '腰', '髖', '膝', '腳踝', '腳掌', '其他'];
   var nutriSel = { breakfast: [], lunch: [], dinner: [] };
   var injurySel = [];
-  var formState = { painStatus: 'none', painImpact: 'none', waterAmount: 'normal', sweatAmount: 'normal', urineColor: 'pale_yellow', hasComp: 'no', compResult: '' };
+  var formState = { painStatus: 'none', painImpact: 'none', waterAmount: 'normal', sweatAmount: 'normal', urineColor: 'pale_yellow' };
   var quickState = { sleep: 3, energy: 3, fatigue: 3, pain: 5, mood: 3, performance: 3 };
+  // 由六題量表換算出來、要送給後端的既有欄位（沒有對應的畫面元件）
+  var derived = { sleepQuality: 'normal', fatigue: 5, painScore: 0 };
   var QUICK_METRICS = [
     ['sleep', '睡眠恢復', '1 很差・5 很好'],
     ['energy', '精神狀態', '1 很低・5 很好'],
@@ -475,12 +432,6 @@
     ['mood', '心理 / 心情', '1 很差・5 很好'],
     ['performance', '今日訓練表現', '1 不理想・5 很好']
   ];
-  var HAS_COMP = [['no', '沒有'], ['yes', '有比賽']];
-  var COMP_RESULTS = [['gold', '🥇 金牌'], ['silver', '🥈 銀牌'], ['bronze', '🥉 銅牌'], ['top8', '第 4–8 名'], ['advance', '晉級'], ['out', '止步'], ['exp', '參賽經驗']];
-  var COMP_REFL = ['發揮正常', '緊張失常', '有進步', '帶傷出賽', '裁判判決', '超常發揮'];
-  var compReflSel = [];
-  var compsLoaded = false;
-  var PAIN_STATUS = [['none','無疼痛'],['old','舊傷不適'],['new','新出現疼痛'],['acute','急性受傷']];
   var PAIN_IMPACT = [['none','不影響訓練'],['high_intensity','高強度時會痛'],['power_down','動作出力下降'],['cannot_sport','無法完成專項動作'],['daily_affected','日常活動也受影響']];
   var WATER = [['very_little','很少（少於 1,000 cc）'],['normal','普通（1,000–1,499 cc）'],['enough','足夠（1,500–2,499 cc）'],['a_lot','很多（2,500 cc 以上）']];
   var SWEAT = [['low','少'],['normal','普通'],['high','多'],['very_high','非常多']];
@@ -528,22 +479,21 @@
     applyQuickMapping();
   }
 
+  // 六題量表是唯一輸入來源；睡眠品質、疲勞指數、疼痛狀態都由它換算，
+  // 下方選填區塊只補量表問不到的資訊，不重複問同一件事。
   function applyQuickMapping() {
-    $('#sleepQuality').value = quickState.sleep >= 4 ? 'good' : (quickState.sleep <= 2 ? 'poor' : 'normal');
-    $('#fatigue').value = Math.max(1, Math.min(10, 12 - quickState.fatigue * 2));
-    updateFatigueUi();
+    derived.sleepQuality = quickState.sleep >= 4 ? 'good' : (quickState.sleep <= 2 ? 'poor' : 'normal');
+    derived.fatigue = Math.max(1, Math.min(10, 12 - quickState.fatigue * 2));
     mood = quickState.mood;
-    TP.$all('#moodRow button').forEach(function (x) { x.classList.toggle('sel', Number(x.dataset.m) === mood); });
     if (quickState.pain >= 4) {
       formState.painStatus = 'none';
-      $('#painScore').value = 0;
+      derived.painScore = 0;
       formState.painImpact = 'none';
     } else {
       formState.painStatus = quickState.pain === 1 ? 'acute' : 'old';
-      $('#painScore').value = quickState.pain === 1 ? 7 : (quickState.pain === 2 ? 5 : 3);
+      derived.painScore = quickState.pain === 1 ? 7 : (quickState.pain === 2 ? 5 : 3);
       formState.painImpact = quickState.pain === 1 ? 'power_down' : 'high_intensity';
     }
-    TP.$all('button', $('#painStatusChoices')).forEach(function (x) { x.classList.toggle('sel', x.dataset.value === formState.painStatus); });
     TP.$all('button', $('#painImpactChoices')).forEach(function (x) { x.classList.toggle('sel', x.dataset.value === formState.painImpact); });
     $('#painDetails').classList.toggle('hidden', formState.painStatus === 'none');
     updatePainUi();
@@ -593,15 +543,6 @@
     buildChipRow('nutri_lunch', NUTRI, nutriSel.lunch, {});
     buildChipRow('nutri_dinner', NUTRI, nutriSel.dinner, {});
     buildChipRow('injuryChips', INJURY, injurySel, {});
-    buildSingleChoices('painStatusChoices', PAIN_STATUS, 'painStatus', function (v) {
-      $('#painDetails').classList.toggle('hidden', v === 'none');
-      if (v === 'none') {
-        injurySel.length = 0; $('#painScore').value = 0; formState.painImpact = 'none';
-        TP.$all('button', $('#injuryChips')).forEach(function (x) { x.classList.remove('sel'); });
-        TP.$all('button', $('#painImpactChoices')).forEach(function (x) { x.classList.toggle('sel', x.dataset.value === 'none'); });
-      }
-      updatePainUi();
-    });
     buildSingleChoices('painImpactChoices', PAIN_IMPACT, 'painImpact', updatePainUi);
     buildSingleChoices('waterChoices', WATER, 'waterAmount');
     buildSingleChoices('sweatChoices', SWEAT, 'sweatAmount');
@@ -610,26 +551,6 @@
     buildQuickScales();
     applyQuickMapping();
 
-    // 比賽紀錄
-    buildSingleChoices('hasCompChoices', HAS_COMP, 'hasComp', updateCompUi);
-    buildSingleChoices('compResultChoices', COMP_RESULTS, 'compResult');
-    buildChipRow('compReflChips', COMP_REFL, compReflSel, {});
-    $('#compSelect').onchange = function () { $('#compNew').classList.toggle('hidden', this.value !== '__new__'); };
-    $('#compPhotoBtn').onclick = function () { $('#compPhotoFile').click(); };
-    $('#compPhotoFile').onchange = async function () {
-      var f = this.files && this.files[0]; if (!f) return;
-      $('#compPhotoStatus').textContent = '壓縮上傳中…';
-      try {
-        var dataUrl = await compressImage(f, 1200, 0.7);
-        var r = await TP.call('uploadAwardPhoto', { t: shareToken, athleteId: ctx.athleteId, compName: collectCompName(), dataUrl: dataUrl });
-        if (r.ok) {
-          ctx.compPhotoUrl = r.url; $('#compPhotoPreview').src = r.url; $('#compPhotoPreview').classList.remove('hidden');
-          $('#compPhotoStatus').textContent = '✅ 已上傳'; $('#compAward').checked = true;
-        } else { $('#compPhotoStatus').textContent = r.error || '上傳失敗'; }
-      } catch (e) { $('#compPhotoStatus').textContent = '圖片處理失敗，請換一張'; }
-    };
-
-    $('#painScore').addEventListener('input', updatePainUi); updatePainUi();
     ['sleepBedTime', 'wakeTime'].forEach(function (id) { $('#' + id).addEventListener('input', updateSleepUi); });
 
     // 訓練時段「無訓練」切換
@@ -647,24 +568,9 @@
     // BMI 即時計算
     ['heightCm', 'weightKg'].forEach(function (id) { $('#' + id).addEventListener('input', updateBmi); });
 
-    // 疲勞滑桿 1–10
-    $('#fatigue').addEventListener('input', updateFatigueUi);
-    updateFatigueUi();
-
     // 訓練日期：預設台灣本地今天、上限今天（不可挑未來），可往回補填
     var dt = $('#recordDate');
     if (dt) { dt.value = localToday(); dt.max = localToday(); }
-  }
-
-  // 疲勞滑桿的畫面同步：快速量表對映與使用者手動拖曳都會用到，所以放在最外層。
-  function updateFatigueUi() {
-    var fa = $('#fatigue');
-    if (!fa) return;
-    var pct = (fa.value - 1) / 9 * 100;
-    fa.style.background = 'linear-gradient(90deg, var(--brand) ' + pct + '%, var(--panel-2) ' + pct + '%)';
-    $('#fatigueVal').textContent = fa.value;
-    var v = Number(fa.value);
-    $('#fatigueHint').textContent = v <= 3 ? '輕鬆' : (v <= 6 ? '適中' : (v <= 8 ? '偏累' : '非常疲勞'));
   }
 
   function sleepMinutes() {
@@ -685,59 +591,17 @@
     $('#sleepSubmitWarn').classList.toggle('hidden', mins >= 300);
   }
   function updatePainUi() {
-    var score = formState.painStatus === 'none' ? 0 : Number($('#painScore').value || 0);
-    $('#painVal').textContent = score;
-    $('#painHint').textContent = score === 0 ? '完全不痛' : score <= 3 ? '輕度疼痛' : score <= 6 ? '中度疼痛' : score <= 9 ? '重度疼痛' : '痛到極限';
-    $('#painScaleHelp').textContent = score === 0 ? '0 分：完全不痛，身體感覺正常，能正常發揮。'
-      : score <= 3 ? '1–3 分：輕微緊繃或隱痛，日常與技術動作大致不受影響。'
-      : score <= 6 ? '4–6 分：動作時明顯疼痛、出力下降，應降低訓練強度。'
-      : score <= 9 ? '7–9 分：靜止時也可能疼痛，應停止專項訓練並告知教練。'
-      : '10 分：無法忍受的劇痛，請停止活動並立即尋求協助。';
+    var score = formState.painStatus === 'none' ? 0 : derived.painScore;
+    $('#painStateNote').textContent = score === 0
+      ? '你在量表填「不太痛 / 不痛」，不需要補傷勢細節。若其實有痛，請把上面的疼痛狀況改低一點。'
+      : '依你填的疼痛狀況換算為 ' + score + ' / 10（' + (score <= 3 ? '輕度' : score <= 6 ? '中度' : '重度') + '）。請補上部位與影響，教練才知道要避開什麼動作。';
     $('#painSubmitWarn').classList.toggle('hidden', score < 4);
-  }
-
-  async function updateCompUi(v) {
-    var on = (v || formState.hasComp) === 'yes';
-    $('#compBlock').classList.toggle('hidden', !on);
-    if (!on) return;
-    if (!$('#compDate').value) $('#compDate').value = localToday();
-    if (compsLoaded) return;
-    compsLoaded = true;
-    var r = await TP.call('teamCompetitions', { t: shareToken });
-    var comps = (r.ok && r.competitions) || [];
-    $('#compSelect').innerHTML = comps.map(function (c) {
-      return '<option value="' + esc(c.name) + '" data-loc="' + esc(c.location || '') + '" data-date="' + esc(c.date || '') + '">' + esc(c.name) + '（' + esc(String(c.date).slice(5)) + '）</option>';
-    }).join('') + '<option value="__new__">＋ 輸入新比賽</option>';
-    if (!comps.length) { $('#compSelect').value = '__new__'; $('#compNew').classList.remove('hidden'); }
-    else { // 帶入第一場的地點/日期
-      var o = $('#compSelect').options[$('#compSelect').selectedIndex];
-      if (o && o.dataset.loc && !$('#compLocation').value) $('#compLocation').value = o.dataset.loc;
-    }
   }
 
   // 本地（非 UTC）日期 YYYY-MM-DD，修正晨操時段被算到前一天的時區問題
   function localToday() {
     var d = new Date();
     return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-  }
-
-  // 前端壓縮圖片：最長邊縮到 maxSide、轉 JPEG，避免 base64 過大撐爆 GAS 上傳
-  function compressImage(file, maxSide, quality) {
-    return new Promise(function (resolve, reject) {
-      var reader = new FileReader();
-      reader.onload = function () {
-        var img = new Image();
-        img.onload = function () {
-          var s = Math.min(1, maxSide / Math.max(img.width, img.height));
-          var cw = Math.round(img.width * s), ch = Math.round(img.height * s);
-          var c = document.createElement('canvas'); c.width = cw; c.height = ch;
-          c.getContext('2d').drawImage(img, 0, 0, cw, ch);
-          resolve(c.toDataURL('image/jpeg', quality));
-        };
-        img.onerror = reject; img.src = reader.result;
-      };
-      reader.onerror = reject; reader.readAsDataURL(file);
-    });
   }
 
   function slotVal(id) {
@@ -757,29 +621,14 @@
       ].filter(Boolean).join('\n'),
       injuryAreas: formState.painStatus === 'none' ? '無受傷' : (injurySel.join(',') || '未填部位'),
       injuryNote: $('#injuryNote').value.trim(),
-      sleepBedTime: $('#sleepBedTime').value, wakeTime: $('#wakeTime').value, sleepQuality: $('#sleepQuality').value,
-      painStatus: formState.painStatus, painAreas: injurySel.join(','), painScore: formState.painStatus === 'none' ? 0 : Number($('#painScore').value),
+      sleepBedTime: $('#sleepBedTime').value, wakeTime: $('#wakeTime').value, sleepQuality: derived.sleepQuality,
+      painStatus: formState.painStatus, painAreas: injurySel.join(','), painScore: formState.painStatus === 'none' ? 0 : derived.painScore,
       painImpact: formState.painImpact, painNote: $('#injuryNote').value.trim(),
       waterAmount: formState.waterAmount, sweatAmount: formState.sweatAmount, urineColor: formState.urineColor,
-      fatigue: $('#fatigue').value,
-      encourageName: $('#encourageName').value, encourageMsg: $('#encourageMsg').value.trim(),
-      // 比賽紀錄（有比賽才帶）
-      compName: collectCompName(),
-      compDate: formState.hasComp === 'yes' ? ($('#compDate').value || localToday()) : '',
-      compLocation: formState.hasComp === 'yes' ? $('#compLocation').value.trim() : '',
-      compResult: formState.hasComp === 'yes' ? formState.compResult : '',
-      compDetail: formState.hasComp === 'yes' ? $('#compDetail').value.trim() : '',
-      compReflection: formState.hasComp === 'yes' ? compReflSel.concat($('#compReflNote').value.trim() ? [$('#compReflNote').value.trim()] : []).join('、') : '',
-      compAward: formState.hasComp === 'yes' && ($('#compAward').checked || !!ctx.compPhotoUrl),
-      compAwardLink: formState.hasComp === 'yes' ? (ctx.compPhotoUrl || $('#compAwardLink').value.trim()) : ''
+      fatigue: derived.fatigue,
+      encourageName: $('#encourageName').value, encourageMsg: $('#encourageMsg').value.trim()
     };
   }
-  function collectCompName() {
-    if (formState.hasComp !== 'yes') return '';
-    var sel = $('#compSelect').value;
-    return (sel === '__new__' || !sel) ? $('#compNew').value.trim() : sel;
-  }
-
   async function refreshKpiState() {
     var st = await TP.call('kpi2State', { t: shareToken, athleteId: ctx.athleteId, date: ($('#recordDate').value || localToday()), pin: ctx.pin });
     if (st && st.ok && st.version === 'v2') {
@@ -1216,15 +1065,6 @@
     if (cur === 'body') show('who');
     else if (cur === 'kpi') { cur = 'body'; show('result'); }
   };
-
-  // 心情
-  TP.$all('#moodRow button').forEach(function (b) {
-    b.onclick = function () {
-      mood = Number(b.dataset.m);
-      TP.$all('#moodRow button').forEach(function (x) { x.classList.remove('sel'); });
-      b.classList.add('sel');
-    };
-  });
 
   /* ---------- 送出 ---------- */
   function collectScores() {

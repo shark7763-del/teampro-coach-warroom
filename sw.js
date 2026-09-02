@@ -5,7 +5,7 @@
    - 同源靜態檔 (css/js/png)：stale-while-revalidate
    - 跨來源 / 非 GET（GAS API 等）：完全不攔截，永遠走網路（資料即時、不快取）
 */
-var CACHE = 'teampro-v21-simple-ia';
+var CACHE = 'teampro-v22-daily-slim';
 var CORE = [
   './', '/app', '/join', 'index.html', 'app.html', 'join.html', 'school.html', 'principal.html', 'handover.html', 'evaluation.html', 'export.html',
   'style.css?v=20260826-perf1', 'app-shell.20260627e.css?v=20260902-ia3', 'api.js?v=20260826-perf1', 'app-shell.20260627e.js?v=20260902-ia3',
