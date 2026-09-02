@@ -344,6 +344,7 @@ function handle(action, d) {
     case 'adminListCoaches':return jsonOut(withAdmin(d, adminListCoaches));
     case 'adminUpdatePlan': return jsonOut(withAdmin(d, adminUpdatePlan));
     case 'adminSetStatus':  return jsonOut(withAdmin(d, adminSetStatus));
+    case 'adminResetCoachPassword': return jsonOut(withAdmin(d, adminResetCoachPassword));
     case 'adminStats':      return jsonOut(withAdmin(d, adminStats));
 
     default:                return jsonOut({ ok: false, error: '未知 action：' + action });
@@ -2399,6 +2400,22 @@ function adminSetStatus(d) {
   sheet(SHEETS.coaches).getRange(row, H.coaches.indexOf('status') + 1).setValue(st);
   audit('admin', 'setStatus', d.coachId, st);
   return { ok: true, status: st };
+}
+
+function adminResetCoachPassword(d) {
+  var coachId = String(d.coachId || '');
+  var row = findRow(SHEETS.coaches, 'coachId', coachId);
+  if (row === -1) return { ok: false, error: '找不到教練' };
+  var c = readAll(SHEETS.coaches)[row - 2];
+  var temporaryPassword = uid('tp_').slice(0, 14);
+  var salt = uid('s_');
+  var s = sheet(SHEETS.coaches);
+  s.getRange(row, H.coaches.indexOf('salt') + 1).setValue(salt);
+  s.getRange(row, H.coaches.indexOf('passwordHash') + 1).setValue(hashPassword(temporaryPassword, salt));
+  var ids = {}; ids[coachId] = true;
+  deleteRowsByCoach(SHEETS.sessions, 'coachId', ids);
+  audit('admin', 'resetCoachPassword', coachId, String(c.email || ''));
+  return { ok: true, email: c.email, name: c.name, temporaryPassword: temporaryPassword };
 }
 
 function adminStats(d) {

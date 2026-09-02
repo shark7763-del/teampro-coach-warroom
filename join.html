@@ -697,6 +697,19 @@
     return (sel === '__new__' || !sel) ? $('#compNew').value.trim() : sel;
   }
 
+  async function refreshKpiState() {
+    var st = await TP.call('kpi2State', { t: shareToken, athleteId: ctx.athleteId, date: ($('#recordDate').value || localToday()), pin: ctx.pin });
+    if (st && st.ok && st.version === 'v2') {
+      ctx.kpiState = st;
+      applyKpiLabels();
+      return st;
+    }
+    var r = await TP.call('kpiFormState', { t: shareToken, athleteId: ctx.athleteId, date: ($('#recordDate').value || localToday()), pin: ctx.pin });
+    ctx.kpiState = r;
+    applyKpiLabels();
+    return r;
+  }
+
   /* ---------- 選身分 ---------- */
   async function startFill(id, name) {
     ctx.athleteId = id;
@@ -706,14 +719,12 @@
     $('#encourageName').innerHTML = '<option value="">—</option>' + ctx.athletes
       .filter(function (a) { return a.athleteId !== id; })
       .map(function (a) { return '<option value="' + esc(a.name) + '">' + esc(a.name) + '</option>'; }).join('');
-    // 先查 KPI 版本：v2 且已開啟 KPI 追蹤 → 走 15 題錨點填答；否則走原每日輕量回報
+    // 每日飲食、睡眠、水分與疲勞一定先填；KPI 量表只在日報送出後提示續填。
     ctx.kpiState = null;
-    var st = await TP.call('kpi2State', { t: shareToken, athleteId: id, date: localToday(), pin: ctx.pin });
-    if (st && st.ok && st.version === 'v2' && st.kpiEffective) { startKpi2(st.sportCategory, st); return; }
     cur = 'body';
     show('body');
-    TP.call('kpiFormState', { t: shareToken, athleteId: id, date: localToday(), pin: ctx.pin }).then(function (r) {
-      ctx.kpiState = r; applyKpiLabels();
+    refreshKpiState().then(function (state) {
+      $('#btnWeeklyKpi').classList.toggle('hidden', !(state && state.kpiDue));
     });
   }
 
@@ -1224,8 +1235,7 @@
     showResult(r, payload, tips);
     show('result');
     // 儲存成功後立即顯示結果，KPI 狀態在背景更新。
-    TP.call('kpiFormState', { t: shareToken, athleteId: ctx.athleteId, date: localToday(), pin: ctx.pin }).then(function (state) {
-      ctx.kpiState = state; applyKpiLabels();
+    refreshKpiState().then(function (state) {
       $('#btnWeeklyKpi').classList.toggle('hidden', !(state && state.kpiDue));
     });
   }
@@ -1254,7 +1264,10 @@
   function kpiTitle() { return (ctx.kpiState && ctx.kpiState.cadence === 'daily') ? '今日狀態回報' : '上週狀態回報'; }
   function applyKpiLabels() {
     var t = kpiTitle();
-    var b = document.getElementById('btnWeeklyKpi'); if (b) b.textContent = '繼續填寫' + t + '（約 3–5 分鐘）';
+    var b = document.getElementById('btnWeeklyKpi');
+    if (b) b.textContent = (ctx.kpiState && ctx.kpiState.version === 'v2')
+      ? '繼續填寫新版 15 題狀態量表（約 2–3 分鐘）'
+      : '繼續填寫' + t + '（約 3–5 分鐘）';
     var h = document.getElementById('kpiStepTitle'); if (h) h.textContent = t;
   }
   async function kpiPin() {
@@ -1287,6 +1300,10 @@
 
   $('#btnWeeklyKpi').onclick = function () {
     if (!ctx.kpiState || !ctx.kpiState.kpiDue) return;
+    if (ctx.kpiState.version === 'v2') {
+      startKpi2(ctx.kpiState.sportCategory, ctx.kpiState);
+      return;
+    }
     var daily = ctx.kpiState.cadence === 'daily';
     $('#kpiPeriod').textContent = daily
       ? ('評估日：' + ctx.kpiState.weekStart + '。請依今天的實際表現評分，不要直接複製上次答案。')

@@ -317,6 +317,7 @@
     $('#tabLogin').className = 'btn' + (m === 'login' ? ' btn-primary' : '');
     $('#tabSignup').className = 'btn' + (m === 'signup' ? ' btn-primary' : '');
     $('#signupFields').classList.toggle('hidden', m !== 'signup');
+    $('#forgotPasswordHint').classList.toggle('hidden', m !== 'login');
     $('#authSubmit').textContent = (m === 'signup') ? '免費註冊' : '登入';
     $('#authHint').textContent = (m === 'signup')
       ? '註冊即免費開通；示範資料使用獨立前端模式，不會寫入你的正式帳號。'

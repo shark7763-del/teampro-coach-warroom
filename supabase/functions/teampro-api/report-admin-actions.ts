@@ -1,5 +1,5 @@
 import { requireCoach } from "./coach-actions.ts";
-import { effectivePlan, expired, PLANS, type Data, type Db } from "./lib.ts";
+import { audit, effectivePlan, expired, legacyPasswordHash, PLANS, type Data, type Db, uid } from "./lib.ts";
 
 export async function reportAction(db: Db, action: string, d: Data): Promise<Data | null> {
   if (!["teamReport", "visitSummary"].includes(action)) return null;
@@ -88,7 +88,7 @@ export async function reportAction(db: Db, action: string, d: Data): Promise<Dat
 }
 
 export async function adminAction(db: Db, action: string, d: Data): Promise<Data | null> {
-  if (!["adminListCoaches", "adminUpdatePlan", "adminSetStatus", "adminStats"].includes(action)) return null;
+  if (!["adminListCoaches", "adminUpdatePlan", "adminSetStatus", "adminResetCoachPassword", "adminStats"].includes(action)) return null;
   const expected = Deno.env.get("ADMIN_PASSWORD") || "";
   if (!expected || String(d.adminPassword || "") !== expected) return { ok: false, error: "管理者密碼錯誤或未設定" };
   if (action === "adminUpdatePlan") {
@@ -104,6 +104,17 @@ export async function adminAction(db: Db, action: string, d: Data): Promise<Data
     const status = d.status === "disabled" ? "disabled" : "active";
     const { data, error } = await db.from("coaches").update({ status, updated_at: new Date().toISOString() }).eq("coach_id", d.coachId).select("coach_id").maybeSingle();
     return !data || error ? { ok: false, error: "找不到教練" } : { ok: true, status };
+  }
+  if (action === "adminResetCoachPassword") {
+    const coachId = String(d.coachId || "");
+    const temporaryPassword = uid("tp_").slice(0, 14);
+    const salt = uid("s_");
+    const hash = await legacyPasswordHash(temporaryPassword, salt);
+    const { data: coach, error } = await db.from("coaches").update({ legacy_password_hash: hash, legacy_password_salt: salt, updated_at: new Date().toISOString() }).eq("coach_id", coachId).select("*").maybeSingle();
+    if (!coach || error) return { ok: false, error: "找不到教練" };
+    await db.from("coach_sessions").delete().eq("coach_id", coachId);
+    await audit(db, coach, "adminResetCoachPassword", coachId);
+    return { ok: true, email: coach.email, name: coach.name, temporaryPassword };
   }
   const { data: coaches } = await db.from("coaches").select("*").order("created_at", { ascending: false });
   const { data: counts } = await db.from("athletes").select("coach_id").eq("active", true);

@@ -132,6 +132,7 @@
         '<td class="muted">' + (c.lastLogin ? String(c.lastLogin).slice(0, 10) : '—') + '</td>' +
         '<td class="actions">' +
           '<button class="btn btn-sm" data-save="' + c.coachId + '">儲存</button>' +
+          '<button class="btn btn-sm" data-reset-pw="' + c.coachId + '" data-name="' + esc(c.name) + '" data-email="' + esc(c.email) + '">重設密碼</button>' +
           '<button class="btn btn-sm ' + (c.status === 'disabled' ? '' : 'btn-danger') + '" data-status="' + c.coachId +
             '" data-cur="' + c.status + '">' + (c.status === 'disabled' ? '啟用' : '停用') + '</button>' +
         '</td></tr>';
@@ -145,6 +146,19 @@
         var paymentNote = $('[data-note="' + id + '"]').value.trim();
         var rr = await TP.call('adminUpdatePlan', { adminPassword: pw, coachId: id, plan: plan, planExpiry: exp, paymentNote: paymentNote });
         if (rr.ok) { toast('已更新方案'); refreshStats(); } else { toast(rr.error, true); }
+      };
+    });
+    TP.$all('[data-reset-pw]', tbody).forEach(function (b) {
+      b.onclick = async function () {
+        var id = b.dataset.resetPw;
+        var name = b.dataset.name || '這位教練';
+        var email = b.dataset.email || '';
+        if (!confirm('重設「' + name + '」的登入密碼？\n重設後舊密碼會失效，既有登入也會登出。')) return;
+        var rr = await TP.call('adminResetCoachPassword', { adminPassword: pw, coachId: id });
+        if (!rr.ok) { toast(rr.error || '重設失敗', true); return; }
+        var text = (rr.name || name) + '教練您好，您的 TeamPro 登入密碼已重設。\n\n登入 Email：' + (rr.email || email) + '\n臨時密碼：' + rr.temporaryPassword + '\n\n請登入後到「設定」更改為自己的密碼。';
+        await TP.copy(text);
+        alert('已重設密碼，臨時密碼如下（只顯示一次）：\n\n' + rr.temporaryPassword + '\n\n已同時複製通知文字，可貼給教練。');
       };
     });
     TP.$all('[data-status]', tbody).forEach(function (b) {
