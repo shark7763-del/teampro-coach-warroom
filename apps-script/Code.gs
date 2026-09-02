@@ -2407,7 +2407,9 @@ function adminResetCoachPassword(d) {
   var row = findRow(SHEETS.coaches, 'coachId', coachId);
   if (row === -1) return { ok: false, error: '找不到教練' };
   var c = readAll(SHEETS.coaches)[row - 2];
-  var temporaryPassword = uid('tp_').slice(0, 14);
+  var requestedPassword = String(d.newPassword || '').trim();
+  if (requestedPassword && requestedPassword.length < 6) return { ok: false, error: '新密碼至少 6 碼' };
+  var temporaryPassword = requestedPassword || uid('tp_').slice(0, 14);
   var salt = uid('s_');
   var s = sheet(SHEETS.coaches);
   s.getRange(row, H.coaches.indexOf('salt') + 1).setValue(salt);

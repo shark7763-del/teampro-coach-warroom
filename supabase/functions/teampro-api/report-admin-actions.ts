@@ -107,7 +107,9 @@ export async function adminAction(db: Db, action: string, d: Data): Promise<Data
   }
   if (action === "adminResetCoachPassword") {
     const coachId = String(d.coachId || "");
-    const temporaryPassword = uid("tp_").slice(0, 14);
+    const requestedPassword = String(d.newPassword || "").trim();
+    if (requestedPassword && requestedPassword.length < 6) return { ok: false, error: "新密碼至少 6 碼" };
+    const temporaryPassword = requestedPassword || uid("tp_").slice(0, 14);
     const salt = uid("s_");
     const hash = await legacyPasswordHash(temporaryPassword, salt);
     const { data: coach, error } = await db.from("coaches").update({ legacy_password_hash: hash, legacy_password_salt: salt, updated_at: new Date().toISOString() }).eq("coach_id", coachId).select("*").maybeSingle();

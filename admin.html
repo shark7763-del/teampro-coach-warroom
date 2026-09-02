@@ -154,7 +154,9 @@
         var name = b.dataset.name || '這位教練';
         var email = b.dataset.email || '';
         if (!confirm('重設「' + name + '」的登入密碼？\n重設後舊密碼會失效，既有登入也會登出。')) return;
-        var rr = await TP.call('adminResetCoachPassword', { adminPassword: pw, coachId: id });
+        var nextPassword = (prompt('請輸入要設定的新密碼（至少 6 碼）。\n\n若留空，系統會自動產生臨時密碼。') || '').trim();
+        if (nextPassword && nextPassword.length < 6) { toast('新密碼至少 6 碼', true); return; }
+        var rr = await TP.call('adminResetCoachPassword', { adminPassword: pw, coachId: id, newPassword: nextPassword });
         if (!rr.ok) { toast(rr.error || '重設失敗', true); return; }
         var text = (rr.name || name) + '教練您好，您的 TeamPro 登入密碼已重設。\n\n登入 Email：' + (rr.email || email) + '\n臨時密碼：' + rr.temporaryPassword + '\n\n請登入後到「設定」更改為自己的密碼。';
         await TP.copy(text);
