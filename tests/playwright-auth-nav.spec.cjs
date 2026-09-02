@@ -41,7 +41,8 @@ test('unauthenticated shell does not load athlete data or feature iframes', asyn
   await expect(page.locator('#featurePanel')).toBeHidden();
   await expect(page.locator('text=尚未登入')).toBeVisible();
 
-  for (const tab of ['tracking', 'athletes', 'attendance', 'report']) {
+  await expect(page.locator('#mobileTabbar button')).toHaveText(['🏠今日', '🏃選手', '☰更多']);
+  for (const tab of ['athletes', 'more']) {
     await page.locator(`#mobileTabbar button[data-tab="${tab}"]`).click();
     await expect(page.locator('#authPanel')).toBeVisible();
     await expect(page.locator('#featurePanel')).toBeHidden();
@@ -193,18 +194,29 @@ test('priority retest 3: authenticated workflow navigation, history, and reload 
   await expect(page.locator('#dashboardPanel')).toBeVisible();
   await expect(page.locator('#dailyActionPanel')).toBeVisible();
 
-  await page.locator('#mobileTabbar button[data-tab="tracking"]').click();
+  await page.locator('#mobileTabbar button[data-tab="more"]').click();
+  await expect(page.locator('.more-hub')).toBeVisible();
+  await expect(page.locator('#mobileTabbar button[data-tab="more"]')).toHaveClass(/active/);
+
+  await page.locator('[data-more-tab="tracking"]').click();
   await expect(page).toHaveURL(/#tab=tracking$/);
   await expect(page.locator('#dashboardPanel')).toBeVisible();
   await expect(page.locator('#dailyActionPanel')).toBeVisible();
-  await expect(page.locator('#mobileTabbar button[data-tab="tracking"]')).toHaveClass(/active/);
+  await expect(page.locator('#mobileTabbar button[data-tab="more"]')).toHaveClass(/active/);
 
-  for (const tab of ['athletes', 'attendance', 'report']) {
-    await page.locator(`#mobileTabbar button[data-tab="${tab}"]`).click();
+  await page.locator('#mobileTabbar button[data-tab="athletes"]').click();
+  await expect(page).toHaveURL(/#tab=athletes$/);
+  await expect(page.locator('#featurePanel')).toBeVisible();
+  await expect(page.locator('#featurePanel iframe.legacy-frame')).toHaveAttribute('src', /lazyTab=athletes/);
+  await expect(page.locator('#mobileTabbar button[data-tab="athletes"]')).toHaveClass(/active/);
+
+  for (const tab of ['attendance', 'report']) {
+    await page.locator('#mobileTabbar button[data-tab="more"]').click();
+    await page.locator(`[data-more-tab="${tab}"]`).click();
     await expect(page).toHaveURL(new RegExp(`#tab=${tab}$`));
     await expect(page.locator('#featurePanel')).toBeVisible();
     await expect(page.locator('#featurePanel iframe.legacy-frame')).toHaveAttribute('src', new RegExp(`lazyTab=${tab}`));
-    await expect(page.locator(`#mobileTabbar button[data-tab="${tab}"]`)).toHaveClass(/active/);
+    await expect(page.locator('#mobileTabbar button[data-tab="more"]')).toHaveClass(/active/);
     if (tab === 'attendance') {
       const frame = page.frameLocator('#featurePanel iframe.legacy-frame');
       await expect(frame.locator('#appView > .topbar')).toBeHidden();
@@ -219,11 +231,16 @@ test('priority retest 3: authenticated workflow navigation, history, and reload 
   await expect(page.locator('#dashboardPanel')).toBeVisible();
   await expect(page.locator('#featurePanel')).toBeHidden();
 
-  await page.locator('#mobileTabbar button[data-tab="report"]').click();
+  await page.locator('#mobileTabbar button[data-tab="more"]').click();
+  await page.locator('[data-more-tab="report"]').click();
   await page.reload();
   await expect(page).toHaveURL(/#tab=report$/);
   await expect(page.locator('#featurePanel')).toBeVisible();
   await expect(page.locator('#featurePanel iframe.legacy-frame')).toHaveAttribute('src', /lazyTab=report/);
+
+  await page.goBack();
+  await expect(page).toHaveURL(/#tab=more$/);
+  await expect(page.locator('.more-hub')).toBeVisible();
 
   await page.goBack();
   await expect(page).toHaveURL(/#tab=dashboard$/);

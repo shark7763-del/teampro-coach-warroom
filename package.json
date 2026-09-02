@@ -1,8 +1,8 @@
 {
   "type": "module",
   "scripts": {
-    "test": "node tests/readiness-rules.test.mjs && node tests/static-security.test.mjs",
-    "test:browser": "playwright test tests/playwright-auth-nav.spec.cjs --reporter=line"
+    "test": "node tests/readiness-rules.test.mjs && node tests/static-security.test.mjs && node tests/simple-ia.test.mjs",
+    "test:browser": "playwright test tests/playwright-auth-nav.spec.cjs tests/playwright-join-daily.spec.cjs --reporter=line"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",

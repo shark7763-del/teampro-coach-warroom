@@ -46,6 +46,16 @@
   .choice-grid button { min-height:46px; padding:10px 8px; border:1px solid var(--line); border-radius:12px;
     background:var(--panel-2); color:var(--text); font-size:15px; cursor:pointer; }
   .choice-grid button.sel { border-color:var(--brand); background:rgba(34,197,94,.15); font-weight:800; }
+  .quick-scale { display:grid; gap:14px; margin-top:12px; }
+  .quick-scale-row { border-top:1px solid var(--line); padding-top:12px; }
+  .quick-scale-row:first-child { border-top:0; padding-top:0; }
+  .quick-scale-row .quick-head { display:flex; justify-content:space-between; gap:8px; align-items:baseline; margin-bottom:8px; }
+  .quick-scale-row .quick-head b { font-size:15px; }
+  .quick-scale-row .quick-head span { color:var(--muted); font-size:12px; text-align:right; }
+  .quick-buttons { display:grid; grid-template-columns:repeat(5,1fr); gap:6px; }
+  .quick-buttons button { min-height:44px; border:1px solid var(--line); border-radius:10px; background:var(--panel-2); color:var(--text); font-weight:800; font-size:16px; cursor:pointer; }
+  .quick-buttons button.sel { border-color:var(--brand); background:rgba(34,197,94,.18); }
+  .optional-daily summary { cursor:pointer; font-weight:800; font-size:17px; }
   .choice-grid.urine-grid button { text-align:left; }
   .choice-grid.urine-grid button[data-value="clear"] { border-left:8px solid #e5f7ff; }
   .choice-grid.urine-grid button[data-value="pale_yellow"] { border-left:8px solid #fff7a8; }
@@ -106,7 +116,7 @@
         <label for="consentW" style="margin:0;">我同意填寫並由教練查看我的訓練與身體狀態資料（未滿 18 歲已取得家長同意）。</label>
       </div>
       <button class="btn btn-primary btn-block" id="whoWelcomeGo" style="margin-top:14px;">✅ 這就是我，開始填寫 →</button>
-      <button class="btn btn-block" id="whoWelcomePerf" style="margin-top:8px;">📈 看我的近期表現</button>
+      <button class="btn btn-block hidden" id="whoWelcomePerf" style="margin-top:8px;">📈 看我的近期表現</button>
       <button class="btn btn-block" id="whoSwitch" style="margin-top:8px;color:var(--muted);">不是我，換一位 ↺</button>
     </div>
 
@@ -120,7 +130,7 @@
         <label for="consent" style="margin:0;">我同意填寫並由教練查看我的訓練與身體狀態資料（未滿 18 歲已取得家長同意）。</label>
       </div>
       <button class="btn btn-primary btn-block" id="whoNext" style="margin-top:14px;">開始填寫 →</button>
-      <button class="btn btn-block" id="whoPerf" style="margin-top:8px;">📈 看我的近期表現</button>
+      <button class="btn btn-block hidden" id="whoPerf" style="margin-top:8px;">📈 看我的近期表現</button>
     </div>
 
     <p class="muted" style="font-size:12px;text-align:center;margin:12px 0 0;"><a href="privacy.html" target="_blank" rel="noopener">隱私權與資料使用說明</a></p>
@@ -162,6 +172,7 @@
       <label>回報日期</label><input id="recordDate" type="date">
       <label style="margin-top:10px;">這天是？</label>
       <select id="sessionType"><option value="training">訓練日</option><option value="rest">非訓練日</option></select>
+      <div class="quick-scale" id="dailyQuickScale"></div>
       <details style="margin-top:12px;"><summary style="cursor:pointer;font-weight:700;">選填：今日訓練課表</summary>
         <div class="train-slot"><span class="slot-name">上午</span><input id="train_am" placeholder="例：晨操、跑步 30 分"><button type="button" class="notrain" data-for="train_am">無訓練</button></div>
         <div class="train-slot"><span class="slot-name">下午</span><input id="train_pm" placeholder="例：專項訓練 6 組、核心訓練"><button type="button" class="notrain" data-for="train_pm">無訓練</button></div>
@@ -187,7 +198,8 @@
         <div><label>宵夜</label><input id="lateNightSnack"></div>
       </div>
     </details>
-    <div class="card">
+    <details class="card optional-daily">
+      <summary>選填：水分與尿色細節</summary>
       <h2 style="margin-top:0;">水分狀態</h2>
       <label>今日喝水量（參考範圍）</label><div class="choice-grid" id="waterChoices"></div>
       <p class="muted" style="font-size:12px;margin:5px 0 10px;"><b>參考：</b>很少 ＜800cc・普通 800–1500cc・足夠 1500–2500cc・很多 ＞2500cc（1 cc = 1 mL；以今天截至目前喝的白開水與無糖飲品估算，個人需求依體重、天氣與訓練量而異）。</p>
@@ -196,8 +208,9 @@
       <label>今日尿液顏色</label><div class="choice-grid urine-grid" id="urineChoices"></div>
       <p class="muted" id="urineHint" style="font-size:13px;margin:5px 0;"></p>
       <p class="muted" style="font-size:12px;">尿液顏色只是水分狀態參考，不是醫療診斷。若出現紅色、茶色、異常混濁或身體明顯不適，請主動告知教練與家長。</p>
-    </div>
-    <div class="card">
+    </details>
+    <details class="card optional-daily">
+      <summary>選填：睡眠時間與疲勞細節</summary>
       <h2 style="margin-top:0;">今日身體監控</h2>
       <div class="grid grid-2">
         <div><label>昨晚幾點睡</label><input id="sleepBedTime" type="time"></div>
@@ -212,8 +225,9 @@
           </div>
         </div>
       </div>
-    </div>
-    <div class="card">
+    </details>
+    <details class="card optional-daily">
+      <summary>選填：傷勢細節</summary>
       <h2 style="margin-top:0;">傷勢狀況</h2>
       <label>今日是否有疼痛</label><div class="choice-grid" id="painStatusChoices"></div>
       <div id="painDetails" class="hidden">
@@ -224,8 +238,9 @@
         <label>功能影響</label><div class="choice-grid" id="painImpactChoices"></div>
         <label>疼痛補充說明（選填）</label><input id="injuryNote" placeholder="例：右膝外側，跳躍落地時會痛">
       </div>
-    </div>
-    <div class="card">
+    </details>
+    <details class="card optional-daily">
+      <summary>選填：心情補充</summary>
       <h2 style="margin-top:0;">今日心情</h2>
       <div class="mood-row" id="moodRow">
         <button data-m="1">😣</button><button data-m="2">😕</button><button data-m="3">😐</button>
@@ -235,14 +250,18 @@
       <label>今天我想感謝的人事物（選填）</label><input id="gratitude">
       <label>想鼓勵的隊友（選填）</label><select id="encourageName"><option value="">—</option></select>
       <label>想對他說的鼓勵（選填）</label><input id="encourageMsg" placeholder="例：今天你表現超棒，繼續加油！">
-    </div>
+    </details>
     <div class="card">
       <h2 style="margin-top:0;">訓練心得</h2>
-      <label>今天的訓練心得（學到什麼、哪裡進步、哪裡卡關）</label>
-      <textarea id="trainingNotes" placeholder="例：今天動作更順，但實戰反應還是慢半拍，下次想多練。"></textarea>
-      <label>我想請教練幫忙的事（選填）</label><textarea id="reflection" placeholder="例：想加強某個動作、最近睡不好想調整課表、課業跟不上想請假補習…"></textarea>
+      <label>今天做得最好的是？</label>
+      <textarea id="trainingNotes" placeholder="例：今天動作比較穩，最後一組也有撐住。"></textarea>
+      <label>今天最需要改善的是？</label>
+      <textarea id="improveToday" placeholder="例：反應慢半拍，切入時機還不夠好。"></textarea>
+      <label>明天準備怎麼調整？</label>
+      <textarea id="reflection" placeholder="例：早點睡，訓練前先把膝蓋熱開。"></textarea>
     </div>
-    <div class="card">
+    <details class="card optional-daily">
+      <summary>選填：比賽紀錄</summary>
       <h2 style="margin-top:0;">🏆 比賽紀錄</h2>
       <div class="choice-grid" id="hasCompChoices"></div>
       <div id="compBlock" class="hidden">
@@ -269,7 +288,7 @@
         <label class="consent" for="compAward" style="margin-top:10px;"><input type="checkbox" id="compAward"><span>🏅 已拍獎狀照（先記錄有拍，未上傳也可）</span></label>
         <input id="compAwardLink" placeholder="或貼獎狀 / 相簿連結（選填）" style="margin-top:6px;">
       </div>
-    </div>
+    </details>
     <div class="card">
       <div class="risk-note yellow">這份回報會影響教練今天的訓練安排，請依照真實狀況填寫。</div>
       <div id="painSubmitWarn" class="risk-note yellow hidden">你填寫的疼痛狀況會提醒教練調整訓練內容，請確認是否符合真實感受。</div>
@@ -282,20 +301,19 @@
   <!-- Step 3：結果 -->
   <div id="step-result" class="step">
     <div class="card center">
-      <h2 style="margin-top:0;">今日回報完成 🎉</h2>
+      <h2 style="margin-top:0;">今日回報完成</h2>
       <div class="result-score" id="resScore">—</div>
       <div id="resLight"></div>
       <div id="resDims" class="muted" style="margin-top:10px;font-size:14px;"></div>
     </div>
-    <div class="card">
-      <h3 style="margin-top:0;">🥗 AI 飲食與恢復建議</h3>
+    <details class="card optional-daily">
+      <summary>看建議與分享文字</summary>
+      <h3 style="margin:12px 0 6px;">🥗 AI 飲食與恢復建議</h3>
       <div id="resAdvice" class="muted"></div>
-    </div>
-    <div class="card">
-      <h3 style="margin-top:0;">分享文字</h3>
+      <h3 style="margin:14px 0 6px;">分享文字</h3>
       <button class="btn btn-block" id="btnCopyStudent" style="margin-bottom:8px;">📋 複製給自己的摘要</button>
       <button class="btn btn-block" id="btnCopyParent">👨‍👩‍👧 複製家長版</button>
-    </div>
+    </details>
     <button class="btn btn-primary btn-block hidden" id="btnWeeklyKpi" style="margin-top:12px;">繼續填寫上週 KPI（約 3–5 分鐘）</button>
     <button class="btn btn-primary btn-block" id="btnAgain" style="margin-top:12px;">完成</button>
   </div>
@@ -322,7 +340,7 @@
 <div class="sticky-bar hidden" id="navBar">
   <div class="container">
     <button class="btn" id="navPrev" style="flex:1;">← 上一步</button>
-    <button class="btn btn-primary" id="navNext" style="flex:2;">下一步 →</button>
+    <button class="btn btn-primary" id="navNext" style="flex:2;">送出今日回報</button>
   </div>
 </div>
 
@@ -333,6 +351,7 @@
   var params = new URLSearchParams(location.search);
   var shareToken = params.get('t') || '';
   var ctx = { team: null, athletes: [], athleteId: '', name: '', last: null, result: null, kpiState: null, pin: '', compPhotoUrl: '' };
+  var mood = 3;
 
   /* ---------- 啟動 ---------- */
   async function boot() {
@@ -400,6 +419,7 @@
       $('#step-' + s).classList.toggle('active', s === step);
     });
     $('#navBar').classList.toggle('hidden', step !== 'kpi' && step !== 'body');
+    if (step === 'body') $('#navNext').textContent = '送出今日回報';
     window.scrollTo(0, 0);
   }
 
@@ -446,6 +466,15 @@
   var nutriSel = { breakfast: [], lunch: [], dinner: [] };
   var injurySel = [];
   var formState = { painStatus: 'none', painImpact: 'none', waterAmount: 'normal', sweatAmount: 'normal', urineColor: 'pale_yellow', hasComp: 'no', compResult: '' };
+  var quickState = { sleep: 3, energy: 3, fatigue: 3, pain: 5, mood: 3, performance: 3 };
+  var QUICK_METRICS = [
+    ['sleep', '睡眠恢復', '1 很差・5 很好'],
+    ['energy', '精神狀態', '1 很低・5 很好'],
+    ['fatigue', '疲勞程度', '1 很累・5 很輕鬆'],
+    ['pain', '疼痛狀況', '1 很痛・5 不痛'],
+    ['mood', '心理 / 心情', '1 很差・5 很好'],
+    ['performance', '今日訓練表現', '1 不理想・5 很好']
+  ];
   var HAS_COMP = [['no', '沒有'], ['yes', '有比賽']];
   var COMP_RESULTS = [['gold', '🥇 金牌'], ['silver', '🥈 銀牌'], ['bronze', '🥉 銅牌'], ['top8', '第 4–8 名'], ['advance', '晉級'], ['out', '止步'], ['exp', '參賽經驗']];
   var COMP_REFL = ['發揮正常', '緊張失常', '有進步', '帶傷出賽', '裁判判決', '超常發揮'];
@@ -474,6 +503,50 @@
       };
       box.appendChild(b);
     });
+  }
+
+  function buildQuickScales() {
+    var box = $('#dailyQuickScale');
+    if (!box) return;
+    box.innerHTML = QUICK_METRICS.map(function (m) {
+      return '<div class="quick-scale-row" data-quick="' + esc(m[0]) + '">' +
+        '<div class="quick-head"><b>' + esc(m[1]) + '</b><span>' + esc(m[2]) + '</span></div>' +
+        '<div class="quick-buttons">' + [1,2,3,4,5].map(function (n) {
+          return '<button type="button" data-score="' + n + '"' + (quickState[m[0]] === n ? ' class="sel"' : '') + '>' + n + '</button>';
+        }).join('') + '</div>' +
+      '</div>';
+    }).join('');
+    TP.$all('[data-quick] button', box).forEach(function (b) {
+      b.onclick = function () { setQuickScore(b.closest('[data-quick]').dataset.quick, Number(b.dataset.score)); };
+    });
+  }
+
+  function setQuickScore(key, score) {
+    quickState[key] = score;
+    var row = $('[data-quick="' + key + '"]');
+    if (row) TP.$all('button', row).forEach(function (b) { b.classList.toggle('sel', Number(b.dataset.score) === score); });
+    applyQuickMapping();
+  }
+
+  function applyQuickMapping() {
+    $('#sleepQuality').value = quickState.sleep >= 4 ? 'good' : (quickState.sleep <= 2 ? 'poor' : 'normal');
+    $('#fatigue').value = Math.max(1, Math.min(10, 12 - quickState.fatigue * 2));
+    updateFatigueUi();
+    mood = quickState.mood;
+    TP.$all('#moodRow button').forEach(function (x) { x.classList.toggle('sel', Number(x.dataset.m) === mood); });
+    if (quickState.pain >= 4) {
+      formState.painStatus = 'none';
+      $('#painScore').value = 0;
+      formState.painImpact = 'none';
+    } else {
+      formState.painStatus = quickState.pain === 1 ? 'acute' : 'old';
+      $('#painScore').value = quickState.pain === 1 ? 7 : (quickState.pain === 2 ? 5 : 3);
+      formState.painImpact = quickState.pain === 1 ? 'power_down' : 'high_intensity';
+    }
+    TP.$all('button', $('#painStatusChoices')).forEach(function (x) { x.classList.toggle('sel', x.dataset.value === formState.painStatus); });
+    TP.$all('button', $('#painImpactChoices')).forEach(function (x) { x.classList.toggle('sel', x.dataset.value === formState.painImpact); });
+    $('#painDetails').classList.toggle('hidden', formState.painStatus === 'none');
+    updatePainUi();
   }
 
   function buildChipRow(containerId, options, selArr, opts) {
@@ -534,6 +607,8 @@
     buildSingleChoices('sweatChoices', SWEAT, 'sweatAmount');
     buildSingleChoices('urineChoices', URINE, 'urineColor', function (v) { $('#urineHint').textContent = URINE_HINTS[v]; });
     $('#urineHint').textContent = URINE_HINTS[formState.urineColor];
+    buildQuickScales();
+    applyQuickMapping();
 
     // 比賽紀錄
     buildSingleChoices('hasCompChoices', HAS_COMP, 'hasComp', updateCompUi);
@@ -573,19 +648,23 @@
     ['heightCm', 'weightKg'].forEach(function (id) { $('#' + id).addEventListener('input', updateBmi); });
 
     // 疲勞滑桿 1–10
-    var fa = $('#fatigue');
-    function paintFa() {
-      var pct = (fa.value - 1) / 9 * 100;
-      fa.style.background = 'linear-gradient(90deg, var(--brand) ' + pct + '%, var(--panel-2) ' + pct + '%)';
-      $('#fatigueVal').textContent = fa.value;
-      var v = Number(fa.value);
-      $('#fatigueHint').textContent = v <= 3 ? '輕鬆' : (v <= 6 ? '適中' : (v <= 8 ? '偏累' : '非常疲勞'));
-    }
-    fa.addEventListener('input', paintFa); paintFa();
+    $('#fatigue').addEventListener('input', updateFatigueUi);
+    updateFatigueUi();
 
     // 訓練日期：預設台灣本地今天、上限今天（不可挑未來），可往回補填
     var dt = $('#recordDate');
     if (dt) { dt.value = localToday(); dt.max = localToday(); }
+  }
+
+  // 疲勞滑桿的畫面同步：快速量表對映與使用者手動拖曳都會用到，所以放在最外層。
+  function updateFatigueUi() {
+    var fa = $('#fatigue');
+    if (!fa) return;
+    var pct = (fa.value - 1) / 9 * 100;
+    fa.style.background = 'linear-gradient(90deg, var(--brand) ' + pct + '%, var(--panel-2) ' + pct + '%)';
+    $('#fatigueVal').textContent = fa.value;
+    var v = Number(fa.value);
+    $('#fatigueHint').textContent = v <= 3 ? '輕鬆' : (v <= 6 ? '適中' : (v <= 8 ? '偏累' : '非常疲勞'));
   }
 
   function sleepMinutes() {
@@ -671,8 +750,12 @@
     return {
       breakfastNutri: nutriSel.breakfast.join(','), lunchNutri: nutriSel.lunch.join(','), dinnerNutri: nutriSel.dinner.join(','),
       trainingAM: slotVal('train_am'), trainingPM: slotVal('train_pm'), trainingEve: slotVal('train_eve'),
-      trainingNotes: $('#trainingNotes').value.trim(),
-      injuryAreas: formState.painStatus === 'none' ? '無受傷' : injurySel.join(','),
+      trainingNotes: [
+        $('#trainingNotes').value.trim() ? '今天做得最好的是：' + $('#trainingNotes').value.trim() : '',
+        $('#improveToday').value.trim() ? '今天最需要改善的是：' + $('#improveToday').value.trim() : '',
+        '睡眠恢復：' + quickState.sleep + '/5；精神：' + quickState.energy + '/5；訓練表現：' + quickState.performance + '/5'
+      ].filter(Boolean).join('\n'),
+      injuryAreas: formState.painStatus === 'none' ? '無受傷' : (injurySel.join(',') || '未填部位'),
       injuryNote: $('#injuryNote').value.trim(),
       sleepBedTime: $('#sleepBedTime').value, wakeTime: $('#wakeTime').value, sleepQuality: $('#sleepQuality').value,
       painStatus: formState.painStatus, painAreas: injurySel.join(','), painScore: formState.painStatus === 'none' ? 0 : Number($('#painScore').value),
@@ -719,13 +802,11 @@
     $('#encourageName').innerHTML = '<option value="">—</option>' + ctx.athletes
       .filter(function (a) { return a.athleteId !== id; })
       .map(function (a) { return '<option value="' + esc(a.name) + '">' + esc(a.name) + '</option>'; }).join('');
-    // 每日飲食、睡眠、水分與疲勞一定先填；KPI 量表只在日報送出後提示續填。
+    // 每日主流程只做今日狀態；每週 KPI 保留在原功能，不放進日報流程。
     ctx.kpiState = null;
     cur = 'body';
     show('body');
-    refreshKpiState().then(function (state) {
-      $('#btnWeeklyKpi').classList.toggle('hidden', !(state && state.kpiDue));
-    });
+    refreshKpiState();
   }
 
   $('#whoNext').onclick = function () {
@@ -891,7 +972,7 @@
     var sum = '【' + ctx.name + ' 今日狀態】總分 ' + Number(r.totalScore).toFixed(1) + '（' + TP.lightText(light) + '）';
     $('#btnCopyStudent').onclick = function () { TP.copy(sum); };
     $('#btnCopyParent').onclick = function () { TP.copy('家長您好：' + ctx.name + ' 今天已完成訓練自評，整體狀態 ' + TP.lightText(light) + '。感謝您的陪伴 🙏'); };
-    $('#btnWeeklyKpi').classList.add('hidden');
+    syncKpiEntry();
     cur = 'result'; show('result');
   }
 
@@ -1137,7 +1218,6 @@
   };
 
   // 心情
-  var mood = 0;
   TP.$all('#moodRow button').forEach(function (b) {
     b.onclick = function () {
       mood = Number(b.dataset.m);
@@ -1202,9 +1282,6 @@
     // 個資法：送出前強制同意
     if (!$('#consentPrivacy').checked) { toast('請先閱讀並勾選隱私權與資料使用同意後再送出。', true); return; }
     if (!$('#guardianConsent').checked) { toast('未滿 18 歲請先確認家長/法定代理人已同意。', true); return; }
-    if (!$('#sleepBedTime').value || !$('#wakeTime').value) { toast('請填寫昨晚就寢與今天起床時間。', true); return; }
-    if (formState.painStatus !== 'none' && !injurySel.length) { toast('請至少選擇一個疼痛部位。', true); return; }
-    if (formState.painStatus !== 'none' && Number($('#painScore').value) < 1) { toast('有疼痛時，疼痛分數請選擇 1–10 分。', true); return; }
     var scores = {};
     var payload = {
       t: shareToken, athleteId: ctx.athleteId, date: ($('#recordDate').value || localToday()),
@@ -1228,16 +1305,14 @@
 
     $('#navNext').textContent = '送出中…'; $('#navNext').disabled = true;
     var r = await TP.call('submitRecord', payload);
-    $('#navNext').textContent = '下一步 →'; $('#navNext').disabled = false;
+    $('#navNext').textContent = '送出今日回報'; $('#navNext').disabled = false;
     if (!r.ok) { toast(r.error || '送出失敗', true); return; }
 
     ctx.result = r;
     showResult(r, payload, tips);
     show('result');
     // 儲存成功後立即顯示結果，KPI 狀態在背景更新。
-    refreshKpiState().then(function (state) {
-      $('#btnWeeklyKpi').classList.toggle('hidden', !(state && state.kpiDue));
-    });
+    refreshKpiState();
   }
 
   function showResult(r, payload, tips) {
@@ -1245,7 +1320,7 @@
     $('#resScore').textContent = '✓';
     $('#resScore').style.color = light === 'green' ? 'var(--green)' : (light === 'yellow' ? 'var(--yellow)' : 'var(--red)');
     $('#resLight').innerHTML = '<span class="pill ' + light + '">' + TP.lightText(light) + '</span>';
-    $('#resDims').textContent = '今日輕量回報已儲存';
+    $('#resDims').textContent = '教練已收到你的今日狀態。';
     $('#resAdvice').innerHTML = tips.map(function (t) { return '• ' + esc(t); }).join('<br>');
     if (r.quality) $('#resAdvice').innerHTML += '<br><br>資料品質：<b>' + esc(r.quality.score) + '（' + esc(r.quality.label) + '）</b>';
 
@@ -1258,7 +1333,12 @@
 
     $('#btnCopyStudent').onclick = function () { TP.copy(studentText); };
     $('#btnCopyParent').onclick = function () { TP.copy(parentText); };
-    $('#btnWeeklyKpi').classList.toggle('hidden', !(ctx.kpiState && ctx.kpiState.kpiDue));
+    syncKpiEntry();
+  }
+
+  function syncKpiEntry() {
+    var b = document.getElementById('btnWeeklyKpi');
+    if (b) b.classList.toggle('hidden', !(ctx.kpiState && ctx.kpiState.kpiDue));
   }
 
   function kpiTitle() { return (ctx.kpiState && ctx.kpiState.cadence === 'daily') ? '今日狀態回報' : '上週狀態回報'; }
@@ -1269,6 +1349,7 @@
       ? '繼續填寫新版 15 題狀態量表（約 2–3 分鐘）'
       : '繼續填寫' + t + '（約 3–5 分鐘）';
     var h = document.getElementById('kpiStepTitle'); if (h) h.textContent = t;
+    syncKpiEntry();
   }
   async function kpiPin() {
     var creating = ctx.kpiState && !ctx.kpiState.hasPin;

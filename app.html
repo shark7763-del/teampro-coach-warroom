@@ -8,7 +8,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="stylesheet" href="style.css?v=20260826-perf1">
-<link rel="stylesheet" href="app-shell.20260627e.css">
+<link rel="stylesheet" href="app-shell.20260627e.css?v=20260902-ia3">
 <script src="pwa.js?v=20260826-perf1" defer></script>
 <script src="native.js?v=20260826-perf1" defer></script>
 </head>
@@ -61,22 +61,24 @@
           <div class="shell-card"><div class="skel w-40"></div><div class="skel w-90"></div></div>
         </div>
       </div>
-      <h2 class="section-title">每日處理手順</h2>
-      <div class="coach-flow">
-        <button class="flow-step" data-tab="attendance"><b>先補資料</b><span>點名 / 催回報</span></button>
-        <button class="flow-step" data-tab="tracking"><b>先處理風險</b><span>紅黃燈追蹤</span></button>
-        <button class="flow-step" data-tab="athletes"><b>看長期變化</b><span>選手成長曲線</span></button>
-        <button class="flow-step" id="focusTrainingNote"><b>留下脈絡</b><span>訓練日誌</span></button>
-        <button class="flow-step" data-tab="report"><b>月底回顧</b><span>月報輸出</span></button>
-      </div>
-      <section class="shell-card coach-ai-card">
-        <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;">
-          <div><b>AI 短文字整理</b><div class="muted" style="font-size:13px;">輸入口語紀錄，整理成正式訓練紀錄與成果摘要。</div></div>
-          <button class="btn btn-sm" id="aiOrganizeNow">整理</button>
+      <details class="shell-card advanced-daily">
+        <summary>更多處理入口</summary>
+        <div class="coach-flow">
+          <button class="flow-step" data-tab="attendance"><b>補資料</b><span>點名 / 催回報</span></button>
+          <button class="flow-step" data-tab="tracking"><b>追蹤</b><span>紅黃燈處理</span></button>
+          <button class="flow-step" data-tab="athletes"><b>選手</b><span>個人歷史</span></button>
+          <button class="flow-step" id="focusTrainingNote"><b>日誌</b><span>訓練紀錄</span></button>
+          <button class="flow-step" data-tab="report"><b>報告</b><span>月報輸出</span></button>
         </div>
-        <textarea id="quickTrainingText" placeholder="例：今天練反擊，冠霖膝蓋不舒服，柏鈞狀態很好，瀚忠遲到。"></textarea>
-        <div id="aiOrganizedOutput" class="ai-output hidden"></div>
-      </section>
+        <section class="coach-ai-card">
+          <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;">
+            <div><b>AI 短文字整理</b><div class="muted" style="font-size:13px;">輸入口語紀錄，整理成正式訓練紀錄與成果摘要。</div></div>
+            <button class="btn btn-sm" id="aiOrganizeNow">整理</button>
+          </div>
+          <textarea id="quickTrainingText" placeholder="例：今天練反擊，冠霖膝蓋不舒服，柏鈞狀態很好，瀚忠遲到。"></textarea>
+          <div id="aiOrganizedOutput" class="ai-output hidden"></div>
+        </section>
+      </details>
     </section>
 
     <section id="featurePanel" class="hidden">
@@ -91,13 +93,11 @@
 
 <nav class="mobile-tabbar" id="mobileTabbar">
   <button data-tab="dashboard" class="active"><span class="ic">🏠</span>今日</button>
-  <button data-tab="tracking"><span class="ic">📌</span>追蹤</button>
-  <button data-tab="athletes"><span class="ic">📈</span>選手</button>
-  <button data-tab="attendance"><span class="ic">✅</span>回報</button>
-  <button data-tab="report"><span class="ic">📊</span>報告</button>
+  <button data-tab="athletes"><span class="ic">🏃</span>選手</button>
+  <button data-tab="more"><span class="ic">☰</span>更多</button>
 </nav>
 
 <script src="api.js?v=20260826-perf1"></script>
-<script type="module" src="app-shell.20260627e.js?v=20260826-perf1"></script>
+<script type="module" src="app-shell.20260627e.js?v=20260902-ia3"></script>
 </body>
 </html>

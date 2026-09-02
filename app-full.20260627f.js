@@ -468,9 +468,7 @@
     var tasks = [
       { key: 'team', title: '第一步：建立隊伍', desc: '先建一隊（籃球隊、田徑隊、游泳隊、跆拳道隊都可以），不用一次設定完整系統。', done: st.team, btn: '去建立隊伍', action: function () { switchTab('teams'); $('#ntName').focus(); } },
       { key: 'athlete', title: '第二步：新增選手', desc: '把名單建起來，免費版先放 5 位也能完整體驗。', done: st.athlete, btn: '新增選手', action: function () { switchTab('athletes'); $('#naName').focus(); } },
-      { key: 'rollcall', title: '第三步：今天先點一次名', desc: '每天 10 秒點名，先從點名開始就好，資料會自動累積成報告。', done: st.rollcall, btn: '開始 10 秒點名', action: function () { switchTab('attendance'); } },
-      { key: 'link', title: '第四步：把回報連結貼給選手／家長', desc: '選手每天花 1 分鐘回報狀態，教練不用追問也能掌握。', done: st.link, btn: '複製回報連結', action: function () { switchTab('teams'); copyFirstTeamLink(); } },
-      { key: 'report7', title: '第五步：看一次報告範例', desc: '平常點名與回報，月底自動整理成報告，先看一次效果。', done: st.report7, btn: '看報告範例', action: function () { switchTab('report'); $('#rpRange').value = '7'; $('#rpType').value = 'athlete'; $('#rpType').onchange(); $('#btnGenReport').click(); } }
+      { key: 'link', title: '第三步：把回報連結貼給選手／家長', desc: '選手每天花 1 分鐘回報狀態，教練不用追問也能掌握。', done: st.link, btn: '複製回報連結', action: function () { switchTab('teams'); copyFirstTeamLink(); } }
     ];
     $('#onboardGrid').innerHTML = tasks.map(function (t) {
       return '<div class="onboard-card' + (t.done ? ' done' : '') + '">' +
@@ -487,12 +485,18 @@
   }
 
   function switchTab(tab) {
+    if (tab === '__more') {
+      showMoreSheet();
+      syncMobileTabbar('__more');
+      return;
+    }
     if (tab === 'settings' && isAssistantMode()) {
       toast('助教模式不能進入設定', true);
       tab = 'warroom';
     }
     TP.$all('.tab-btn').forEach(function (x) { x.classList.remove('active'); });
-    var btn = TP.$('.tab-btn[data-tab="' + tab + '"]');
+    var primaryTab = (tab === 'warroom' || tab === 'athletes') ? tab : '__more';
+    var btn = TP.$('.tab-btn[data-tab="' + primaryTab + '"]');
     if (btn) { btn.classList.add('active');
       if (btn.scrollIntoView) btn.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }); }
     ['warroom', 'attendance', 'athletes', 'teams', 'report', 'settings'].forEach(function (t) {
@@ -505,10 +509,11 @@
     syncMobileTabbar(tab);
   }
 
-  /* ---------- 手機底部 5 分頁 ---------- */
+  /* ---------- 手機底部 3 分頁 ---------- */
   function syncMobileTabbar(tab) {
+    var primaryTab = (tab === 'warroom' || tab === 'athletes') ? tab : '__more';
     TP.$all('#mobileTabbar button').forEach(function (b) {
-      b.classList.toggle('active', b.dataset.tab === tab);
+      b.classList.toggle('active', b.dataset.tab === primaryTab);
     });
   }
   TP.$all('#mobileTabbar button').forEach(function (b) {
@@ -519,7 +524,11 @@
     };
   });
   function showMoreSheet() {
-    var items = [['teams', '👥 團隊與連結']];
+    var items = [
+      ['attendance', '✅ 快速點名'],
+      ['report', '📊 報告 / 匯出 / 分析'],
+      ['teams', '👥 團隊與連結']
+    ];
     if (!isAssistantMode()) items.push(['settings', '⚙️ 設定 / 方案 / 個資請求']);
     var ov = TP.el('div', { class: 'modal-overlay' },
       '<div class="modal-box card" style="max-width:420px;">' +

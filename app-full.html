@@ -120,8 +120,8 @@
     <div class="onboard-head">
       <div>
         <div class="eyebrow">新手導引</div>
-        <h2 style="margin:4px 0 0;">第一次使用，先完成這 5 步就好</h2>
-        <p class="muted" style="margin:4px 0 0;font-size:13px;">不用一次設定完整系統，先從點名開始，資料會慢慢累積成報告。</p>
+        <h2 style="margin:4px 0 0;">第一次使用，先完成這 3 步就好</h2>
+        <p class="muted" style="margin:4px 0 0;font-size:13px;">先建立隊伍、名單與回報連結，其他進階功能之後再開。</p>
       </div>
       <button class="btn btn-sm btn-ghost" id="btnHideOnboard">先隱藏</button>
     </div>
@@ -129,15 +129,9 @@
   </section>
 
   <div class="tabs">
-    <span class="tabs-group-label">每天</span>
-    <button class="tab-btn active" data-tab="warroom">戰情室</button>
-    <button class="tab-btn" data-tab="attendance">點名</button>
-    <span class="tabs-group-label">產出</span>
-    <button class="tab-btn" data-tab="report">報告</button>
-    <span class="tabs-group-label">設定</span>
-    <button class="tab-btn tab-btn-quiet" data-tab="athletes">選手</button>
-    <button class="tab-btn tab-btn-quiet" data-tab="teams">團隊</button>
-    <button class="tab-btn tab-btn-quiet" data-tab="settings">設定</button>
+    <button class="tab-btn active" data-tab="warroom">今日</button>
+    <button class="tab-btn" data-tab="athletes">選手</button>
+    <button class="tab-btn tab-btn-quiet" data-tab="__more">更多</button>
   </div>
 
   <!-- 戰情室 -->
@@ -631,14 +625,12 @@
 </div>
 
 <nav class="mobile-tabbar" id="mobileTabbar">
-  <button data-tab="warroom"><span class="ic">🏠</span>首頁</button>
-  <button data-tab="attendance"><span class="ic">✅</span>點名</button>
+  <button data-tab="warroom"><span class="ic">🏠</span>今日</button>
   <button data-tab="athletes"><span class="ic">🏃</span>選手</button>
-  <button data-tab="report"><span class="ic">📊</span>報告</button>
   <button data-tab="__more"><span class="ic">☰</span>更多</button>
 </nav>
 
 <script src="api.js?v=20260826-perf1"></script>
-<script src="app-full.20260627f.js?v=20260826-perf1"></script>
+<script src="app-full.20260627f.js?v=20260902-ia3"></script>
 </body>
 </html>

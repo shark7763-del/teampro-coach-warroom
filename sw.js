@@ -5,12 +5,12 @@
    - 同源靜態檔 (css/js/png)：stale-while-revalidate
    - 跨來源 / 非 GET（GAS API 等）：完全不攔截，永遠走網路（資料即時、不快取）
 */
-var CACHE = 'teampro-v20-join-flow';
+var CACHE = 'teampro-v21-simple-ia';
 var CORE = [
   './', '/app', '/join', 'index.html', 'app.html', 'join.html', 'school.html', 'principal.html', 'handover.html', 'evaluation.html', 'export.html',
-  'style.css?v=20260826-perf1', 'app-shell.20260627e.css', 'api.js?v=20260826-perf1', 'app-shell.20260627e.js?v=20260826-perf1',
+  'style.css?v=20260826-perf1', 'app-shell.20260627e.css?v=20260902-ia3', 'api.js?v=20260826-perf1', 'app-shell.20260627e.js?v=20260902-ia3',
   'app-modules/dashboard.js?v=20260826-perf1', 'app-modules/readiness-rules.js?v=20260826-perf1', 'app-modules/legacy-frame.js?v=20260826-perf1',
-  'app-full.html', 'app-full-extra.20260627a.css?v=20260826-embed2', 'app-full.20260627f.js?v=20260826-perf1',
+  'app-full.html', 'app-full-extra.20260627a.css?v=20260826-embed2', 'app-full.20260627f.js?v=20260902-ia3',
   'role-portal.css?v=20260627-role2', 'school-tools.js?v=20260627-role2', 'evaluation-tools.js?v=20260627-eval1', 'pwa.js?v=20260826-perf1', 'offline.html',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
   'assets/logo.webp'

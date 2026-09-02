@@ -12,8 +12,8 @@ const featureMap = {
   athletes: { title: '選手管理', module: './app-modules/athletes.js' },
   teams: { title: '團隊與連結', module: './app-modules/teams.js' },
   report: { title: '成果報告', module: './app-modules/reports.js' },
-  settings: { title: '更多 / 設定 / 隱私', module: './app-modules/settings.js' },
-  more: { title: '更多 / 設定 / 隱私', module: './app-modules/settings.js' },
+  settings: { title: '設定 / 隱私 / 方案', module: './app-modules/settings.js' },
+  more: { title: '更多' },
 };
 
 boot();
@@ -114,8 +114,6 @@ function bindTabs() {
     btn.onclick = () => {
       const tab = btn.dataset.tab;
       if (tab === 'dashboard') showDashboard();
-      else if (tab === 'training') openTraining();
-      else if (tab === 'tracking') openTracking();
       else openFeature(tab);
     };
   });
@@ -149,7 +147,8 @@ async function openTracking() {
 }
 
 function setActiveTab(tab) {
-  $$('#mobileTabbar button').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
+  const primary = (tab === 'dashboard' || tab === 'athletes') ? tab : 'more';
+  $$('#mobileTabbar button').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === primary));
 }
 
 function showAuth(message) {
@@ -295,8 +294,14 @@ async function openFeature(tab) {
   $('#dashboardPanel').classList.add('hidden');
   $('#featurePanel').classList.remove('hidden');
   $('#featureTitle').textContent = cfg.title;
+  if (tab === 'more') {
+    setActiveTab('more');
+    setRoute('more');
+    renderMoreHub();
+    return;
+  }
   $('#featureMount').innerHTML = '<div class="shell-card shell-loading">載入 ' + TP.esc(cfg.title) + '…</div>';
-  setActiveTab(tab === 'more' ? 'more' : tab);
+  setActiveTab(tab);
   setRoute(tab);
   try {
     const mod = await import(cfg.module + '?v=20260826-perf1');
@@ -310,6 +315,33 @@ async function openFeature(tab) {
         '<a class="btn btn-primary btn-block" href="app-full.html?lazyTab=' + encodeURIComponent(tab) + '">開啟完整管理頁</a>' +
       '</div>';
   }
+}
+
+function renderMoreHub() {
+  const items = [
+    { tab: 'attendance', title: '快速點名', desc: '補點名、催未回報。' },
+    { tab: 'tracking', title: '追蹤處理', desc: '查看紅黃燈與未結案追蹤。' },
+    { tab: 'report', title: '報告 / 匯出', desc: '產生 7 / 30 / 90 日與月報。' },
+    { tab: 'teams', title: '團隊與連結', desc: '管理隊伍與選手回報網址。' },
+    { tab: 'settings', title: '設定 / 隱私 / 方案', desc: '後端、方案、個資與管理設定。' },
+  ];
+  $('#featureMount').innerHTML =
+    '<div class="shell-card more-hub">' +
+      '<h2>進階功能</h2>' +
+      '<p class="muted">每日工作留在「今日」。低頻設定、報告與管理功能集中放在這裡。</p>' +
+      '<div class="more-hub-grid">' +
+        items.map(it => '<button class="more-hub-item" data-more-tab="' + TP.esc(it.tab) + '">' +
+          '<b>' + TP.esc(it.title) + '</b><span>' + TP.esc(it.desc) + '</span>' +
+        '</button>').join('') +
+      '</div>' +
+    '</div>';
+  $$('[data-more-tab]', $('#featureMount')).forEach(btn => {
+    btn.onclick = () => {
+      const tab = btn.dataset.moreTab;
+      if (tab === 'tracking') openTracking();
+      else openFeature(tab);
+    };
+  });
 }
 
 function organizeTrainingText() {
