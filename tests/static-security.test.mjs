@@ -33,7 +33,7 @@ assert.match(sw, /'\/app', '\/join'/, 'service worker precaches extensionless ap
 assert.match(sw, /function isFastShell/, 'service worker has a fast shell route classifier');
 assert.match(sw, /if \(req\.method !== 'GET'\) return;/, 'service worker leaves POST APIs network-only');
 assert.match(sw, /stale-while-revalidate=86400/, 'service worker uses SWR for app/join shells');
-assert.match(sw, /teampro-v19-embed/, 'service worker cache version is bumped for embedded chrome fix');
+assert.match(sw, /teampro-v20-join-flow/, 'service worker cache version is bumped for athlete join flow fix');
 assert.match(pwa, /reg\.update\(\)/, 'PWA registration actively checks for service worker updates');
 assert.match(pwa, /controllerchange[\s\S]*tp_sw_updated/, 'PWA records when a new service worker takes control without interrupting current work');
 assert.match(worker, /url\.pathname === \"\/sw\.js\"[\s\S]*?no-cache/, 'worker keeps sw.js no-cache');
